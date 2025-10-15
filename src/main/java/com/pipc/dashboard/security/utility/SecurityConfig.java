@@ -33,9 +33,9 @@ public class SecurityConfig {
 		http.csrf(csrf -> csrf.disable())
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(auth -> auth
-						.requestMatchers("/pipc/dashboard/register", "/pipc/dashboard/login",
-								"/pipc/dashboard/refresh-token", "/pipc/dashboard/forgotPassword")
-						.permitAll().requestMatchers(HttpMethod.DELETE, "/pipc/dashboard/deleteUser/**")
+						.requestMatchers("/pipc/dashboard/onboarding/register", "/pipc/dashboard/onboarding/login",
+								"/pipc/dashboard/onboarding/refresh-token", "/pipc/dashboard/onboarding/forgotPassword")
+						.permitAll().requestMatchers(HttpMethod.DELETE, "/pipc/dashboard/onboarding/deleteUser/**")
 						.hasRole("ADMIN").anyRequest().authenticated())
 
 				.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

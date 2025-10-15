@@ -16,7 +16,7 @@ import com.pipc.dashboard.login.request.RegisterRequest;
 import com.pipc.dashboard.login.response.LoginResponse;
 import com.pipc.dashboard.utility.BaseResponse;
 
-@RequestMapping("/pipc/dashboard/onboard")
+@RequestMapping("/pipc/dashboard/onboarding")
 @RestController
 public class LoginController {
 
