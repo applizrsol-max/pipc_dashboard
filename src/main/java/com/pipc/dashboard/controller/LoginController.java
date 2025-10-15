@@ -2,7 +2,9 @@ package com.pipc.dashboard.controller;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,9 +14,9 @@ import com.pipc.dashboard.business.LoginBussiness;
 import com.pipc.dashboard.login.request.LoginRequest;
 import com.pipc.dashboard.login.request.RegisterRequest;
 import com.pipc.dashboard.login.response.LoginResponse;
-import com.pipc.dashboard.utility.ApplicationError;
+import com.pipc.dashboard.utility.BaseResponse;
 
-@RequestMapping("/pipc/dashboard")
+@RequestMapping("/pipc/dashboard/onboard")
 @RestController
 public class LoginController {
 
@@ -22,7 +24,6 @@ public class LoginController {
 
 	private final LoginBussiness loginBusiness;
 
-	
 	@GetMapping("/hi")
 	public String sayHi() {
 		return "Hi";
@@ -43,4 +44,10 @@ public class LoginController {
 		return loginBusiness.login(logInRequest);
 
 	}
+
+	@DeleteMapping("/deleteUser/{username}")
+	public BaseResponse deleteUser(@PathVariable String username) {
+		return loginBusiness.deleteUser(username);
+	}
+
 }

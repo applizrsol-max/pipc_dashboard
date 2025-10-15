@@ -1,6 +1,7 @@
 package com.pipc.dashboard.serviceimpl;
 
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +23,11 @@ import com.pipc.dashboard.security.utility.RefreshTokenService;
 import com.pipc.dashboard.service.LoginService;
 import com.pipc.dashboard.token.entity.RefreshToken;
 import com.pipc.dashboard.utility.ApplicationError;
+import com.pipc.dashboard.utility.BaseResponse;
 
+import jakarta.transaction.Transactional;
+
+@Transactional
 @Component
 public class LoginServiceImpl implements LoginService {
 	private final UserRepository userRepo;
@@ -108,29 +113,60 @@ public class LoginServiceImpl implements LoginService {
 	public LoginResponse login(LoginRequest loginRequest) {
 		LoginResponse loginResponse = new LoginResponse();
 		ApplicationError error = new ApplicationError();
-		Authentication authentication = authManager.authenticate(
-				new UsernamePasswordAuthenticationToken(loginRequest.getUserName(), loginRequest.getPassword()));
 
-		User user = userRepo.findByUsername(loginRequest.getUserName())
-				.orElseThrow(() -> new IllegalStateException("User not found"));
+		try {
+			// Authenticate user
+			Authentication authentication = authManager.authenticate(
+					new UsernamePasswordAuthenticationToken(loginRequest.getUserName(), loginRequest.getPassword()));
 
-		String accessToken = jwtProvider.generateAccessToken(user);
-		RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
-		if (refreshToken == null || refreshToken.getToken() == null) {
-			error.setErrorCode("1");
-			error.setErrorDescription("Failed to generate token");
-		} else {
-			error.setErrorCode("0");
-			error.setErrorDescription("Success");
-			loginResponse.setAccessToken(accessToken);
-			loginResponse.setRefreshToken(refreshToken.getToken());
-			loginResponse.setGrantedAuthorities(user.getRoles());
+			User user = userRepo.findByUsername(loginRequest.getUserName())
+					.orElseThrow(() -> new IllegalStateException("User not found"));
+
+			String accessToken = jwtProvider.generateAccessToken(user);
+			RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+
+			if (refreshToken == null || refreshToken.getToken() == null) {
+				error.setErrorCode("1");
+				error.setErrorDescription("Failed to generate token");
+			} else {
+				error.setErrorCode("0");
+				error.setErrorDescription("Success");
+				loginResponse.setAccessToken(accessToken);
+				loginResponse.setRefreshToken(refreshToken.getToken());
+				loginResponse.setGrantedAuthorities(user.getRoles());
+			}
+
+		} catch (org.springframework.security.authentication.BadCredentialsException ex) {
+			error.setErrorCode("2");
+			error.setErrorDescription("Invalid username or password");
+		} catch (Exception e) {
+			error.setErrorCode("3");
+			error.setErrorDescription("Authentication failed: " + e.getMessage());
 		}
 
 		loginResponse.setErrorDetails(error);
-
 		return loginResponse;
+	}
 
+	@Transactional
+	@Override
+	public BaseResponse deleteUser(String username) {
+		BaseResponse response = new BaseResponse();
+		ApplicationError error = new ApplicationError();
+
+		Optional<User> userOpt = userRepo.findByUsername(username);
+		if (userOpt.isEmpty()) {
+			error.setErrorCode("1");
+			error.setErrorDescription("User not found");
+		} else {
+			refreshTokenService.deleteByUser(userOpt.get());
+			userRepo.delete(userOpt.get());
+			error.setErrorCode("0");
+			error.setErrorDescription("User deleted successfully");
+		}
+
+		response.setErrorDetails(error);
+		return response;
 	}
 
 }

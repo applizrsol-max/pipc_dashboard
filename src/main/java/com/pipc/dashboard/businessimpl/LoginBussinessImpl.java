@@ -8,6 +8,7 @@ import com.pipc.dashboard.login.request.LoginRequest;
 import com.pipc.dashboard.login.request.RegisterRequest;
 import com.pipc.dashboard.login.response.LoginResponse;
 import com.pipc.dashboard.service.LoginService;
+import com.pipc.dashboard.utility.BaseResponse;
 
 @Service
 public class LoginBussinessImpl implements LoginBussiness {
@@ -28,5 +29,10 @@ public class LoginBussinessImpl implements LoginBussiness {
 
 	public LoginResponse login(LoginRequest loginRequest) {
 		return loginService.login(loginRequest);
+	}
+
+	@Override
+	public BaseResponse deleteUser(String username) {
+		return loginService.deleteUser(username);
 	}
 }
