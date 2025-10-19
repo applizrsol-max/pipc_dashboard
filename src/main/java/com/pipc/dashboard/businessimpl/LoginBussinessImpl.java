@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 
 import com.pipc.dashboard.business.LoginBussiness;
 import com.pipc.dashboard.login.request.LoginRequest;
+import com.pipc.dashboard.login.request.RefreshTokenRequest;
 import com.pipc.dashboard.login.request.RegisterRequest;
 import com.pipc.dashboard.login.response.LoginResponse;
 import com.pipc.dashboard.service.LoginService;
@@ -34,5 +35,12 @@ public class LoginBussinessImpl implements LoginBussiness {
 	@Override
 	public BaseResponse deleteUser(String username) {
 		return loginService.deleteUser(username);
+	}
+
+	@Override
+	public LoginResponse refreshAccessToken(RefreshTokenRequest request) {
+
+		return loginService.refreshAccessToken(request);
+
 	}
 }

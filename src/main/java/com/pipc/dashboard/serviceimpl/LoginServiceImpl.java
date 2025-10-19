@@ -1,5 +1,6 @@
 package com.pipc.dashboard.serviceimpl;
 
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -8,14 +9,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import com.pipc.dashboard.login.entities.Role;
 import com.pipc.dashboard.login.entities.User;
+import com.pipc.dashboard.login.repository.RefreshTokenRepository;
 import com.pipc.dashboard.login.repository.RoleRepository;
 import com.pipc.dashboard.login.repository.UserRepository;
 import com.pipc.dashboard.login.request.LoginRequest;
+import com.pipc.dashboard.login.request.RefreshTokenRequest;
 import com.pipc.dashboard.login.request.RegisterRequest;
 import com.pipc.dashboard.login.response.LoginResponse;
 import com.pipc.dashboard.security.utility.JwtProvider;
@@ -36,16 +40,19 @@ public class LoginServiceImpl implements LoginService {
 	private final AuthenticationManager authManager;
 	private final JwtProvider jwtProvider;
 	private final RefreshTokenService refreshTokenService;
+	private final RefreshTokenRepository refreshTokenRepository;
 
 	@Autowired
 	public LoginServiceImpl(UserRepository userRepo, RoleRepository roleRepo, PasswordEncoder passwordEncoder,
-			AuthenticationManager authManager, JwtProvider jwtProvider, RefreshTokenService refreshTokenService) {
+			AuthenticationManager authManager, JwtProvider jwtProvider, RefreshTokenService refreshTokenService,
+			RefreshTokenRepository refreshTokenRepository) {
 		this.userRepo = userRepo;
 		this.roleRepo = roleRepo;
 		this.passwordEncoder = passwordEncoder;
 		this.authManager = authManager;
 		this.jwtProvider = jwtProvider;
 		this.refreshTokenService = refreshTokenService;
+		this.refreshTokenRepository = refreshTokenRepository;
 
 	}
 
@@ -154,19 +161,82 @@ public class LoginServiceImpl implements LoginService {
 		BaseResponse response = new BaseResponse();
 		ApplicationError error = new ApplicationError();
 
+		// 1️⃣ Get currently authenticated user
+		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+		String currentUsername = authentication.getName();
+
+		// 2️⃣ Load current user from DB
+		Optional<User> currentUserOpt = userRepo.findByUsername(currentUsername);
+		if (currentUserOpt.isEmpty()) {
+			error.setErrorCode("1");
+			error.setErrorDescription("Authenticated user not found in the system");
+			response.setErrorDetails(error);
+			return response;
+		}
+
+		User currentUser = currentUserOpt.get();
+
+		// 3️⃣ Check if current user has ADMIN role
+		boolean isAdmin = currentUser.getRoles().stream()
+				.anyMatch(role -> role.getName().equalsIgnoreCase("ROLE_ADMIN"));
+
+		if (!isAdmin) {
+			error.setErrorCode("2");
+			error.setErrorDescription("You are not authorized to delete the user");
+			response.setErrorDetails(error);
+			return response;
+		}
+
+		// 4️⃣ Proceed with delete logic
 		Optional<User> userOpt = userRepo.findByUsername(username);
 		if (userOpt.isEmpty()) {
-			error.setErrorCode("1");
+			error.setErrorCode("3");
 			error.setErrorDescription("User not found");
 		} else {
-			refreshTokenService.deleteByUser(userOpt.get());
-			userRepo.delete(userOpt.get());
-			error.setErrorCode("0");
-			error.setErrorDescription("User deleted successfully");
+
+			if (userOpt.get().getUsername().equalsIgnoreCase(currentUsername)) {
+				error.setErrorCode("4");
+				error.setErrorDescription("You cannot delete your own account");
+			} else {
+				refreshTokenService.deleteByUser(userOpt.get());
+				userRepo.delete(userOpt.get());
+				error.setErrorCode("0");
+				error.setErrorDescription("User deleted successfully");
+			}
 		}
 
 		response.setErrorDetails(error);
 		return response;
+	}
+
+	@Override
+	public LoginResponse refreshAccessToken(RefreshTokenRequest request) {
+
+		ApplicationError error = new ApplicationError();
+		LoginResponse response = new LoginResponse();
+
+		RefreshToken refreshToken = refreshTokenRepository.findByToken(request.getRefreshToken())
+				.orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
+
+		if (refreshToken.isRevoked() || refreshToken.getExpiryDate().isBefore(Instant.now())) {
+			error.setErrorDescription("Refresh token expired or invalid");
+			response.setErrorDetails(error);
+			return response;
+		}
+
+		User user = refreshToken.getUser();
+
+		String newAccessToken = jwtProvider.generateAccessToken(user);
+
+		error.setErrorCode("0");
+		error.setErrorDescription("Access token refreshed successfully");
+
+		response.setAccessToken(newAccessToken);
+		response.setRefreshToken(request.getRefreshToken());
+		response.setErrorDetails(error);
+
+		return response;
+
 	}
 
 }
