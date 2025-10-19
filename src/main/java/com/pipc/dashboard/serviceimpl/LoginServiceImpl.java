@@ -211,21 +211,28 @@ public class LoginServiceImpl implements LoginService {
 
 	@Override
 	public LoginResponse refreshAccessToken(RefreshTokenRequest request) {
-
 		ApplicationError error = new ApplicationError();
 		LoginResponse response = new LoginResponse();
 
-		RefreshToken refreshToken = refreshTokenRepository.findByToken(request.getRefreshToken())
-				.orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
+		Optional<RefreshToken> optionalToken = refreshTokenRepository.findByToken(request.getRefreshToken());
+
+		if (optionalToken.isEmpty()) {
+			error.setErrorCode("1");
+			error.setErrorDescription("Invalid refresh token");
+			response.setErrorDetails(error);
+			return response;
+		}
+
+		RefreshToken refreshToken = optionalToken.get();
 
 		if (refreshToken.isRevoked() || refreshToken.getExpiryDate().isBefore(Instant.now())) {
-			error.setErrorDescription("Refresh token expired or invalid");
+			error.setErrorCode("1");
+			error.setErrorDescription("Refresh token expired or revoked");
 			response.setErrorDetails(error);
 			return response;
 		}
 
 		User user = refreshToken.getUser();
-
 		String newAccessToken = jwtProvider.generateAccessToken(user);
 
 		error.setErrorCode("0");
@@ -236,7 +243,6 @@ public class LoginServiceImpl implements LoginService {
 		response.setErrorDetails(error);
 
 		return response;
-
 	}
 
 }
