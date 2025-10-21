@@ -17,6 +17,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import static org.springframework.security.config.Customizer.withDefaults; // <-- IMPORTANT STATIC IMPORT
 
 @Configuration
 @EnableMethodSecurity
@@ -33,20 +34,32 @@ public class SecurityConfig {
 		return new BCryptPasswordEncoder();
 	}
 
+
+	
+
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-		http.csrf(csrf -> csrf.disable())
-				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				.authorizeHttpRequests(auth -> auth
-						.requestMatchers("/pipc/dashboard/onboarding/register", "/pipc/dashboard/onboarding/login",
-								"/pipc/dashboard/onboarding/refresh-token", "/pipc/dashboard/onboarding/forgotPassword")
-						.permitAll().requestMatchers(HttpMethod.DELETE, "/pipc/dashboard/onboarding/deleteUser/**")
-						.hasRole("ADMIN").anyRequest().authenticated())
+	    http
+	        .csrf(csrf -> csrf.disable())
+	        // CORRECTION: Use withDefaults() to enable default CORS settings
+	        // and allow the chain to continue to sessionManagement().
+	        .cors(withDefaults()) 
+	        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+	        .authorizeHttpRequests(auth -> auth
+	            .requestMatchers(
+	                "/pipc/dashboard/onboarding/register",
+	                "/pipc/dashboard/onboarding/login",
+	                "/pipc/dashboard/onboarding/refresh-token",
+	                "/pipc/dashboard/onboarding/forgotPassword"
+	            ).permitAll()
+	            .requestMatchers(HttpMethod.DELETE, "/pipc/dashboard/onboarding/deleteUser/**").hasRole("ADMIN")
+	            .anyRequest().authenticated()
+	        )
+	        .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
-				.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-
-		return http.build();
+	    return http.build();
 	}
+
 
 	@Bean
 	public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)
