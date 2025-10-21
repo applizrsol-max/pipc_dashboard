@@ -17,13 +17,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import static org.springframework.security.config.Customizer.withDefaults; // <-- IMPORTANT STATIC IMPORT
+import static org.springframework.security.config.Customizer.withDefaults; // Required import
 
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
 
-	private final JwtAuthFilter jwtAuthFilter;
+	private final JwtAuthFilter jwtAuthFilter; 
 
 	public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
 		this.jwtAuthFilter = jwtAuthFilter;
@@ -34,17 +34,24 @@ public class SecurityConfig {
 		return new BCryptPasswordEncoder();
 	}
 
+	@Bean
+	public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)
+			throws Exception {
+		return authenticationConfiguration.getAuthenticationManager();
+	}
 
-	
-
+    // 🛡️ The main security filter chain configuration
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 	    http
 	        .csrf(csrf -> csrf.disable())
-	        // CORRECTION: Use withDefaults() to enable default CORS settings
-	        // and allow the chain to continue to sessionManagement().
-	        .cors(withDefaults()) 
+	        
+	        // 🔑 THE FINAL, MOST ROBUST FIX: Explicitly configure CORS to use your custom bean.
+            // This is grammatically correct for the builder pattern and resolves the IDE error.
+	        .cors(cors -> cors.configurationSource(corsConfigurationSource())) 
+	        
 	        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+	        
 	        .authorizeHttpRequests(auth -> auth
 	            .requestMatchers(
 	                "/pipc/dashboard/onboarding/register",
@@ -52,41 +59,38 @@ public class SecurityConfig {
 	                "/pipc/dashboard/onboarding/refresh-token",
 	                "/pipc/dashboard/onboarding/forgotPassword"
 	            ).permitAll()
+	            
 	            .requestMatchers(HttpMethod.DELETE, "/pipc/dashboard/onboarding/deleteUser/**").hasRole("ADMIN")
+	            
 	            .anyRequest().authenticated()
 	        )
+	        
 	        .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
 	    return http.build();
 	}
 
-
-	@Bean
-	public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)
-			throws Exception {
-		return authenticationConfiguration.getAuthenticationManager();
-	}
-
+    // 🌐 Your CUSTOM CORS Configuration Bean
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration config = new CorsConfiguration();
 
-		// 🔹 allowed origins — can be restricted to your frontend domain
-		config.setAllowedOrigins(List.of("http://localhost.*", "https://pipc-dashboard.onrender.com"));
+		// Set allowed origins (Updated for typical local ports)
+		config.setAllowedOrigins(List.of(
+            "http://localhost:3000",
+            "http://localhost:4200", 
+            "https://pipc-dashboard.onrender.com"
+        ));
 
-		// 🔹 allowed methods
+		// Allowed methods, headers, and credentials
 		config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-
-		// 🔹 allow credentials and headers
 		config.setAllowedHeaders(List.of("Authorization", "Content-Type", "correlationId", "businessCorrelationId"));
 		config.setExposedHeaders(List.of("Authorization", "correlationId", "businessCorrelationId"));
-
 		config.setAllowCredentials(true);
 
-		// ✅ Register the config for all paths
+		// Register this config for all application paths
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 		source.registerCorsConfiguration("/**", config);
 		return source;
 	}
-
 }
