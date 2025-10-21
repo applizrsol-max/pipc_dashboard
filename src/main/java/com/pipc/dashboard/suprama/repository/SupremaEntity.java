@@ -30,27 +30,28 @@ import lombok.Setter;
 @Builder
 public class SupremaEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    private String projectName; // ✅ Unique per project
-    private String projectYear;
+	private String projectName; // ✅ Unique per project
+	private String projectYear;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb", nullable = false)
-    private JsonNode supremaData;
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "jsonb", nullable = false)
+	private JsonNode supremaData;
 
-    private String createdBy;
+	private String createdBy;
 
-    @CreationTimestamp
-    private LocalDateTime createdDatetime;
+	@CreationTimestamp
+	private LocalDateTime createdDatetime;
+	@Column(name = "row_id")
+	private Integer rowId;
+	private String updatedBy;
 
-    private String updatedBy;
+	@UpdateTimestamp
+	private LocalDateTime updatedDatetime;
 
-    @UpdateTimestamp
-    private LocalDateTime updatedDatetime;
-
-    @Column(length = 1)
-    private String recordFlag; // 'C' or 'U'
+	@Column(length = 1)
+	private String recordFlag; // 'C' or 'U'
 }
