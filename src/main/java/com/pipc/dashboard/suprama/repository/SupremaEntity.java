@@ -1,7 +1,6 @@
-package com.pipc.dashboard.accounts.repository;
+package com.pipc.dashboard.suprama.repository;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -23,39 +22,35 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "accounts_report")
+@Table(name = "suprema_report")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class AccountsEntity {
+public class SupremaEntity {
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-	private String categoryName;
+    private String projectName; // ✅ Unique per project
+    private String projectYear;
 
-	@JdbcTypeCode(SqlTypes.JSON)
-	@Column(columnDefinition = "jsonb", nullable = false, name = "accounts_data")
-	private JsonNode accountsData;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb", nullable = false)
+    private JsonNode supremaData;
 
-	private String createdBy;
-	@Column(name = "row_id")
-    private int rowId;
+    private String createdBy;
 
-	@CreationTimestamp
-	private LocalDateTime createdDatetime;
+    @CreationTimestamp
+    private LocalDateTime createdDatetime;
 
-	private String updatedBy;
+    private String updatedBy;
 
-	@UpdateTimestamp
-	private LocalDateTime updatedDatetime;
+    @UpdateTimestamp
+    private LocalDateTime updatedDatetime;
 
-	@Column(length = 1)
-	private String recordFlag; // C or U
-
-	private String projectYear;
-
+    @Column(length = 1)
+    private String recordFlag; // 'C' or 'U'
 }

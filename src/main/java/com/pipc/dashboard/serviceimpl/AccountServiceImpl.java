@@ -3,6 +3,8 @@ package com.pipc.dashboard.serviceimpl;
 import java.util.Map;
 
 import org.slf4j.MDC;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -21,87 +23,88 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class AccountServiceImpl implements AcountService {
 
-    private final AccountsRepository accountRepo;
+	private final AccountsRepository accountRepo;
 
-    public AccountServiceImpl(AccountsRepository accountRepo) {
-        this.accountRepo = accountRepo;
-    }
+	public AccountServiceImpl(AccountsRepository accountRepo) {
+		this.accountRepo = accountRepo;
+	}
 
-    @Override
-    public AccountsResponse saveOrUpdateAccounts(AccountsRequest request) {
+	@Override
+	public AccountsResponse saveOrUpdateAccounts(AccountsRequest request) {
 
-        AccountsResponse response = new AccountsResponse();
-        ApplicationError error = new ApplicationError();
+		AccountsResponse response = new AccountsResponse();
+		ApplicationError error = new ApplicationError();
 
-        try {
-            // --- Get current user safely and make final for lambda ---
-            String userFromMDC = MDC.get("user");
-            final String currentUser = (userFromMDC != null) ? userFromMDC : "SYSTEM";
+		try {
+			String userFromMDC = MDC.get("user");
+			final String currentUser = (userFromMDC != null) ? userFromMDC : "SYSTEM";
 
-            String accountsYear = request.getAccountsYear();
-            StringBuilder actionSummary = new StringBuilder();
+			String accountsYear = request.getAccountsYear();
+			StringBuilder actionSummary = new StringBuilder();
 
-            for (Map.Entry<String, JsonNode> entry : request.getReports().entrySet()) {
-                String category = entry.getKey();
-                JsonNode incomingData = entry.getValue();
+			// Iterate over categories
+			for (Map.Entry<String, JsonNode> categoryEntry : request.getReports().entrySet()) {
+				String category = categoryEntry.getKey();
+				JsonNode rowsArray = categoryEntry.getValue();
 
-                // --- Fetch existing entity or create new ---
-                AccountsEntity entity = accountRepo.findByCategoryNameAndProjectYear(category, accountsYear)
-                        .orElseGet(() -> AccountsEntity.builder()
-                                .createdBy(currentUser)
-                                .updatedBy(currentUser) // initially same as createdBy
-                                .recordFlag("C")
-                                .build());
+				if (rowsArray.isArray()) {
+					for (JsonNode rowNode : rowsArray) {
 
-                entity.setCategoryName(category);
-                entity.setProjectYear(accountsYear);
+						// Get rowId for uniqueness
+						int rowId = rowNode.has("rowId") ? rowNode.get("rowId").asInt() : -1;
+						if (rowId == -1) {
+							actionSummary.append(category).append(": row without rowId skipped; ");
+							continue;
+						}
 
-                ObjectNode existingNode = JsonUtils.ensureObjectNode(entity.getAccountsData());
-                ObjectNode incomingNode = JsonUtils.ensureObjectNode(incomingData);
+						// Fetch existing entity by category + rowId + accountsYear
+						AccountsEntity entity = accountRepo
+								.findByCategoryNameAndProjectYearAndRowId(category, accountsYear, rowId)
+								.orElseGet(() -> AccountsEntity.builder().createdBy(currentUser).updatedBy(currentUser)
+										.recordFlag("C").categoryName(category).projectYear(accountsYear).rowId(rowId)
+										.build());
 
-                // --- Detect changes recursively ---
-                boolean hasChanged = JsonUtils.mergeAndDetectChanges(existingNode, incomingNode);
+						ObjectNode existingNode = JsonUtils.ensureObjectNode(entity.getAccountsData());
+						ObjectNode incomingNode = JsonUtils.ensureObjectNode(rowNode);
 
-                if (entity.getId() == null) {
-                    // New record
-                    entity.setAccountsData(existingNode);
-                    entity.setUpdatedBy(currentUser);
-                    accountRepo.save(entity);
-                    actionSummary.append(category)
-                                 .append(": created successfully by ")
-                                 .append(currentUser)
-                                 .append("; ");
-                } else if (hasChanged) {
-                    // Existing record updated
-                    entity.setAccountsData(existingNode);
-                    entity.setUpdatedBy(currentUser); // updated by user performing update
-                    entity.setRecordFlag("U");
-                    accountRepo.save(entity);
-                    actionSummary.append(category)
-                                 .append(": updated successfully by ")
-                                 .append(currentUser)
-                                 .append("; ");
-                } else {
-                    // No changes
-                    actionSummary.append(category)
-                                 .append(": no changes; ");
-                }
+						boolean hasChanged = JsonUtils.mergeAndDetectChanges(existingNode, incomingNode);
 
-                // Ensure createdBy never null
-                if (entity.getCreatedBy() == null) {
-                    entity.setCreatedBy(currentUser);
-                }
-            }
+						if (entity.getId() == null) {
+							entity.setAccountsData(existingNode);
+							entity.setUpdatedBy(currentUser);
+							accountRepo.save(entity);
+							actionSummary.append(category).append(" rowId ").append(rowId).append(": created; ");
+						} else if (hasChanged) {
+							entity.setAccountsData(existingNode);
+							entity.setUpdatedBy(currentUser);
+							entity.setRecordFlag("U");
+							accountRepo.save(entity);
+							actionSummary.append(category).append(" rowId ").append(rowId).append(": updated; ");
+						} else {
+							actionSummary.append(category).append(" rowId ").append(rowId).append(": no changes; ");
+						}
 
-            error.setErrorCode("0");
-            error.setErrorDescription(actionSummary.toString());
+						if (entity.getCreatedBy() == null) {
+							entity.setCreatedBy(currentUser);
+						}
+					}
+				}
+			}
 
-        } catch (Exception e) {
-            error.setErrorCode("1");
-            error.setErrorDescription("Error while saving data: " + e.getMessage());
-        }
+			error.setErrorCode("0");
+			error.setErrorDescription(actionSummary.toString());
 
-        response.setErrorDetails(error);
-        return response;
-    }
+		} catch (Exception e) {
+			error.setErrorCode("1");
+			error.setErrorDescription("Error while saving data: " + e.getMessage());
+		}
+
+		response.setErrorDetails(error);
+		return response;
+	}
+
+	public Page<AccountsEntity> getAllAccounts(int page, int size) {
+		return accountRepo.findAll(PageRequest.of(page, size));
+	}
+
 }
