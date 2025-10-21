@@ -1,5 +1,6 @@
 package com.pipc.dashboard.store.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,5 +20,23 @@ public interface StoreRepository extends JpaRepository<StoreEntity, Long> {
 
 	@Query("SELECT MAX(s.ekunEkandar) FROM StoreEntity s")
 	Integer findCurrentEkunEkandar();
+
+	 Optional<StoreEntity> findByDeptNameAndEkunEkandarAndRowId(String deptName, Integer ekunEkandar, Integer rowId);
+	 Optional<StoreEntity> findByDeptNameAndRowIdAndEkunAndEkunEkandar(
+		        String deptName, Integer rowId, Integer ekun, Integer ekunEkandar
+		);
+	// Find any existing overall total
+	 @Query("SELECT DISTINCT s.ekunEkandar FROM StoreEntity s")
+	 Optional<Integer> findExistingEkunEkandar();
+
+	 // Find existing department total
+	 @Query("SELECT DISTINCT s.ekun FROM StoreEntity s WHERE s.deptName = :deptName")
+	 Optional<Integer> findExistingEkunForDept(@Param("deptName") String deptName);
+
+	 // Find all rows of a department
+	 List<StoreEntity> findAllByDeptName(String deptName);
+
+	 // Find a row by dept + rowId
+	 Optional<StoreEntity> findByDeptNameAndRowId(String deptName, Integer rowId);
 
 }

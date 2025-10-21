@@ -39,6 +39,8 @@ public class StoreEntity {
 	private String createdBy;
 	private String updatedBy;
 	private String flag; // "C" (Create) or "U" (Update)
+	@Column(name = "row_id")
+	private Integer rowId;
 
 	@CreationTimestamp
 	private LocalDateTime createdAt;
