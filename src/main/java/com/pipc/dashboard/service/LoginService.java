@@ -7,6 +7,7 @@ import com.pipc.dashboard.login.entities.User;
 import com.pipc.dashboard.login.request.LoginRequest;
 import com.pipc.dashboard.login.request.RefreshTokenRequest;
 import com.pipc.dashboard.login.request.RegisterRequest;
+import com.pipc.dashboard.login.request.UpdateUserRolesRequest;
 import com.pipc.dashboard.login.response.LoginResponse;
 import com.pipc.dashboard.utility.BaseResponse;
 
@@ -22,4 +23,6 @@ public interface LoginService {
 	public List<Role> getAllRole();
 
 	public List<User> getAllUser();
+
+	public BaseResponse updateUserRoles(UpdateUserRolesRequest request);
 }

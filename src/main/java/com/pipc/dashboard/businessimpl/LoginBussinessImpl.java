@@ -12,6 +12,7 @@ import com.pipc.dashboard.login.entities.UserResponse;
 import com.pipc.dashboard.login.request.LoginRequest;
 import com.pipc.dashboard.login.request.RefreshTokenRequest;
 import com.pipc.dashboard.login.request.RegisterRequest;
+import com.pipc.dashboard.login.request.UpdateUserRolesRequest;
 import com.pipc.dashboard.login.response.LoginResponse;
 import com.pipc.dashboard.service.LoginService;
 import com.pipc.dashboard.utility.BaseResponse;
@@ -61,5 +62,10 @@ public class LoginBussinessImpl implements LoginBussiness {
 				.map(user -> new UserResponse(user.getUsername(),
 						user.getRoles().stream().map(role -> role.getName()).collect(Collectors.toSet())))
 				.collect(Collectors.toList());
+	}
+
+	@Override
+	public BaseResponse updateUserRoles(UpdateUserRolesRequest request) {
+		return loginService.updateUserRoles(request);
 	}
 }

@@ -22,6 +22,7 @@ import com.pipc.dashboard.login.repository.UserRepository;
 import com.pipc.dashboard.login.request.LoginRequest;
 import com.pipc.dashboard.login.request.RefreshTokenRequest;
 import com.pipc.dashboard.login.request.RegisterRequest;
+import com.pipc.dashboard.login.request.UpdateUserRolesRequest;
 import com.pipc.dashboard.login.response.LoginResponse;
 import com.pipc.dashboard.security.utility.JwtProvider;
 import com.pipc.dashboard.security.utility.RefreshTokenService;
@@ -100,7 +101,7 @@ public class LoginServiceImpl implements LoginService {
 
 				error.setErrorCode("0");
 				error.setErrorDescription("User registered successfully!!");
-
+				loginResponse.setUserName(registerRequest.getUsername());
 				loginResponse.setAccessToken(accessToken);
 				loginResponse.setRefreshToken(refreshToken.getToken());
 				loginResponse.setGrantedAuthorities(assignedRoles);
@@ -256,6 +257,57 @@ public class LoginServiceImpl implements LoginService {
 	@Override
 	public List<User> getAllUser() {
 		return userRepo.findAll();
+	}
+
+	@Override
+	public BaseResponse updateUserRoles(UpdateUserRolesRequest request) {
+		BaseResponse response = new BaseResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+			Optional<User> userOpt = userRepo.findByUsername(request.getUsername());
+			if (userOpt.isEmpty()) {
+				error.setErrorCode("1");
+				error.setErrorDescription("User not found: " + request.getUsername());
+				response.setErrorDetails(error);
+				return response;
+			}
+
+			User user = userOpt.get();
+			List<String> requestedRoles = request.getRoles();
+
+			if (requestedRoles == null || requestedRoles.isEmpty()) {
+				error.setErrorCode("1");
+				error.setErrorDescription("Role list cannot be empty");
+				response.setErrorDetails(error);
+				return response;
+			}
+
+			Set<Role> validRoles = new HashSet<>();
+			for (String roleName : requestedRoles) {
+				Optional<Role> roleOpt = roleRepo.findByName(roleName);
+				if (roleOpt.isEmpty()) {
+					error.setErrorCode("1");
+					error.setErrorDescription("Role not found: " + roleName);
+					response.setErrorDetails(error);
+					return response;
+				}
+				validRoles.add(roleOpt.get());
+			}
+
+			// Replace all roles with new ones
+			user.setRoles(validRoles);
+			userRepo.save(user);
+
+			error.setErrorCode("0");
+			error.setErrorDescription("Roles updated successfully for user: " + user.getUsername());
+		} catch (Exception e) {
+			error.setErrorCode("1");
+			error.setErrorDescription("Error updating roles: " + e.getMessage());
+		}
+		response.setErrorDetails(error);
+
+		return response;
 	}
 
 }
