@@ -6,7 +6,7 @@ import lombok.Data;
 public class VibhagRow {
 
 	private Integer a_kr; // अ. क्र
-	private String vibhagacheNav; // विभागाचे नाव
+
 	private String varsh; // वर्ष
 	private String pralambitParichhedTapsheel; // प्रलंबित परिच्छेदांचा तपशील
 	private Integer pralambitParichhedSankhya; // प्रलंबित परिच्छेदांची संख्या

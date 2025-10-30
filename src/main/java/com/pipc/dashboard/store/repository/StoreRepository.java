@@ -12,31 +12,38 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface StoreRepository extends JpaRepository<StoreEntity, Long> {
 
-	Optional<StoreEntity> findByDeptName(String deptName);
+	// 🔹 Find single department record (for JSON update or check)
+	List<StoreEntity> findByDepartmentName(String departmentName);
 
 	@Modifying
-	@Query("UPDATE StoreEntity s SET s.ekunEkandar = :total, s.updatedAt = CURRENT_TIMESTAMP WHERE s.ekunEkandar <> :total")
-	void updateEkunEkandarAndTimestamp(@Param("total") Integer total);
+	@Query("""
+			    UPDATE StoreEntity s
+			    SET s.ekunEkandar = :total,
+			        s.updatedAt = CURRENT_TIMESTAMP,
+			        s.updatedBy = :updatedBy,
+			        s.flag = CASE WHEN s.flag = 'C' THEN 'U' ELSE s.flag END
+			    WHERE s.ekunEkandar IS NULL OR s.ekunEkandar <> :total
+			""")
+	void updateEkunEkandarAndTimestamp(@Param("total") Integer total, @Param("updatedBy") String updatedBy);
 
+	// 🔹 Get latest ekunEkandar
 	@Query("SELECT MAX(s.ekunEkandar) FROM StoreEntity s")
 	Integer findCurrentEkunEkandar();
 
-	 Optional<StoreEntity> findByDeptNameAndEkunEkandarAndRowId(String deptName, Integer ekunEkandar, Integer rowId);
-	 Optional<StoreEntity> findByDeptNameAndRowIdAndEkunAndEkunEkandar(
-		        String deptName, Integer rowId, Integer ekun, Integer ekunEkandar
-		);
-	// Find any existing overall total
-	 @Query("SELECT DISTINCT s.ekunEkandar FROM StoreEntity s")
-	 Optional<Integer> findExistingEkunEkandar();
+	// 🔹 Find by combination (used for update checks)
+	Optional<StoreEntity> findByDepartmentNameAndEkunEkandarAndRowId(String departmentName, Integer ekunEkandar,
+			Integer rowId);
 
-	 // Find existing department total
-	 @Query("SELECT DISTINCT s.ekun FROM StoreEntity s WHERE s.deptName = :deptName")
-	 Optional<Integer> findExistingEkunForDept(@Param("deptName") String deptName);
+	Optional<StoreEntity> findByDepartmentNameAndRowIdAndEkunAndEkunEkandar(String departmentName, Integer rowId,
+			Integer ekun, Integer ekunEkandar);
 
-	 // Find all rows of a department
-	 List<StoreEntity> findAllByDeptName(String deptName);
+	Optional<StoreEntity> findByDepartmentNameAndRowId(String departmentName, Integer rowId);
 
-	 // Find a row by dept + rowId
-	 Optional<StoreEntity> findByDeptNameAndRowId(String deptName, Integer rowId);
+	@Query("SELECT DISTINCT s.ekun FROM StoreEntity s WHERE s.departmentName = :departmentName")
+	Optional<Integer> findExistingEkunForDept(@Param("departmentName") String departmentName);
 
+	List<StoreEntity> findAllByDepartmentName(String departmentName);
+
+	@Query("SELECT DISTINCT s.ekunEkandar FROM StoreEntity s WHERE s.ekunEkandar IS NOT NULL")
+	Optional<Integer> findExistingEkunEkandar();
 }

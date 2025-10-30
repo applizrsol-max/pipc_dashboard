@@ -1,7 +1,6 @@
 package com.pipc.dashboard.accounts.repository;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -43,12 +42,14 @@ public class AccountsEntity {
 
 	private String createdBy;
 	@Column(name = "row_id")
-    private int rowId;
+	private int rowId;
 
 	@CreationTimestamp
 	private LocalDateTime createdDatetime;
 
 	private String updatedBy;
+	@Column(name = "record_type")
+	private String recordType; // "R" = Regular, "E" = Ekun
 
 	@UpdateTimestamp
 	private LocalDateTime updatedDatetime;

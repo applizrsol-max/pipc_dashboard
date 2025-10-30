@@ -1,7 +1,12 @@
 package com.pipc.dashboard.business;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 
+import com.pipc.dashboard.login.entities.Role;
+import com.pipc.dashboard.login.entities.User;
+import com.pipc.dashboard.login.entities.UserResponse;
 import com.pipc.dashboard.login.request.LoginRequest;
 import com.pipc.dashboard.login.request.RefreshTokenRequest;
 import com.pipc.dashboard.login.request.RegisterRequest;
@@ -17,4 +22,8 @@ public interface LoginBussiness {
 	public BaseResponse deleteUser(String username);
 
 	public LoginResponse refreshAccessToken(RefreshTokenRequest request);
+
+	public List<Role> getAllRole();
+
+	public List<UserResponse> getAllUser();
 }

@@ -1,5 +1,6 @@
 package com.pipc.dashboard.accounts.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -13,4 +14,10 @@ public interface AccountsRepository extends JpaRepository<AccountsEntity, Long> 
 			int rowId);
 
 	Page<AccountsEntity> findAll(Pageable pageable);
+
+	List<AccountsEntity> findByProjectYear(String projectYear);
+
+	Optional<AccountsEntity> findByCategoryNameAndProjectYearAndRecordType(String categoryName, String projectYear,
+			String recordType);
+
 }

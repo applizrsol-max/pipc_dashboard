@@ -2,6 +2,7 @@ package com.pipc.dashboard.serviceimpl;
 
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -141,6 +142,7 @@ public class LoginServiceImpl implements LoginService {
 				loginResponse.setAccessToken(accessToken);
 				loginResponse.setRefreshToken(refreshToken.getToken());
 				loginResponse.setGrantedAuthorities(user.getRoles());
+				loginResponse.setUserName(user.getUsername());
 			}
 
 		} catch (org.springframework.security.authentication.BadCredentialsException ex) {
@@ -243,6 +245,17 @@ public class LoginServiceImpl implements LoginService {
 		response.setErrorDetails(error);
 
 		return response;
+	}
+
+	@Override
+	public List<Role> getAllRole() {
+		// TODO Auto-generated method stub
+		return roleRepo.findAll();
+	}
+
+	@Override
+	public List<User> getAllUser() {
+		return userRepo.findAll();
 	}
 
 }

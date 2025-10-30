@@ -17,4 +17,5 @@ public class LoginResponse extends BaseResponse {
 	private String refreshToken;
 	private String message;
 	private Set<Role> grantedAuthorities;
+	private String userName;
 }

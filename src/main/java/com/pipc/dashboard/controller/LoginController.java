@@ -1,5 +1,7 @@
 package com.pipc.dashboard.controller;
 
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +14,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.pipc.dashboard.business.LoginBussiness;
+import com.pipc.dashboard.login.entities.Role;
 import com.pipc.dashboard.login.entities.User;
+import com.pipc.dashboard.login.entities.UserResponse;
 import com.pipc.dashboard.login.request.LoginRequest;
 import com.pipc.dashboard.login.request.RefreshTokenRequest;
 import com.pipc.dashboard.login.request.RegisterRequest;
@@ -59,6 +63,19 @@ public class LoginController {
 	public LoginResponse refreshAccessToken(@RequestBody RefreshTokenRequest request) {
 
 		return loginBusiness.refreshAccessToken(request);
+
+	}
+
+	@PostMapping("/getAllRole")
+	public List<Role> getAllRole() {
+		return loginBusiness.getAllRole();
+
+	}
+
+
+	@PostMapping("/getAllUser")
+	public List<UserResponse> getAllUser() {
+		return loginBusiness.getAllUser();
 
 	}
 }

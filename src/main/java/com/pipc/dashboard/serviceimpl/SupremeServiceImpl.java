@@ -1,15 +1,10 @@
 package com.pipc.dashboard.serviceimpl;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import org.slf4j.MDC;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -26,92 +21,122 @@ import jakarta.transaction.Transactional;
 @Transactional
 public class SupremeServiceImpl implements SupremaService {
 
-	private final SupremaRepository supremaRepo;
+    private final SupremaRepository supremaRepo;
 
-	public SupremeServiceImpl(SupremaRepository supremaRepo) {
-		this.supremaRepo = supremaRepo;
-	}
+    public SupremeServiceImpl(SupremaRepository supremaRepo) {
+        this.supremaRepo = supremaRepo;
+    }
 
-	@Override
-	public SupremaResponse saveOrUpdateSuprema(SupremaRequest request) {
-		SupremaResponse response = new SupremaResponse();
-		ApplicationError error = new ApplicationError();
+    // ----------------------------------------------------
+    // 🔹 Save or Update Suprema Data
+    // ----------------------------------------------------
+    @Override
+    public SupremaResponse saveOrUpdateSuprema(SupremaRequest request) {
+        SupremaResponse response = new SupremaResponse();
+        ApplicationError error = new ApplicationError();
 
-		try {
-			String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-			final String currentUser = user;
+        try {
+            String currentUser = Optional.ofNullable(MDC.get("userId")).orElse("SYSTEM");
+            String projectYear = request.getProjectYear();
 
-			String projectYear = request.getProjectYear();
-			List<String> createdProjects = new ArrayList<>();
-			List<String> updatedProjects = new ArrayList<>();
+            List<String> createdProjects = new ArrayList<>();
+            List<String> updatedProjects = new ArrayList<>();
 
-			for (JsonNode row : request.getRows()) {
-				String projectName = row.get("prakalchenav").asText();
-				Integer rowId = row.has("rowId") ? row.get("rowId").asInt() : null;
+            for (JsonNode row : request.getRows()) {
 
-				if (rowId == null)
-					continue; // skip invalid row
+                // ✅ Dynamic field extraction for flexibility
+                Integer rowId = row.has("rowId") ? row.get("rowId").asInt() : null;
+                String projectName = extractFieldValue(row, "prakalchenav", "projectname", "project", "name");
 
-				// Fetch row by projectYear + rowId + projectName
-				Optional<SupremaEntity> optionalEntity = supremaRepo
-						.findByProjectYearAndRowIdAndProjectName(projectYear, rowId, projectName);
+                if (rowId == null || projectName == null || projectName.isEmpty())
+                    continue; // skip invalid record
 
-				SupremaEntity entity;
+                // 🔍 Find existing entry
+                Optional<SupremaEntity> optionalEntity =
+                        supremaRepo.findByProjectYearAndRowIdAndProjectName(projectYear, rowId, projectName);
 
-				if (optionalEntity.isPresent()) {
-					entity = optionalEntity.get();
+                SupremaEntity entity;
 
-					// Only update if there is a change
-					JsonNode existingData = entity.getSupremaData();
-					if (!existingData.equals(row)) {
-						entity.setSupremaData(row);
-						entity.setUpdatedBy(currentUser);
-						entity.setUpdatedDatetime(LocalDateTime.now());
-						entity.setRecordFlag("U");
-						updatedProjects.add(projectName);
-						supremaRepo.save(entity);
-					}
-				} else {
-					// Create new row
-					entity = SupremaEntity.builder().projectName(projectName).projectYear(projectYear).rowId(rowId)
-							.supremaData(row).createdBy(currentUser).updatedBy(currentUser)
-							.createdDatetime(LocalDateTime.now()).updatedDatetime(LocalDateTime.now()).recordFlag("C")
-							.build();
+                if (optionalEntity.isPresent()) {
+                    entity = optionalEntity.get();
 
-					supremaRepo.save(entity);
-					createdProjects.add(projectName);
-				}
-			}
+                    // ✅ Update only if actual data changes
+                    if (!entity.getSupremaData().equals(row)) {
+                        entity.setSupremaData(row);
+                        entity.setUpdatedBy(currentUser);
+                        entity.setUpdatedDatetime(LocalDateTime.now());
+                        entity.setRecordFlag("U");
+                        supremaRepo.save(entity);
+                        updatedProjects.add(projectName + " (RowId: " + rowId + ")");
+                    }
 
-			// Build concise response message
-			StringBuilder desc = new StringBuilder();
-			if (!createdProjects.isEmpty()) {
-				desc.append("Created proposals: ").append(String.join(", ", createdProjects)).append(". ");
-			}
-			if (!updatedProjects.isEmpty()) {
-				desc.append("Updated proposals: ").append(String.join(", ", updatedProjects)).append(". ");
-			}
-			if (createdProjects.isEmpty() && updatedProjects.isEmpty()) {
-				desc.append("No changes detected.");
-			}
-			desc.append(" Changes performed by ").append(currentUser).append(".");
+                } else {
+                    // ✅ Create new entry
+                    entity = SupremaEntity.builder()
+                            .projectName(projectName)
+                            .projectYear(projectYear)
+                            .rowId(rowId)
+                            .supremaData(row)
+                            .createdBy(currentUser)
+                            .updatedBy(currentUser)
+                            .createdDatetime(LocalDateTime.now())
+                            .updatedDatetime(LocalDateTime.now())
+                            .recordFlag("C")
+                            .build();
 
-			error.setErrorCode("0");
-			error.setErrorDescription(desc.toString());
+                    supremaRepo.save(entity);
+                    createdProjects.add(projectName + " (RowId: " + rowId + ")");
+                }
+            }
 
-		} catch (Exception e) {
-			error.setErrorCode("1");
-			error.setErrorDescription("Error while saving suprema data: " + e.getMessage());
-		}
+            // ✅ Build concise message
+            StringBuilder desc = new StringBuilder();
+            if (!createdProjects.isEmpty())
+                desc.append("Created proposals: ").append(String.join(", ", createdProjects)).append(". ");
+            if (!updatedProjects.isEmpty())
+                desc.append("Updated proposals: ").append(String.join(", ", updatedProjects)).append(". ");
+            if (createdProjects.isEmpty() && updatedProjects.isEmpty())
+                desc.append("No changes detected. ");
 
-		response.setErrorDetails(error);
-		return response;
+            desc.append("Changes performed by ").append(currentUser).append(".");
 
-	}
+            error.setErrorCode("0");
+            error.setErrorDescription(desc.toString());
 
-	@Override
-	public Page<SupremaEntity> getSupremaByProjectYear(String projectYear, int page, int size) {
-		Pageable pageable = PageRequest.of(page, size, Sort.by("rowId").ascending());
-		return supremaRepo.findByProjectYear(projectYear, pageable);
-	}
+        } catch (Exception e) {
+            error.setErrorCode("1");
+            error.setErrorDescription("Error while saving Suprema data: " + e.getMessage());
+        }
+
+        response.setErrorDetails(error);
+        return response;
+    }
+
+    // ----------------------------------------------------
+    // 🔹 Paginated Get API
+    // ----------------------------------------------------
+    @Override
+    public Page<SupremaEntity> getSupremaByProjectYear(String projectYear, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("rowId").ascending());
+        return supremaRepo.findByProjectYear(projectYear, pageable);
+    }
+
+    // ----------------------------------------------------
+    // 🔍 Helper Method: extract field safely by matching possible names
+    // ----------------------------------------------------
+    private String extractFieldValue(JsonNode node, String... possibleNames) {
+        if (node == null || !node.isObject()) return null;
+
+        for (String key : possibleNames) {
+            for (Iterator<String> it = node.fieldNames(); it.hasNext();) {
+                String field = it.next();
+                if (field.equalsIgnoreCase(key) || field.toLowerCase().contains(key.toLowerCase())) {
+                    JsonNode value = node.get(field);
+                    if (value != null && !value.isNull())
+                        return value.asText();
+                }
+            }
+        }
+        return null;
+    }
 }

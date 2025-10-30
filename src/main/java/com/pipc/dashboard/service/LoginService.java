@@ -1,5 +1,9 @@
 package com.pipc.dashboard.service;
 
+import java.util.List;
+
+import com.pipc.dashboard.login.entities.Role;
+import com.pipc.dashboard.login.entities.User;
 import com.pipc.dashboard.login.request.LoginRequest;
 import com.pipc.dashboard.login.request.RefreshTokenRequest;
 import com.pipc.dashboard.login.request.RegisterRequest;
@@ -14,4 +18,8 @@ public interface LoginService {
 	public BaseResponse deleteUser(String username);
 
 	public LoginResponse refreshAccessToken(RefreshTokenRequest request);
+
+	public List<Role> getAllRole();
+
+	public List<User> getAllUser();
 }
