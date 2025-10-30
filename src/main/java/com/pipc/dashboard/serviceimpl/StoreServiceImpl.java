@@ -2,6 +2,7 @@ package com.pipc.dashboard.serviceimpl;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -183,7 +184,73 @@ public class StoreServiceImpl implements StoreService {
 	}
 
 	@Override
-	public Page<StoreEntity> getStores(int page, int size) {
-		return storeRepository.findAll(PageRequest.of(page, size));
+	public StoreResponse getStores(int page, int size) {
+	    StoreResponse response = new StoreResponse();
+	    ApplicationError error = new ApplicationError();
+
+	    try {
+	        Page<StoreEntity> storePage = storeRepository.findAll(PageRequest.of(page, size));
+	        List<StoreEntity> storeEntities = storePage.getContent();
+
+	        if (storeEntities.isEmpty()) {
+	            error.setErrorCode("0");
+	            error.setErrorDescription("No records found.");
+	            response.setErrorDetails(error);
+	            response.setMessage("No data available.");
+	            return response;
+	        }
+
+	        // ---- Build grouped structure (like StoreRequest) ----
+	        StoreRequest storeData = new StoreRequest();
+
+	        // 1️⃣ Set ekunEkandar (same across rows)
+	        Integer ekunEkandar = storeEntities.get(0).getEkunEkandar();
+	        storeData.setEkunEkandar(ekunEkandar);
+
+	        // 2️⃣ Group by department
+	        Map<String, DepartmentSection> departmentMap = new java.util.LinkedHashMap<>();
+
+	        for (StoreEntity entity : storeEntities) {
+	            String deptName = entity.getDepartmentName();
+	            DepartmentSection section = departmentMap.get(deptName);
+
+	            if (section == null) {
+	                section = new DepartmentSection();
+	                section.setDepartmentName(deptName);
+	                section.setEkun(entity.getEkun());
+	                section.setRows(new java.util.ArrayList<>());
+	                departmentMap.put(deptName, section);
+	            }
+
+	            // Parse each row's JSON into VibhagRow
+	            if (entity.getRowsData() != null && !entity.getRowsData().isEmpty()) {
+	                try {
+	                    VibhagRow row = objectMapper.treeToValue(entity.getRowsData(), VibhagRow.class);
+	                    section.getRows().add(row);
+	                } catch (Exception ex) {
+	                    // Skip invalid rows but continue
+	                }
+	            }
+	        }
+
+	        storeData.setDepartments(new java.util.ArrayList<>(departmentMap.values()));
+
+	        // ---- Wrap in response ----
+	        error.setErrorCode("0");
+	        error.setErrorDescription("Success");
+	        response.setErrorDetails(error);
+	        response.setMessage("Fetched successfully.");
+	        response.setData(storeData); // you can add `private StoreRequest data;` in StoreResponse
+
+	        return response;
+
+	    } catch (Exception e) {
+	        error.setErrorCode("1");
+	        error.setErrorDescription("Error while fetching data: " + e.getMessage());
+	        response.setErrorDetails(error);
+	        response.setMessage("Failed to fetch data.");
+	        return response;
+	    }
 	}
+
 }

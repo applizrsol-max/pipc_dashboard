@@ -10,6 +10,6 @@ public interface StoreService {
 
 	StoreResponse saveOrUpdate(StoreRequest storeRequest, String createdBy);
 
-	Page<StoreEntity> getStores(int page, int size);
+	StoreResponse getStores(int page, int size);
 
 }

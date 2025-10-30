@@ -1,13 +1,10 @@
 package com.pipc.dashboard.businessimpl;
 
 import org.slf4j.MDC;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import com.pipc.dashboard.business.StoreBusiness;
 import com.pipc.dashboard.service.StoreService;
-import com.pipc.dashboard.store.repository.StoreEntity;
 import com.pipc.dashboard.store.request.StoreRequest;
 import com.pipc.dashboard.store.response.StoreResponse;
 import com.pipc.dashboard.utility.ApplicationError;
@@ -45,7 +42,7 @@ public class StoreBusinessImpl implements StoreBusiness {
 	}
 
 	@Override
-	public Page<StoreEntity> getStores(int page, int size) {
+	public StoreResponse getStores(int page, int size) {
 		return storeService.getStores(page, size);
 	}
 }

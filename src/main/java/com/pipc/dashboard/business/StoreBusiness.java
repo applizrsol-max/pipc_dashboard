@@ -11,8 +11,6 @@ public interface StoreBusiness {
 
 	StoreResponse saveOrUpdateStore(StoreRequest storeRequest);
 
-	Page<StoreEntity> getStores(int page, int size);
-
-	
+	StoreResponse getStores(int page, int size);
 
 }

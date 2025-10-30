@@ -35,10 +35,10 @@ public class StoreController {
 	}
 
 	@GetMapping("/getStoreData")
-	public Page<StoreEntity> getAllStores(@RequestParam(defaultValue = "0") int page,
+	public StoreResponse getAllStores(@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "10") int size) {
 
-		return storeBusiness.getStores(page,size);
+		return storeBusiness.getStores(page, size);
 	}
 
 }
