@@ -1,8 +1,8 @@
 package com.pipc.dashboard.serviceimpl;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -185,72 +185,57 @@ public class StoreServiceImpl implements StoreService {
 
 	@Override
 	public StoreResponse getStores(int page, int size) {
-	    StoreResponse response = new StoreResponse();
-	    ApplicationError error = new ApplicationError();
+		StoreResponse response = new StoreResponse();
+		ApplicationError error = new ApplicationError();
 
-	    try {
-	        Page<StoreEntity> storePage = storeRepository.findAll(PageRequest.of(page, size));
-	        List<StoreEntity> storeEntities = storePage.getContent();
+		try {
+			// Step 1: get all distinct department names
+			List<String> departments = storeRepository.findDistinctDepartmentNames();
 
-	        if (storeEntities.isEmpty()) {
-	            error.setErrorCode("0");
-	            error.setErrorDescription("No records found.");
-	            response.setErrorDetails(error);
-	            response.setMessage("No data available.");
-	            return response;
-	        }
+			List<DepartmentSection> departmentSections = new ArrayList<>();
 
-	        // ---- Build grouped structure (like StoreRequest) ----
-	        StoreRequest storeData = new StoreRequest();
+			// Step 2: For each department, apply pagination
+			for (String dept : departments) {
+				Page<StoreEntity> deptPage = storeRepository.findByDepartmentName(dept, PageRequest.of(page, size));
 
-	        // 1️⃣ Set ekunEkandar (same across rows)
-	        Integer ekunEkandar = storeEntities.get(0).getEkunEkandar();
-	        storeData.setEkunEkandar(ekunEkandar);
+				if (deptPage.isEmpty())
+					continue;
 
-	        // 2️⃣ Group by department
-	        Map<String, DepartmentSection> departmentMap = new java.util.LinkedHashMap<>();
+				// Map entity -> request-like response
+				List<VibhagRow> rows = new ArrayList<>();
+				for (StoreEntity entity : deptPage.getContent()) {
+					VibhagRow row = new ObjectMapper().convertValue(entity.getRowsData(), VibhagRow.class);
+					row.setRowId(entity.getRowId());
+					rows.add(row);
+				}
 
-	        for (StoreEntity entity : storeEntities) {
-	            String deptName = entity.getDepartmentName();
-	            DepartmentSection section = departmentMap.get(deptName);
+				DepartmentSection section = new DepartmentSection();
+				section.setDepartmentName(dept);
+				section.setEkun(deptPage.getContent().get(0).getEkun());
+				section.setRows(rows);
 
-	            if (section == null) {
-	                section = new DepartmentSection();
-	                section.setDepartmentName(deptName);
-	                section.setEkun(entity.getEkun());
-	                section.setRows(new java.util.ArrayList<>());
-	                departmentMap.put(deptName, section);
-	            }
+				departmentSections.add(section);
+			}
 
-	            // Parse each row's JSON into VibhagRow
-	            if (entity.getRowsData() != null && !entity.getRowsData().isEmpty()) {
-	                try {
-	                    VibhagRow row = objectMapper.treeToValue(entity.getRowsData(), VibhagRow.class);
-	                    section.getRows().add(row);
-	                } catch (Exception ex) {
-	                    // Skip invalid rows but continue
-	                }
-	            }
-	        }
+			// Step 3: build response similar to request
+			StoreRequest storeData = new StoreRequest();
+			storeData.setEkunEkandar(storeRepository.findExistingEkunEkandar().orElse(null));
+			storeData.setDepartments(departmentSections);
 
-	        storeData.setDepartments(new java.util.ArrayList<>(departmentMap.values()));
+			response.setData(storeData);
+			error.setErrorCode("0");
+			error.setErrorDescription("Fetched successfully with department-wise pagination.");
+			response.setErrorDetails(error);
+			response.setMessage("Success");
+			return response;
 
-	        // ---- Wrap in response ----
-	        error.setErrorCode("0");
-	        error.setErrorDescription("Success");
-	        response.setErrorDetails(error);
-	        response.setMessage("Fetched successfully.");
-	        response.setData(storeData); // you can add `private StoreRequest data;` in StoreResponse
-
-	        return response;
-
-	    } catch (Exception e) {
-	        error.setErrorCode("1");
-	        error.setErrorDescription("Error while fetching data: " + e.getMessage());
-	        response.setErrorDetails(error);
-	        response.setMessage("Failed to fetch data.");
-	        return response;
-	    }
+		} catch (Exception e) {
+			error.setErrorCode("1");
+			error.setErrorDescription("Error fetching paginated data: " + e.getMessage());
+			response.setErrorDetails(error);
+			response.setMessage("Failed to fetch data.");
+			return response;
+		}
 	}
 
 }
