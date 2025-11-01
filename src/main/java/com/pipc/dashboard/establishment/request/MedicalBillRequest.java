@@ -10,5 +10,6 @@ public class MedicalBillRequest {
 	private String period;
 	private String month;
 	private String year;
+	private String date;
 	private List<MedicalBillData> data;
 }

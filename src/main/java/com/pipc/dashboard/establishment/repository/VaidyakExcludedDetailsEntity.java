@@ -26,7 +26,6 @@ public class VaidyakExcludedDetailsEntity {
 	private Long id;
 
 	private Long subId;
-	private String type;
 	private Double amount;
 	private String description;
 

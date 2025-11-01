@@ -1,5 +1,6 @@
 package com.pipc.dashboard.establishment.repository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,37 +21,43 @@ import lombok.Data;
 @Data
 public class MedicalBillMasterEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;   // Primary key
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id; // Primary key
 
-    @Column(unique = true)
-    private Long rowId;  // Row ID for business identification
+	@Column(unique = true)
+	private Long rowId; // Row ID for business identification
 
-    private String title;
-    private String period;
-    private String month;
-    private String year;
+	private String title;
+	private String period;
+	private String month;
+	private String year;
+	@Column(name = "bill_date")
+	private String billDate;
 
-    private String createdBy;
-    private String updatedBy;
 
-    private LocalDateTime createdAt = LocalDateTime.now();
-    private LocalDateTime updatedAt;
+	private String createdBy;
+	private String updatedBy;
 
-    // Relations
-    @OneToMany(mappedBy = "medicalBill", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ReferenceEntity> references = new ArrayList<>();
+	private LocalDateTime createdAt = LocalDateTime.now();
+	private String flag;  // 'C' for create, 'U' for update, 'D' for delete
+	private LocalDateTime updatedTime;
 
-    @OneToOne(mappedBy = "medicalBill", cascade = CascadeType.ALL, orphanRemoval = true)
-    private EmployeeDetailsEntity employeeDetails;
+	// Relations
+	@OneToMany(mappedBy = "medicalBill", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<ReferenceEntity> references = new ArrayList<>();
 
-    @OneToOne(mappedBy = "medicalBill", cascade = CascadeType.ALL, orphanRemoval = true)
-    private ApprovalDetailsEntity approvalDetails;
+	@OneToOne(mappedBy = "medicalBill", cascade = CascadeType.ALL, orphanRemoval = true)
+	private EmployeeDetailsEntity employeeDetails;
 
-    @OneToMany(mappedBy = "medicalBill", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<KharchaTapsilEntity> kharchaTapsil = new ArrayList<>();
+	@OneToOne(mappedBy = "medicalBill", cascade = CascadeType.ALL, orphanRemoval = true)
+	private ApprovalDetailsEntity approvalDetails;
 
-    @OneToOne(mappedBy = "medicalBill", cascade = CascadeType.ALL, orphanRemoval = true)
-    private VaidyakKharchaParigananaEntity vaidyakKharchaPariganana;
+	@OneToMany(mappedBy = "medicalBill", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<KharchaTapsilEntity> kharchaTapsil = new ArrayList<>();
+
+	@OneToOne(mappedBy = "medicalBill", cascade = CascadeType.ALL, orphanRemoval = true)
+	private VaidyakKharchaParigananaEntity vaidyakKharchaPariganana;
+
+	
 }

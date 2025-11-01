@@ -19,15 +19,15 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ApprovalDetailsEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    private String approvingAuthority;
-    private String approvalDate;
-    private Double approvalAmount;
-
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "medical_bill_id")
-    private MedicalBillMasterEntity medicalBill;
+	private String approvingAuthority;
+	private String approvalDate;
+	private Double approvalAmount;
+	private String approvedBy;
+	@OneToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "medical_bill_id")
+	private MedicalBillMasterEntity medicalBill;
 }
