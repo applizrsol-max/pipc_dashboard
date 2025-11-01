@@ -12,4 +12,5 @@ public class VibhagRow {
 	private Integer pralambitParichhedSankhya; // प्रलंबित परिच्छेदांची संख्या
 	private Sadyasthiti sadyasthiti; // सद्यस्थिती
 	private Integer rowId;
+	private String flag;
 }

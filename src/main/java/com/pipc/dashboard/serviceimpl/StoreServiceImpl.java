@@ -94,7 +94,7 @@ public class StoreServiceImpl implements StoreService {
 					}
 				}
 
-				// ---------- 3) Now handle each incoming row (create/update single row)
+				// ---------- 3) Now handle each incoming row (create/update/delete single row)
 				// ----------
 				if (dept.getRows() == null)
 					continue;
@@ -105,6 +105,19 @@ public class StoreServiceImpl implements StoreService {
 
 					Optional<StoreEntity> existingEntityOpt = storeRepository.findByDepartmentNameAndRowId(deptName,
 							rowId);
+
+					// ---------- DELETE LOGIC ADDED HERE ----------
+					if ("D".equalsIgnoreCase(row.getFlag())) {
+						if (existingEntityOpt.isPresent()) {
+							storeRepository.delete(existingEntityOpt.get());
+							log.append("Deleted rowId ").append(rowId).append(" from '").append(deptName).append("'. ");
+						} else {
+							log.append("Delete requested for rowId ").append(rowId).append(" in '").append(deptName)
+									.append("' but not found. ");
+						}
+						continue; // skip further processing for this row
+					}
+					// ---------- END DELETE LOGIC ----------
 
 					// Convert to JsonNode safely and deterministically
 					JsonNode incomingJson;
