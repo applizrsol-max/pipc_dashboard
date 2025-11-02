@@ -10,15 +10,24 @@ import java.util.Optional;
 
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.pipc.dashboard.establishment.repository.AppealEntity;
+import com.pipc.dashboard.establishment.repository.AppealRepository;
 import com.pipc.dashboard.establishment.repository.ApprovalDetailsEntity;
 import com.pipc.dashboard.establishment.repository.ApprovalDetailsRepository;
 import com.pipc.dashboard.establishment.repository.EmployeeDetailsEntity;
 import com.pipc.dashboard.establishment.repository.EmployeeDetailsRepository;
+import com.pipc.dashboard.establishment.repository.EmployeePostingEntity;
+import com.pipc.dashboard.establishment.repository.EmployeePostingRepository;
 import com.pipc.dashboard.establishment.repository.KharchaTapsilEntity;
 import com.pipc.dashboard.establishment.repository.KharchaTapsilRepository;
 import com.pipc.dashboard.establishment.repository.LeaveEntity;
@@ -34,9 +43,13 @@ import com.pipc.dashboard.establishment.repository.VaidyakTapshilEntity;
 import com.pipc.dashboard.establishment.repository.VaidyakTapshilRepository;
 import com.pipc.dashboard.establishment.repository.VastavyaDetailsEntity;
 import com.pipc.dashboard.establishment.repository.VastavyaDetailsRepository;
+import com.pipc.dashboard.establishment.request.AppealRequest;
+import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillData;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
+import com.pipc.dashboard.establishment.response.AppealResponse;
+import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.LeaveResponse;
 import com.pipc.dashboard.establishment.response.MedicalBillResponse;
 import com.pipc.dashboard.service.EstablishmentService;
@@ -58,6 +71,8 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	private final VaidyakTapshilRepository tapshilRepo;
 	private final VastavyaDetailsRepository vastavyaRepo;
 	private final LeaveRepository leaveRepository;
+	private final AppealRepository appealRepository;
+	private final EmployeePostingRepository employeePostingRepository;
 
 	@Autowired
 	private ObjectMapper objectMapper;
@@ -66,7 +81,8 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	public EstablishmentServiceImpl(MedicalBillMasterRepository masterRepo, ReferenceRepository refRepo,
 			EmployeeDetailsRepository empRepo, ApprovalDetailsRepository apprRepo, KharchaTapsilRepository kharchaRepo,
 			VaidyakKharchaParigananaRepository vaidyaRepo, VaidyakTapshilRepository tapshilRepo,
-			VastavyaDetailsRepository vastavyaRepo, LeaveRepository leaveRepository) {
+			VastavyaDetailsRepository vastavyaRepo, LeaveRepository leaveRepository, AppealRepository appealRepository,
+			EmployeePostingRepository employeePostingRepository) {
 		this.apprRepo = apprRepo;
 		this.empRepo = empRepo;
 		this.kharchaRepo = kharchaRepo;
@@ -76,6 +92,8 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		this.vaidyaRepo = vaidyaRepo;
 		this.vastavyaRepo = vastavyaRepo;
 		this.leaveRepository = leaveRepository;
+		this.appealRepository = appealRepository;
+		this.employeePostingRepository = employeePostingRepository;
 	}
 
 	@Override
@@ -557,4 +575,319 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		return response;
 	}
 
+	public AppealResponse saveOrUpdateAppeal(AppealRequest dto) {
+		AppealResponse response = new AppealResponse();
+		ApplicationError error = new ApplicationError();
+
+		response.setData(new ArrayList<>());
+
+		try {
+			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+			String flag = Optional.ofNullable(dto.getFlag()).map(String::toUpperCase).orElse(null);
+
+			Optional<AppealEntity> existingOpt = Optional.empty();
+			if (dto.getRowId() != null)
+				existingOpt = appealRepository.findByRowId(dto.getRowId());
+
+			// 🗑️ DELETE
+			if ("D".equals(flag)) {
+				if (existingOpt.isPresent()) {
+					appealRepository.delete(existingOpt.get());
+					response.setMessage("Record deleted successfully.");
+					error.setErrorCode("200");
+					error.setErrorDescription("Success");
+				} else {
+					response.setMessage("No record found for deletion.");
+					error.setErrorCode("404");
+					error.setErrorDescription("Not Found");
+				}
+				response.setErrorDetails(error);
+				return response;
+			}
+
+			// 🆕 or 🔁 CREATE / UPDATE
+			AppealEntity entity = existingOpt.orElse(new AppealEntity());
+
+			// decide flag automatically
+			String resolvedFlag = existingOpt.isPresent() ? "U" : "C";
+
+			entity.setRowId(dto.getRowId());
+			entity.setYear(dto.getYear());
+			entity.setFlag(resolvedFlag);
+			entity.setApeelArjachaNondaniKramank(dto.getApeelArjachaNondaniKramank());
+			entity.setApeelkaracheNav(dto.getApeelkaracheNav());
+			entity.setApeelArjKonakadeKelaAahe(dto.getApeelArjKonakadeKelaAahe());
+			entity.setApeelArjPraptJhalyachaDinank(dto.getApeelArjPraptJhalyachaDinank());
+			entity.setPratidariYancheNavPatta(dto.getPratidariYancheNavPatta());
+			entity.setApeelarthiDurustReneSathiKaam(dto.getApeelarthiDurustReneSathiKaam());
+			entity.setApeelchaThodkyaTathya(dto.getApeelchaThodkyaTathya());
+			entity.setApeelArjacheShulk(dto.getApeelArjacheShulk());
+			entity.setKonakadeApeelSwikarBharle(dto.getKonakadeApeelSwikarBharle());
+			entity.setApeelArjachiVidhikShulkBharalDinank(dto.getApeelArjachiVidhikShulkBharalDinank());
+			entity.setKonalyaJanmahitiAdhikariYanchikadeApeelKeleTathyaTapshil(
+					dto.getKonalyaJanmahitiAdhikariYanchikadeApeelKeleTathyaTapshil());
+			entity.setApeelvarNirnayDilyachaDinank(dto.getApeelvarNirnayDilyachaDinank());
+			entity.setShera(dto.getShera());
+			entity.setDynamicColumns(dto.getDynamicColumns());
+
+			LocalDateTime now = LocalDateTime.now();
+
+			if (entity.getId() == null) {
+				// new record
+				entity.setCreatedBy(username);
+				entity.setCreatedDate(now);
+				entity.setUpdatedBy(username);
+				entity.setUpdatedDate(now);
+			} else {
+				// update
+				entity.setUpdatedBy(username);
+				entity.setUpdatedDate(now);
+				if (entity.getCreatedBy() == null)
+					entity.setCreatedBy(username);
+				if (entity.getCreatedDate() == null)
+					entity.setCreatedDate(now);
+			}
+
+			AppealEntity saved = appealRepository.save(entity);
+
+			Map<String, Object> map = new LinkedHashMap<>();
+			map.put("rowId", saved.getRowId());
+			map.put("year", saved.getYear());
+			map.put("flag", saved.getFlag());
+			map.put("apeelkaracheNav", saved.getApeelkaracheNav());
+			map.put("status", "SUCCESS");
+			response.getData().add(map);
+
+			response.setMessage(
+					resolvedFlag.equals("U") ? "Record updated successfully." : "Record created successfully.");
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+
+		} catch (Exception e) {
+			log.error("Error in saveOrUpdateAppeal: {}", e.getMessage(), e);
+			response.setMessage("Error while saving record.");
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+		}
+
+		response.setErrorDetails(error);
+		return response;
+	}
+
+	@Override
+	public AppealResponse getAppealData(String year, int page, int size) {
+		AppealResponse response = new AppealResponse();
+		ApplicationError error = new ApplicationError();
+		response.setData(new ArrayList<>());
+
+		try {
+			Pageable pageable = PageRequest.of(page, size, Sort.by("updatedDate").descending());
+			Page<AppealEntity> appealPage;
+
+			// 🧭 Filter logic
+			if (year != null) {
+				appealPage = appealRepository.findByYear(year, pageable);
+			} else {
+				appealPage = appealRepository.findAll(pageable);
+			}
+
+			for (AppealEntity e : appealPage.getContent()) {
+				Map<String, Object> map = new LinkedHashMap<>();
+
+				map.put("id", e.getId());
+				map.put("rowId", e.getRowId());
+				map.put("year", e.getYear());
+				map.put("flag", e.getFlag());
+				map.put("apeelArjachaNondaniKramank", e.getApeelArjachaNondaniKramank());
+				map.put("apeelkaracheNav", e.getApeelkaracheNav());
+				map.put("apeelArjKonakadeKelaAahe", e.getApeelArjKonakadeKelaAahe());
+				map.put("apeelArjPraptJhalyachaDinank", e.getApeelArjPraptJhalyachaDinank());
+				map.put("pratidariYancheNavPatta", e.getPratidariYancheNavPatta());
+				map.put("apeelarthiDurustReneSathiKaam", e.getApeelarthiDurustReneSathiKaam());
+				map.put("apeelchaThodkyaTathya", e.getApeelchaThodkyaTathya());
+				map.put("apeelArjacheShulk", e.getApeelArjacheShulk());
+				map.put("konakadeApeelSwikarBharle", e.getKonakadeApeelSwikarBharle());
+				map.put("apeelArjachiVidhikShulkBharalDinank", e.getApeelArjachiVidhikShulkBharalDinank());
+				map.put("konalyaJanmahitiAdhikariYanchikadeApeelKeleTathyaTapshil",
+						e.getKonalyaJanmahitiAdhikariYanchikadeApeelKeleTathyaTapshil());
+				map.put("apeelvarNirnayDilyachaDinank", e.getApeelvarNirnayDilyachaDinank());
+				map.put("shera", e.getShera());
+
+				// 🧩 Dynamic columns
+				if (e.getDynamicColumns() != null && !e.getDynamicColumns().isEmpty()) {
+					Map<String, Object> dynamic = objectMapper.convertValue(e.getDynamicColumns(), Map.class);
+					map.put("dynamicColumns", dynamic);
+				}
+
+				// Audit Info
+				map.put("createdBy", e.getCreatedBy());
+				map.put("createdDate", e.getCreatedDate());
+				map.put("updatedBy", e.getUpdatedBy());
+				map.put("updatedDate", e.getUpdatedDate());
+
+				response.getData().add(map);
+			}
+
+			// Pagination Meta
+			Map<String, Object> meta = new LinkedHashMap<>();
+			meta.put("pageNumber", appealPage.getNumber());
+			meta.put("pageSize", appealPage.getSize());
+			meta.put("totalElements", appealPage.getTotalElements());
+			meta.put("totalPages", appealPage.getTotalPages());
+			response.setMeta(meta);
+
+			response.setMessage("Appeal register data fetched successfully.");
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+
+		} catch (Exception ex) {
+			log.error("Error fetching appeal data: {}", ex.getMessage(), ex);
+			response.setMessage("Error while fetching appeal data.");
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+		}
+
+		response.setErrorDetails(error);
+		return response;
+	}
+
+	@Override
+	@Transactional
+	public EmployeePostingResponse saveOrUpdateEmployeePosting(EmployeePostingRequest dto) {
+		EmployeePostingResponse response = new EmployeePostingResponse();
+		ApplicationError error = new ApplicationError();
+		response.setData(new ArrayList<>());
+
+		try {
+			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+			for (Map<String, Object> row : dto.getData()) {
+				Long rowId = ((Number) row.get("rowId")).longValue();
+				String year = (String) row.get("year");
+				String flag = (String) row.getOrDefault("flag", "");
+
+				Optional<EmployeePostingEntity> existingOpt = employeePostingRepository.findByRowId(rowId);
+
+				// 🗑️ Delete
+				if ("D".equalsIgnoreCase(flag)) {
+					if (existingOpt.isPresent()) {
+						employeePostingRepository.delete(existingOpt.get());
+						log.info("Deleted record with rowId: {}", rowId);
+					}
+					continue;
+				}
+
+				// 🆕 Create or 🔁 Update
+				EmployeePostingEntity entity = existingOpt.orElse(new EmployeePostingEntity());
+
+				// detect automatically
+				if (existingOpt.isEmpty()) {
+					entity.setFlag("C");
+				} else {
+					entity.setFlag("U");
+				}
+
+				entity.setRowId(rowId);
+				entity.setYear(year);
+
+				entity.setKramank((Integer) row.get("kramank"));
+				entity.setAdhikariKarmacharyacheNav((String) row.get("adhikariKarmacharyacheNav"));
+				entity.setPadnaam((String) row.get("padnaam"));
+				entity.setDharika((String) row.get("dharika"));
+				entity.setKalavadhi((String) row.get("kalavadhi"));
+
+				// 🔹 dynamic fields
+				ObjectNode dynamic = objectMapper.createObjectNode();
+				for (Map.Entry<String, Object> entry : row.entrySet()) {
+					if (!List.of("rowId", "year", "flag", "kramank", "adhikariKarmacharyacheNav", "padnaam", "dharika",
+							"kalavadhi").contains(entry.getKey())) {
+						dynamic.putPOJO(entry.getKey(), entry.getValue());
+					}
+				}
+				entity.setDynamicColumns(dynamic);
+
+				// 🕒 Timestamps
+				LocalDateTime now = LocalDateTime.now();
+				if (entity.getId() == null) {
+					entity.setCreatedBy(username);
+					entity.setCreatedDate(now);
+					entity.setUpdatedBy(username);
+					entity.setUpdatedDate(now);
+				} else {
+					// retain created info
+					if (entity.getCreatedBy() == null)
+						entity.setCreatedBy(username);
+					if (entity.getCreatedDate() == null)
+						entity.setCreatedDate(now);
+
+					entity.setUpdatedBy(username);
+					entity.setUpdatedDate(now);
+				}
+
+				employeePostingRepository.save(entity);
+				log.info("{} record processed (rowId={})", entity.getFlag(), rowId);
+			}
+
+			response.setMessage("Records processed successfully.");
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+
+		} catch (Exception e) {
+			log.error("Error while saving employee posting data: {}", e.getMessage(), e);
+			response.setMessage("Error while saving data.");
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+		}
+
+		response.setErrorDetails(error);
+		return response;
+	}
+
+	@Override
+	public EmployeePostingResponse getEmployeePostingData(String name, String year, int page, int size) {
+		EmployeePostingResponse response = new EmployeePostingResponse();
+		ApplicationError error = new ApplicationError();
+		response.setData(new ArrayList<>());
+
+		try {
+			Pageable pageable = PageRequest.of(page, size, Sort.by("createdDate").descending());
+			Page<EmployeePostingEntity> result = employeePostingRepository.findByNameAndYear(name, year, pageable);
+
+			for (EmployeePostingEntity e : result.getContent()) {
+				Map<String, Object> map = new LinkedHashMap<>();
+
+				map.put("rowId", e.getRowId());
+				map.put("year", e.getYear());
+				map.put("kramank", e.getKramank());
+				map.put("adhikariKarmacharyacheNav", e.getAdhikariKarmacharyacheNav());
+				map.put("padnaam", e.getPadnaam());
+				map.put("dharika", e.getDharika());
+				map.put("kalavadhi", e.getKalavadhi());
+				map.put("flag", e.getFlag());
+				map.put("createdBy", e.getCreatedBy());
+				map.put("createdDate", e.getCreatedDate());
+				map.put("updatedBy", e.getUpdatedBy());
+				map.put("updatedDate", e.getUpdatedDate());
+
+				if (e.getDynamicColumns() != null) {
+					map.put("dynamicColumns", e.getDynamicColumns());
+				}
+
+				response.getData().add(map);
+			}
+
+			response.setMessage("Records fetched successfully.");
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+
+		} catch (Exception ex) {
+			log.error("Error fetching employee posting data: {}", ex.getMessage(), ex);
+			response.setMessage("Error while fetching records.");
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+		}
+
+		response.setErrorDetails(error);
+		return response;
+	}
 }

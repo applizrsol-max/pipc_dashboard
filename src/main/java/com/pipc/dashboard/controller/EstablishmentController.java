@@ -10,8 +10,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.pipc.dashboard.business.EstablishmentBusiness;
+import com.pipc.dashboard.establishment.request.AppealRequest;
+import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
+import com.pipc.dashboard.establishment.response.AppealResponse;
+import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.LeaveResponse;
 import com.pipc.dashboard.establishment.response.MedicalBillResponse;
 
@@ -46,6 +50,36 @@ public class EstablishmentController {
 			@RequestParam(required = false) String date) {
 
 		LeaveResponse response = establishmentBusiness.getLeaveDetails(employeeName, year, month, date);
+		return ResponseEntity.ok(response);
+	}
+
+	@PostMapping("/saveOrUpdateAppeal")
+	public AppealResponse saveOrUpdateAppeal(@RequestBody AppealRequest request) {
+		return establishmentBusiness.saveOrUpdateAppeal(request);
+	}
+
+	@GetMapping("/getAppealData")
+	public ResponseEntity<AppealResponse> getAppealData(@RequestParam(required = false) String year,
+			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+
+		AppealResponse response = establishmentBusiness.getAppealData(year, page, size);
+		return ResponseEntity.ok(response);
+	}
+
+	@PostMapping("/saveOrUpdateEmployeePosting")
+	public EmployeePostingResponse saveOrUpdateEmployeePosting(@RequestBody EmployeePostingRequest request) {
+		return establishmentBusiness.saveOrUpdateEmployeePosting(request);
+	}
+
+	@GetMapping("/getEmployeePostingData")
+	public ResponseEntity<EmployeePostingResponse> getEmployeePostingData(
+			@RequestParam(required = false) String adhikariKarmacharyacheNav,
+			@RequestParam(required = false) String year, @RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size) {
+
+		EmployeePostingResponse response = establishmentBusiness.getEmployeePostingData(adhikariKarmacharyacheNav, year,
+				page, size);
+
 		return ResponseEntity.ok(response);
 	}
 
