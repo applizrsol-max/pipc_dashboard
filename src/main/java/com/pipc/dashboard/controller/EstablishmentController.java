@@ -1,6 +1,7 @@
 package com.pipc.dashboard.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -12,12 +13,16 @@ import org.springframework.web.bind.annotation.RestController;
 import com.pipc.dashboard.business.EstablishmentBusiness;
 import com.pipc.dashboard.establishment.request.AppealRequest;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
+import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
+import com.pipc.dashboard.establishment.request.PassportNocRequest;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
+import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
 import com.pipc.dashboard.establishment.response.LeaveResponse;
 import com.pipc.dashboard.establishment.response.MedicalBillResponse;
+import com.pipc.dashboard.establishment.response.PassportNocResponse;
 
 @RestController
 @RequestMapping("/pipc/dashboard/establishment")
@@ -81,6 +86,33 @@ public class EstablishmentController {
 				page, size);
 
 		return ResponseEntity.ok(response);
+	}
+
+	@PostMapping("/saveOrUpdateIncomeTaxDeduc")
+	public IncomeTaxDeductionResponse saveOrUpdateIncomeTaxDeduc(@RequestBody IncomeTaxDeductionRequest request) {
+		return establishmentBusiness.saveOrUpdateIncomeTaxDeduc(request);
+	}
+
+	@GetMapping("/getIncomeTaxDeductionData")
+	public ResponseEntity<Page<IncomeTaxDeductionResponse>> getIncomeTaxDeductionData(@RequestParam String year,
+			@RequestParam(required = false, defaultValue = "") String month, @RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size) {
+
+		Page<IncomeTaxDeductionResponse> data = establishmentBusiness.getIncomeTaxDeductionData(year, month, page,
+				size);
+		return ResponseEntity.ok(data);
+	}
+
+	@PostMapping("/saveOrUpdatePassportNoc")
+	public PassportNocResponse saveOrUpdatePassportNoc(@RequestBody PassportNocRequest request) {
+		return establishmentBusiness.saveOrUpdatePassportNoc(request);
+	}
+
+	@GetMapping("/getPassportNocData")
+	public Page<PassportNocResponse> getPassportNocData(@RequestParam(required = false) String year,
+			@RequestParam(required = false) String month, @RequestParam(required = false) String employeeName,
+			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+		return establishmentBusiness.getPassportNocData(year, month, employeeName, page, size);
 	}
 
 }

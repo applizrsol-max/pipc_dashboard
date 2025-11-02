@@ -1,5 +1,6 @@
 package com.pipc.dashboard.serviceimpl;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -11,6 +12,7 @@ import java.util.Optional;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -28,12 +30,16 @@ import com.pipc.dashboard.establishment.repository.EmployeeDetailsEntity;
 import com.pipc.dashboard.establishment.repository.EmployeeDetailsRepository;
 import com.pipc.dashboard.establishment.repository.EmployeePostingEntity;
 import com.pipc.dashboard.establishment.repository.EmployeePostingRepository;
+import com.pipc.dashboard.establishment.repository.IncomeTaxDeductionEntity;
+import com.pipc.dashboard.establishment.repository.IncomeTaxDeductionRepository;
 import com.pipc.dashboard.establishment.repository.KharchaTapsilEntity;
 import com.pipc.dashboard.establishment.repository.KharchaTapsilRepository;
 import com.pipc.dashboard.establishment.repository.LeaveEntity;
 import com.pipc.dashboard.establishment.repository.LeaveRepository;
 import com.pipc.dashboard.establishment.repository.MedicalBillMasterEntity;
 import com.pipc.dashboard.establishment.repository.MedicalBillMasterRepository;
+import com.pipc.dashboard.establishment.repository.PassportNocEntity;
+import com.pipc.dashboard.establishment.repository.PassportNocRepository;
 import com.pipc.dashboard.establishment.repository.ReferenceEntity;
 import com.pipc.dashboard.establishment.repository.ReferenceRepository;
 import com.pipc.dashboard.establishment.repository.VaidyakExcludedDetailsEntity;
@@ -45,13 +51,17 @@ import com.pipc.dashboard.establishment.repository.VastavyaDetailsEntity;
 import com.pipc.dashboard.establishment.repository.VastavyaDetailsRepository;
 import com.pipc.dashboard.establishment.request.AppealRequest;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
+import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillData;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
+import com.pipc.dashboard.establishment.request.PassportNocRequest;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
+import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
 import com.pipc.dashboard.establishment.response.LeaveResponse;
 import com.pipc.dashboard.establishment.response.MedicalBillResponse;
+import com.pipc.dashboard.establishment.response.PassportNocResponse;
 import com.pipc.dashboard.service.EstablishmentService;
 import com.pipc.dashboard.utility.ApplicationError;
 
@@ -73,6 +83,8 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	private final LeaveRepository leaveRepository;
 	private final AppealRepository appealRepository;
 	private final EmployeePostingRepository employeePostingRepository;
+	private final IncomeTaxDeductionRepository incomeTaxDeductionRepository;
+	private final PassportNocRepository passportNocRepository;
 
 	@Autowired
 	private ObjectMapper objectMapper;
@@ -82,7 +94,8 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 			EmployeeDetailsRepository empRepo, ApprovalDetailsRepository apprRepo, KharchaTapsilRepository kharchaRepo,
 			VaidyakKharchaParigananaRepository vaidyaRepo, VaidyakTapshilRepository tapshilRepo,
 			VastavyaDetailsRepository vastavyaRepo, LeaveRepository leaveRepository, AppealRepository appealRepository,
-			EmployeePostingRepository employeePostingRepository) {
+			EmployeePostingRepository employeePostingRepository,
+			IncomeTaxDeductionRepository incomeTaxDeductionRepository, PassportNocRepository passportNocRepository) {
 		this.apprRepo = apprRepo;
 		this.empRepo = empRepo;
 		this.kharchaRepo = kharchaRepo;
@@ -94,6 +107,8 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		this.leaveRepository = leaveRepository;
 		this.appealRepository = appealRepository;
 		this.employeePostingRepository = employeePostingRepository;
+		this.incomeTaxDeductionRepository = incomeTaxDeductionRepository;
+		this.passportNocRepository = passportNocRepository;
 	}
 
 	@Override
@@ -890,4 +905,319 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		response.setErrorDetails(error);
 		return response;
 	}
+
+	@Override
+	public IncomeTaxDeductionResponse saveOrUpdateIncomeTaxDeduc(IncomeTaxDeductionRequest request) {
+		IncomeTaxDeductionResponse response = new IncomeTaxDeductionResponse();
+		ApplicationError error = new ApplicationError();
+		response.setData(new ArrayList<>());
+
+		try {
+			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+			LocalDateTime now = LocalDateTime.now();
+
+			for (Map<String, Object> row : request.getData()) {
+				Long rowId = ((Number) row.get("rowId")).longValue();
+				String flag = (String) row.getOrDefault("flag", "");
+
+				Optional<IncomeTaxDeductionEntity> existingOpt = incomeTaxDeductionRepository.findByRowId(rowId);
+
+				// 🗑️ DELETE case
+				if ("D".equalsIgnoreCase(flag)) {
+					existingOpt.ifPresent(incomeTaxDeductionRepository::delete);
+					continue;
+				}
+
+				IncomeTaxDeductionEntity entity = existingOpt.orElse(new IncomeTaxDeductionEntity());
+
+				// Detect CREATE / UPDATE
+				String detectedFlag = existingOpt.isPresent() ? "U" : "C";
+				entity.setFlag(detectedFlag);
+
+				// Map static fields
+				entity.setRowId(rowId);
+				entity.setYear(request.getYear());
+				entity.setMonth(request.getMonth());
+				entity.setSrNo((Integer) row.get("srNo"));
+				entity.setNameAndDesignation((String) row.get("nameAndDesignation"));
+
+				if (row.get("amountOfIncomeTaxDeducted") != null) {
+					entity.setAmountOfIncomeTaxDeducted(
+							new java.math.BigDecimal(row.get("amountOfIncomeTaxDeducted").toString()));
+				}
+
+				entity.setRemarks((String) row.get("remarks"));
+
+				// Detect dynamic keys
+				Map<String, Object> dynamic = new LinkedHashMap<>();
+				for (Map.Entry<String, Object> entry : row.entrySet()) {
+					String key = entry.getKey();
+					if (!List.of("rowId", "srNo", "nameAndDesignation", "amountOfIncomeTaxDeducted", "remarks", "flag")
+							.contains(key)) {
+						dynamic.put(key, entry.getValue());
+					}
+				}
+
+				JsonNode dynamicJson = objectMapper.convertValue(dynamic, JsonNode.class);
+				entity.setDynamicColumns(dynamicJson);
+
+				// Audit fields
+				if (entity.getId() == null) {
+					entity.setCreatedBy(username);
+					entity.setCreatedDate(now);
+					entity.setUpdatedBy(username);
+					entity.setUpdatedDate(now);
+				} else {
+					entity.setUpdatedBy(username);
+					entity.setUpdatedDate(now);
+				}
+
+				incomeTaxDeductionRepository.save(entity);
+			}
+
+			response.setMessage("Income Tax data saved/updated successfully.");
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+		} catch (Exception e) {
+			log.error("Error saving IncomeTax data: {}", e.getMessage(), e);
+			response.setMessage("Error while saving data.");
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+		}
+
+		response.setErrorDetails(error);
+		return response;
+	}
+
+	@Override
+	public Page<IncomeTaxDeductionResponse> getIncomeTaxDeductionData(String year, String month, int page, int size) {
+		Pageable pageable = PageRequest.of(page, size, Sort.by("rowId").ascending());
+		List<IncomeTaxDeductionResponse> responseList = new ArrayList<>();
+		ApplicationError error = new ApplicationError();
+
+		try {
+			Page<IncomeTaxDeductionEntity> entities;
+
+			// 🧠 Dynamic filtering logic
+			if ((year == null || year.isBlank()) && (month == null || month.isBlank())) {
+				entities = incomeTaxDeductionRepository.findAll(pageable);
+			} else if (year != null && (month == null || month.isBlank())) {
+				entities = incomeTaxDeductionRepository.findByYear(year, pageable);
+			} else if ((year == null || year.isBlank()) && month != null) {
+				entities = incomeTaxDeductionRepository.findByMonthContainingIgnoreCase(month, pageable);
+			} else {
+				entities = incomeTaxDeductionRepository.findByYearAndMonthContainingIgnoreCase(year, month, pageable);
+			}
+
+			for (IncomeTaxDeductionEntity e : entities.getContent()) {
+				Map<String, Object> map = new LinkedHashMap<>();
+
+				map.put("rowId", e.getRowId());
+				map.put("year", e.getYear());
+				map.put("month", e.getMonth());
+				map.put("flag", e.getFlag());
+				map.put("srNo", e.getSrNo());
+				map.put("nameAndDesignation", e.getNameAndDesignation());
+				map.put("amountOfIncomeTaxDeducted", e.getAmountOfIncomeTaxDeducted());
+				map.put("remarks", e.getRemarks());
+
+				// ✅ Include dynamic columns (if present)
+				if (e.getDynamicColumns() != null) {
+					e.getDynamicColumns().fields().forEachRemaining(entry -> {
+						map.put(entry.getKey(), entry.getValue().asText());
+					});
+				}
+
+				map.put("createdBy", e.getCreatedBy());
+				map.put("createdDate", e.getCreatedDate());
+				map.put("updatedBy", e.getUpdatedBy());
+				map.put("updatedDate", e.getUpdatedDate());
+
+				IncomeTaxDeductionResponse response = new IncomeTaxDeductionResponse();
+				error.setErrorCode("200");
+				error.setErrorDescription("SUCCESS");
+				response.setMessage("Fetched successfully");
+				response.setErrorDetails(error);
+				response.setData(List.of(map));
+
+				responseList.add(response);
+			}
+
+			return new PageImpl<>(responseList, pageable, entities.getTotalElements());
+
+		} catch (Exception ex) {
+			IncomeTaxDeductionResponse errorResponse = new IncomeTaxDeductionResponse();
+
+			errorResponse.setMessage("Error occurred while fetching data");
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+			errorResponse.setErrorDetails(error);
+			errorResponse.setData(null);
+
+			return new PageImpl<>(List.of(errorResponse), pageable, 0);
+		}
+	}
+
+	@Override
+	public PassportNocResponse saveOrUpdatePassportNoc(PassportNocRequest dto) {
+		PassportNocResponse response = new PassportNocResponse();
+		ApplicationError error = new ApplicationError();
+		response.setData(new ArrayList<>());
+
+		try {
+			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+			String flag = Optional.ofNullable(dto.getFlag()).map(String::toUpperCase).orElse("C");
+
+			Optional<PassportNocEntity> existingOpt = passportNocRepository.findByRowId(dto.getRowId());
+
+			// 🗑 DELETE logic
+			if ("D".equals(flag)) {
+				if (existingOpt.isPresent()) {
+					passportNocRepository.delete(existingOpt.get());
+					response.setMessage("Record deleted successfully.");
+					error.setErrorCode("200");
+					error.setErrorDescription("Success");
+				} else {
+					response.setMessage("No record found to delete with rowId: " + dto.getRowId());
+					error.setErrorCode("404");
+					error.setErrorDescription("Not Found");
+				}
+				response.setErrorDetails(error);
+				return response;
+			}
+
+			// 📝 CREATE / UPDATE logic
+			PassportNocEntity entity = existingOpt.orElse(new PassportNocEntity());
+			LocalDateTime now = LocalDateTime.now();
+
+			entity.setRowId(dto.getRowId());
+			entity.setYear(dto.getYear());
+			entity.setMonth(dto.getMonth());
+			entity.setDate(LocalDate.parse(dto.getDate()));
+
+			// ✅ Assign JSONs
+			entity.setNoObjectionCertificate(dto.getNoObjectionCertificate());
+			entity.setIdentityConfirmation(dto.getIdentityConfirmation());
+			entity.setDynamicColumns(dto.getDynamicColumns());
+
+			// ✅ Extract employeeName (if present inside JSON)
+			String empName = null;
+			if (dto.getNoObjectionCertificate() != null && dto.getNoObjectionCertificate().has("employeeName")) {
+				empName = dto.getNoObjectionCertificate().get("employeeName").asText();
+			} else if (dto.getIdentityConfirmation() != null && dto.getIdentityConfirmation().has("employeeName")) {
+				empName = dto.getIdentityConfirmation().get("employeeName").asText();
+			}
+			entity.setEmployeeName(empName);
+
+			// ✅ Detect CREATE or UPDATE automatically
+			if (entity.getId() == null) {
+				flag = "C";
+				entity.setCreatedBy(username);
+				entity.setCreatedDate(now);
+				entity.setUpdatedBy(username);
+				entity.setUpdatedDate(now);
+			} else {
+				flag = "U";
+				if (entity.getCreatedBy() == null)
+					entity.setCreatedBy(username);
+				if (entity.getCreatedDate() == null)
+					entity.setCreatedDate(now);
+				entity.setUpdatedBy(username);
+				entity.setUpdatedDate(now);
+			}
+
+			entity.setFlag(flag);
+			PassportNocEntity saved = passportNocRepository.save(entity);
+
+			Map<String, Object> result = new LinkedHashMap<>();
+			result.put("rowId", saved.getRowId());
+			result.put("year", saved.getYear());
+			result.put("month", saved.getMonth());
+			result.put("employeeName", saved.getEmployeeName());
+			result.put("flag", saved.getFlag());
+			result.put("createdBy", saved.getCreatedBy());
+			result.put("createdDate", saved.getCreatedDate());
+			result.put("updatedBy", saved.getUpdatedBy());
+			result.put("updatedDate", saved.getUpdatedDate());
+
+			response.getData().add(result);
+			response.setMessage(flag.equals("U") ? "Record updated successfully." : "Record created successfully.");
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+
+		} catch (Exception e) {
+			log.error("Error in saveOrUpdatePassportNoc: {}", e.getMessage(), e);
+			response.setMessage("Error while saving passport NOC data.");
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+		}
+
+		response.setErrorDetails(error);
+		return response;
+	}
+
+	@Override
+	public Page<PassportNocResponse> getPassportNocData(String year, String month, String employeeName, int page,
+			int size) {
+		Pageable pageable = PageRequest.of(page, size, Sort.by("rowId").ascending());
+		ApplicationError error = new ApplicationError();
+
+		try {
+			// Default empty filter handling
+			String filterYear = (year != null && !year.isBlank()) ? year : "";
+			String filterMonth = (month != null && !month.isBlank()) ? month : "";
+			String filterName = (employeeName != null && !employeeName.isBlank()) ? employeeName : "";
+
+			Page<PassportNocEntity> entities = passportNocRepository
+					.findByYearContainingIgnoreCaseAndMonthContainingIgnoreCaseAndEmployeeNameContainingIgnoreCase(
+							filterYear, filterMonth, filterName, pageable);
+
+			List<Map<String, Object>> resultList = new ArrayList<>();
+
+			for (PassportNocEntity e : entities.getContent()) {
+				Map<String, Object> map = new LinkedHashMap<>();
+				map.put("rowId", e.getRowId());
+				map.put("year", e.getYear());
+				map.put("month", e.getMonth());
+				map.put("date", e.getDate());
+				map.put("flag", e.getFlag());
+				map.put("employeeName", e.getEmployeeName());
+				map.put("noObjectionCertificate", e.getNoObjectionCertificate());
+				map.put("identityConfirmation", e.getIdentityConfirmation());
+
+				// ✅ Add dynamic columns if any
+				if (e.getDynamicColumns() != null) {
+					e.getDynamicColumns().fields().forEachRemaining(entry -> {
+						map.put(entry.getKey(), entry.getValue().asText());
+					});
+				}
+
+				map.put("createdBy", e.getCreatedBy());
+				map.put("createdDate", e.getCreatedDate());
+				map.put("updatedBy", e.getUpdatedBy());
+				map.put("updatedDate", e.getUpdatedDate());
+
+				resultList.add(map);
+			}
+
+			PassportNocResponse response = new PassportNocResponse();
+			response.setMessage("Fetched successfully");
+			response.setData(resultList);
+
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+			return new PageImpl<>(List.of(response), pageable, entities.getTotalElements());
+
+		} catch (Exception e) {
+			PassportNocResponse response = new PassportNocResponse();
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+			response.setMessage("Error while fetching passport NOC data");
+			response.setErrorDetails(error);
+			return new PageImpl<>(List.of(response), pageable, 0);
+		}
+	}
+
 }
