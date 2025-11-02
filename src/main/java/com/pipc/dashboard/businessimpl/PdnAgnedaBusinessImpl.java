@@ -1,6 +1,10 @@
 package com.pipc.dashboard.businessimpl;
 
+import java.io.IOException;
+
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import com.pipc.dashboard.business.PdnAgendaBusiness;
@@ -41,6 +45,11 @@ public class PdnAgnedaBusinessImpl implements PdnAgendaBusiness {
 	@Override
 	public Page<NrldEntity> getNrldByYear(String year, String damName, int page, int size) {
 		return pdnAgendaService.getNrldByYear(year, damName, page, size);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> generateNrldExcel(String year) throws IOException {
+		return pdnAgendaService.generateNrldExcel(year);
 	}
 
 }

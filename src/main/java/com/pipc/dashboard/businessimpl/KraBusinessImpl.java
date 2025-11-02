@@ -1,5 +1,8 @@
 package com.pipc.dashboard.businessimpl;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+
 import org.springframework.stereotype.Component;
 
 import com.pipc.dashboard.business.KraBusiness;
@@ -24,6 +27,11 @@ public class KraBusinessImpl implements KraBusiness {
 	@Override
 	public KraResponse getKraByPeriod(String kraPeriod, int page, int size) {
 		return kraService.getKraByPeriod(kraPeriod, page, size);
+	}
+
+	@Override
+	public ByteArrayInputStream generateKraExcel(String kraPeriod) throws IOException {
+		return kraService.generateKraExcel(kraPeriod);
 	}
 
 }

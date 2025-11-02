@@ -1,5 +1,6 @@
 package com.pipc.dashboard.pdn.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -13,5 +14,7 @@ public interface KraRepository extends JpaRepository<KraEntity, Long> {
 	Optional<KraEntity> findByKraPeriodAndRowId(String kraPeriod, Integer rowId);
 
 	Page<KraEntity> findByKraPeriod(String kraPeriod, Pageable pageable);
+
+	List<KraEntity> findByKraPeriod(String kraPeriod);
 
 }

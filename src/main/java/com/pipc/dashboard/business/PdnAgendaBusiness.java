@@ -1,6 +1,10 @@
 package com.pipc.dashboard.business;
 
+import java.io.IOException;
+
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
 
 import com.pipc.dashboard.pdn.repository.NrldEntity;
 import com.pipc.dashboard.pdn.repository.PdnAgendaEntity;
@@ -18,5 +22,7 @@ public interface PdnAgendaBusiness {
 	Page<PdnAgendaEntity> getPDNAgenda(String projectYear, String projectName, int page, int size);
 
 	Page<NrldEntity> getNrldByYear(String year, String damName, int page, int size);
+
+	ResponseEntity<InputStreamResource> generateNrldExcel(String year) throws IOException;
 
 }

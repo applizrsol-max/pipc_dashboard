@@ -2,7 +2,9 @@ package com.pipc.dashboard.controller;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -52,5 +54,10 @@ public class PdnAgendaNrldController {
 			@RequestParam(defaultValue = "10") int size, @RequestParam(required = false) String damName) {
 
 		return pdnAgendaBusiness.getNrldByYear(year, damName, page, size);
+	}
+
+	@GetMapping("/downloadNrldData")
+	public ResponseEntity<InputStreamResource> downloadNrldExcel(@RequestParam String year) throws Exception {
+		return pdnAgendaBusiness.generateNrldExcel(year);
 	}
 }

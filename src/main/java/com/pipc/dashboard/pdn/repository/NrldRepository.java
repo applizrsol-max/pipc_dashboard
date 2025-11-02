@@ -1,5 +1,6 @@
 package com.pipc.dashboard.pdn.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -13,4 +14,6 @@ public interface NrldRepository extends JpaRepository<NrldEntity, Long>{
 	Page<NrldEntity> findByYear(String year, Pageable pageable);
 
     Page<NrldEntity> findByYearAndDamNameContainingIgnoreCase(String year, String damName, Pageable pageable);
+
+	List<NrldEntity> findByYear(String year);
 }
