@@ -52,4 +52,9 @@ public class PdnAgnedaBusinessImpl implements PdnAgendaBusiness {
 		return pdnAgendaService.generateNrldExcel(year);
 	}
 
+	@Override
+	public ResponseEntity<InputStreamResource> downloadPdnAgendaData(String year) throws IOException {
+		return pdnAgendaService.downloadPdnAgendaData(year);
+	}
+
 }

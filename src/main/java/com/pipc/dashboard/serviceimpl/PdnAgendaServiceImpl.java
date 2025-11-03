@@ -6,8 +6,11 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
@@ -18,6 +21,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.MDC;
 import org.springframework.core.io.InputStreamResource;
@@ -379,6 +383,121 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 
 			String filename = "NRLD-" + year + ".xlsx";
 
+			return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
+					.contentType(MediaType
+							.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+					.body(new InputStreamResource(in));
+		}
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadPdnAgendaData(String year) throws IOException {
+		List<PdnAgendaEntity> records = pdnAgnedaRepo.findBySubmissionYear(year);
+
+		if (records == null || records.isEmpty()) {
+			throw new IllegalArgumentException("No agenda records found for year: " + year);
+		}
+
+		try (Workbook workbook = new XSSFWorkbook()) {
+			Sheet sheet = workbook.createSheet("PDN Agenda " + year);
+
+			// ===== Styles =====
+			Font boldFont = workbook.createFont();
+			boldFont.setBold(true);
+			boldFont.setFontHeightInPoints((short) 12);
+
+			CellStyle boldCenter = workbook.createCellStyle();
+			boldCenter.setFont(boldFont);
+			boldCenter.setAlignment(HorizontalAlignment.CENTER);
+			boldCenter.setVerticalAlignment(VerticalAlignment.CENTER);
+			boldCenter.setWrapText(true);
+			boldCenter.setBorderBottom(BorderStyle.THIN);
+			boldCenter.setBorderTop(BorderStyle.THIN);
+			boldCenter.setBorderLeft(BorderStyle.THIN);
+			boldCenter.setBorderRight(BorderStyle.THIN);
+
+			CellStyle normalCell = workbook.createCellStyle();
+			normalCell.setAlignment(HorizontalAlignment.LEFT);
+			normalCell.setVerticalAlignment(VerticalAlignment.CENTER);
+			normalCell.setWrapText(true);
+			normalCell.setBorderBottom(BorderStyle.THIN);
+			normalCell.setBorderTop(BorderStyle.THIN);
+			normalCell.setBorderLeft(BorderStyle.THIN);
+			normalCell.setBorderRight(BorderStyle.THIN);
+
+			// ===== Title Row =====
+			int rowIndex = 0;
+			Row titleRow = sheet.createRow(rowIndex++);
+			sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 3));
+			Cell titleCell = titleRow.createCell(0);
+			titleCell.setCellValue("Agenda points for the meeting with Dam Owners.");
+			titleCell.setCellStyle(boldCenter);
+
+			// ===== Header Row =====
+			String[] headers = { "Sr No", "Points", "Name Of Dams", "Remarks" };
+			Row headerRow = sheet.createRow(rowIndex++);
+			for (int i = 0; i < headers.length; i++) {
+				Cell cell = headerRow.createCell(i);
+				cell.setCellValue(headers[i]);
+				cell.setCellStyle(boldCenter);
+				sheet.setColumnWidth(i, 8000);
+			}
+
+			// ===== Group Data by SrNo =====
+			Map<Integer, List<PdnAgendaEntity>> grouped = records.stream()
+					.collect(Collectors.groupingBy(PdnAgendaEntity::getSrNo, LinkedHashMap::new, Collectors.toList()));
+
+			// ===== Data Rows =====
+			for (Map.Entry<Integer, List<PdnAgendaEntity>> entry : grouped.entrySet()) {
+				int srNo = entry.getKey();
+				List<PdnAgendaEntity> groupList = entry.getValue();
+
+				int startRow = rowIndex;
+				for (PdnAgendaEntity entity : groupList) {
+					Row row = sheet.createRow(rowIndex++);
+					JsonNode data = entity.getColumnData();
+
+					// Sr.No.
+					Cell srCell = row.createCell(0);
+					srCell.setCellValue(srNo);
+					srCell.setCellStyle(normalCell);
+
+					// Points
+					Cell pointCell = row.createCell(1);
+					pointCell.setCellValue(entity.getPointOfAgenda() != null ? entity.getPointOfAgenda() : "");
+					pointCell.setCellStyle(normalCell);
+
+					// Name Of Dam
+					Cell nameCell = row.createCell(2);
+					String damName = data.has("NameOfDam") ? data.get("NameOfDam").asText() : "";
+					nameCell.setCellValue(damName);
+					nameCell.setCellStyle(normalCell);
+
+					// Remarks
+					Cell remarkCell = row.createCell(3);
+					String remarks = data.has("Remarks") ? data.get("Remarks").asText() : "";
+					remarkCell.setCellValue(remarks);
+					remarkCell.setCellStyle(normalCell);
+				}
+
+				// Merge Sr.No. and Points columns vertically
+				if (groupList.size() > 1) {
+					int endRow = startRow + groupList.size() - 1;
+					sheet.addMergedRegion(new CellRangeAddress(startRow, endRow, 0, 0)); // Sr.No.
+					sheet.addMergedRegion(new CellRangeAddress(startRow, endRow, 1, 1)); // Points
+				}
+			}
+
+			// ===== Final Formatting =====
+			sheet.setZoom(100); // same look as 637x956 example
+			sheet.setDefaultRowHeightInPoints(22);
+
+			// ===== Write to stream =====
+			ByteArrayOutputStream out = new ByteArrayOutputStream();
+			workbook.write(out);
+			ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+
+			String filename = "PDN-Agenda-" + year + ".xlsx";
 			return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
 					.contentType(MediaType
 							.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))

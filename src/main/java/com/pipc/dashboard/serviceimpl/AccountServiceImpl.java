@@ -3,23 +3,32 @@ package com.pipc.dashboard.serviceimpl;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
-import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.MDC;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -31,8 +40,6 @@ import com.pipc.dashboard.accounts.response.AccountsResponse;
 import com.pipc.dashboard.service.AcountService;
 import com.pipc.dashboard.utility.ApplicationError;
 import com.pipc.dashboard.utility.JsonUtils;
-
-import jakarta.transaction.Transactional;
 
 @Service
 @Transactional
@@ -147,120 +154,216 @@ public class AccountServiceImpl implements AcountService {
 
 	@Override
 	public ByteArrayInputStream generateMarathiExcelForYear(String year) throws IOException {
-		try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
-			Sheet sheet = workbook.createSheet("PIPC " + year);
-			int rowIdx = 0;
+	@Override
+	@Transactional(readOnly = true)
+	public ResponseEntity<InputStreamResource> downloadAccountsReport(String year) throws IOException {
 
-			// ------------------ Styles ------------------
-			CellStyle boldStyle = workbook.createCellStyle();
-			Font boldFont = workbook.createFont();
+		List<AccountsEntity> allForYear = accountRepo.findByProjectYear(year);
+		if (allForYear == null || allForYear.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+		}
+
+		List<AccountsEntity> regular = allForYear.stream().filter(e -> "R".equalsIgnoreCase(e.getRecordType()))
+				.collect(Collectors.toList());
+
+		Map<String, List<AccountsEntity>> grouped = regular.stream().collect(
+				Collectors.groupingBy(AccountsEntity::getCategoryName, LinkedHashMap::new, Collectors.toList()));
+
+		try (Workbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+
+			Sheet sheet = wb.createSheet("Accounts-" + year);
+
+			Font titleFont = wb.createFont();
+			titleFont.setFontName("Mangal");
+			titleFont.setBold(true);
+			titleFont.setFontHeightInPoints((short) 12);
+
+			Font boldFont = wb.createFont();
+			boldFont.setFontName("Mangal");
 			boldFont.setBold(true);
-			boldStyle.setFont(boldFont);
+			boldFont.setFontHeightInPoints((short) 11);
 
-			CellStyle categoryStyle = workbook.createCellStyle();
-			categoryStyle.setAlignment(HorizontalAlignment.CENTER);
-			Font categoryFont = workbook.createFont();
-			categoryFont.setBold(true);
-			categoryStyle.setFont(categoryFont);
+			Font normalFont = wb.createFont();
+			normalFont.setFontName("Mangal");
+			normalFont.setFontHeightInPoints((short) 10);
 
-			// ------------------ Title ------------------
-			Row titleRow = sheet.createRow(rowIdx++);
+			// === Styles ===
+			CellStyle titleCenter = wb.createCellStyle();
+			titleCenter.setFont(titleFont);
+			titleCenter.setAlignment(HorizontalAlignment.CENTER);
+			titleCenter.setVerticalAlignment(VerticalAlignment.CENTER);
+
+			CellStyle sectionHeader = wb.createCellStyle();
+			sectionHeader.setFont(boldFont);
+			sectionHeader.setAlignment(HorizontalAlignment.CENTER);
+			sectionHeader.setVerticalAlignment(VerticalAlignment.CENTER);
+
+			CellStyle tableHeader = wb.createCellStyle();
+			tableHeader.setFont(boldFont);
+			tableHeader.setAlignment(HorizontalAlignment.CENTER);
+			tableHeader.setVerticalAlignment(VerticalAlignment.CENTER);
+			tableHeader.setWrapText(true);
+			tableHeader.setBorderTop(BorderStyle.THIN);
+			tableHeader.setBorderBottom(BorderStyle.THIN);
+			tableHeader.setBorderLeft(BorderStyle.THIN);
+			tableHeader.setBorderRight(BorderStyle.THIN);
+
+			CellStyle dataCell = wb.createCellStyle();
+			dataCell.setFont(normalFont);
+			dataCell.setVerticalAlignment(VerticalAlignment.CENTER);
+			dataCell.setBorderTop(BorderStyle.THIN);
+			dataCell.setBorderBottom(BorderStyle.THIN);
+			dataCell.setBorderLeft(BorderStyle.THIN);
+			dataCell.setBorderRight(BorderStyle.THIN);
+
+			CellStyle sumRowStyle = wb.createCellStyle();
+			sumRowStyle.cloneStyleFrom(dataCell);
+			sumRowStyle.setFont(boldFont);
+			sumRowStyle.setAlignment(HorizontalAlignment.RIGHT);
+
+			int rowNum = 0;
+
+			// === Title ===
+			Row titleRow = sheet.createRow(rowNum++);
 			Cell titleCell = titleRow.createCell(0);
 			titleCell.setCellValue("महाराष्ट्र कृष्णा खोरे विकास महामंडळ, पुणे");
-			titleCell.setCellStyle(boldStyle);
+			titleCell.setCellStyle(titleCenter);
 			sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 11));
 
-			Row subTitleRow = sheet.createRow(rowIdx++);
-			subTitleRow.createCell(0).setCellValue("सन " + year + " आर्थिक वर्षातील तरतूद व खर्चाची माहिती");
+			Row sub = sheet.createRow(rowNum++);
+			Cell c1 = sub.createCell(0);
+			c1.setCellValue("सन " + year + " आर्थिक वर्षामधील प्रकल्पनिहाय तरतूद माहिती. (रु.कोटी)");
+			c1.setCellStyle(titleCenter);
 			sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 11));
 
-			rowIdx++;
+			rowNum++;
 
-			// ------------------ Header ------------------
-			String[] columns = { "अ. क्र.", "प्रकल्पाचे नाव", "जिल्हा", "प्रकल्पाची मंजूर प्रशासकीय किंमत",
-					"प्रकल्पाच्या खात्यात आजपर्यंतचा खर्च", "उर्वरित किंमत", "सन २०२५-२६ मध्ये अर्थसंकल्पीय तरतूद",
-					"सन २०२५-२६ मध्ये तरतुदीवरून प्राप्त निधी", "सन २०२५-२६ मध्ये प्राप्त निधीमधून झालेला खर्च",
-					"सन २०२५-२६ मध्ये शिल्लक निधी", "सन २०२५-२६ मध्ये शिल्लक निधीवरून शिल्लक तरतूद", "शेरा" };
+			// === Table Header ===
+			String[] tableCols = { "अ.क्र.", "प्रकल्पाचे नांव", "जिल्हा", "प्रकल्पाची मंजूर प्रमा/सुप्रमा किंमत",
+					"प्रकल्पावर झालेला अद्यावत खर्च", "प्रकल्पाची उर्वरित किंमत",
+					"सन " + year + " ची अर्थसंकल्पीत तरतूद", "सन " + year + " चे तरतूदीमधून प्राप्त निधी",
+					"सन " + year + " च्या प्राप्त निधीमधून झालेला खर्च", "सन " + year + " मधील प्राप्त निधीमधून शिल्लक",
+					"सन " + year + " मधील शिल्लक निधी/तरतूद", "शेरा" };
 
-			Row headerRow = sheet.createRow(rowIdx++);
-			for (int i = 0; i < columns.length; i++) {
-				Cell cell = headerRow.createCell(i);
-				cell.setCellValue(columns[i]);
-				cell.setCellStyle(boldStyle);
+			Row headerRow = sheet.createRow(rowNum++);
+			for (int i = 0; i < tableCols.length; i++) {
+				Cell h = headerRow.createCell(i);
+				h.setCellValue(tableCols[i]);
+				h.setCellStyle(tableHeader);
+				sheet.setColumnWidth(i, 4500);
 			}
 
-			// Set reasonable column widths
-			for (int i = 0; i < columns.length; i++) {
-				sheet.setColumnWidth(i, 20 * 256); // 20 chars wide
+			Row numberRow = sheet.createRow(rowNum++);
+			for (int i = 0; i < tableCols.length; i++) {
+				Cell numCell = numberRow.createCell(i);
+				numCell.setCellValue(i + 1);
+				numCell.setCellStyle(tableHeader);
 			}
 
-			// ------------------ Data ------------------
-			List<AccountsEntity> entities = accountRepo.findByProjectYear(year);
+			int serial = 1;
+			double[] overallTotals = new double[8];
 
-			// Define category keys in order
-			Map<String, String> categories = Map.of("majorProjects", "मोठे प्रकल्प - लेखाशिर्ष 4700 0096",
-					"expansionAndImprovement", "विस्तार व सुधारणा प्रकल्प", "damSafety", "सिंचन व धरण सुरक्षा प्रकल्प",
-					"mediumProjects", "मध्यम प्रकल्प", "pmksy", "PMKSY प्रकल्प", "pmksyCADA", "PMKSY CADA प्रकल्प");
+			// === Category-wise Loop ===
+			for (Map.Entry<String, List<AccountsEntity>> entry : grouped.entrySet()) {
+				String category = entry.getKey();
+				List<AccountsEntity> list = entry.getValue();
 
-			int srNo = 1;
+				Row catRow = sheet.createRow(rowNum++);
+				Cell catCell = catRow.createCell(0);
+				catCell.setCellValue(CATEGORY_DISPLAY.getOrDefault(category, category));
+				catCell.setCellStyle(sectionHeader);
+				sheet.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 11));
 
-			for (Map.Entry<String, String> categoryEntry : categories.entrySet()) {
-				String categoryKey = categoryEntry.getKey();
-				String categoryName = categoryEntry.getValue();
+				double[] categorySum = new double[8];
 
-				// Category header
-				Row categoryRow = sheet.createRow(rowIdx++);
-				Cell categoryCell = categoryRow.createCell(0);
-				categoryCell.setCellValue(categoryName);
-				categoryCell.setCellStyle(categoryStyle);
-				sheet.addMergedRegion(
-						new CellRangeAddress(categoryRow.getRowNum(), categoryRow.getRowNum(), 0, columns.length - 1));
+				for (AccountsEntity e : list) {
+					JsonNode d = e.getAccountsData();
+					Row r = sheet.createRow(rowNum++);
+					int c = 0;
 
-				int startRow = rowIdx + 1; // Start of data rows for this category
+					r.createCell(c).setCellValue(serial++);
+					r.getCell(c++).setCellStyle(dataCell);
 
-				// Add rows for each entity in this category
-				for (AccountsEntity entity : entities) {
-					JsonNode reportsNode = entity.getAccountsData().get("reports");
-					if (reportsNode != null && reportsNode.has(categoryKey)) {
-						JsonNode categoryArray = reportsNode.get(categoryKey);
-						for (JsonNode project : categoryArray) {
-							Row row = sheet.createRow(rowIdx++);
-							row.createCell(0).setCellValue(srNo++);
-							row.createCell(1).setCellValue(project.path("projectName").asText(""));
-							row.createCell(2).setCellValue(project.path("district").asText(""));
-							row.createCell(3).setCellValue(project.path("sanctionedCost").asDouble(0));
-							row.createCell(4).setCellValue(project.path("expenditureTillNow").asDouble(0));
-							row.createCell(5).setCellValue(project.path("remainingCost").asDouble(0));
-							row.createCell(6).setCellValue(project.path("budget2025_26").asDouble(0));
-							row.createCell(7).setCellValue(project.path("fundReceived2025_26").asDouble(0));
-							row.createCell(8).setCellValue(project.path("expenditure2025_26").asDouble(0));
-							row.createCell(9).setCellValue(project.path("balanceFund2025_26").asDouble(0));
-							row.createCell(10).setCellValue(project.path("balanceProvision2025_26").asDouble(0));
-							row.createCell(11).setCellValue(project.path("remarks").asText(""));
-						}
+					r.createCell(c).setCellValue(d.path("projectName").asText(""));
+					r.getCell(c++).setCellStyle(dataCell);
+
+					r.createCell(c).setCellValue(d.path("district").asText(""));
+					r.getCell(c++).setCellStyle(dataCell);
+
+					double[] vals = { d.path("sanctionedCost").asDouble(0), d.path("expenditureTillNow").asDouble(0),
+							d.path("remainingCost").asDouble(0), d.path("budget2025_26").asDouble(0),
+							d.path("fundReceived2025_26").asDouble(0), d.path("expenditure2025_26").asDouble(0),
+							d.path("balanceFund2025_26").asDouble(0), d.path("balanceProvision2025_26").asDouble(0) };
+
+					for (int i = 0; i < vals.length; i++) {
+						categorySum[i] += vals[i];
+						overallTotals[i] += vals[i];
+						Cell cell = r.createCell(c++);
+						cell.setCellValue(vals[i]);
+						cell.setCellStyle(dataCell);
 					}
+
+					r.createCell(c).setCellValue(d.path("remarks").asText(""));
+					r.getCell(c).setCellStyle(dataCell);
 				}
 
-				int endRow = rowIdx; // Last row of data for this category
+				// === Category Total Row ===
+				Row sumRow = sheet.createRow(rowNum++);
+				Cell label = sumRow.createCell(0);
+				label.setCellValue("एकूण " + CATEGORY_TOTAL_NAMES.getOrDefault(category, ""));
+				label.setCellStyle(sumRowStyle);
+				sheet.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 2));
 
-				// Total row for numeric columns
-				Row totalRow = sheet.createRow(rowIdx++);
-				totalRow.createCell(0).setCellValue("एकूण");
-				totalRow.getCell(0).setCellStyle(boldStyle);
-
-				for (int col = 3; col <= 10; col++) {
-					String colLetter = CellReference.convertNumToColString(col);
-					String formula = "SUM(" + colLetter + (startRow + 1) + ":" + colLetter + (endRow) + ")";
-					Cell cell = totalRow.createCell(col);
-					cell.setCellFormula(formula);
-					cell.setCellStyle(boldStyle);
+				int c = 3;
+				for (double v : categorySum) {
+					Cell cell = sumRow.createCell(c++);
+					cell.setCellValue(v);
+					cell.setCellStyle(sumRowStyle);
 				}
+
+				rowNum++;
 			}
 
-			workbook.write(out);
-			return new ByteArrayInputStream(out.toByteArray());
+			// === Overall Total Row ===
+			Row totalRow = sheet.createRow(rowNum++);
+			Cell tLabel = totalRow.createCell(0);
+			tLabel.setCellValue("एकूण एकंदर");
+			tLabel.setCellStyle(sumRowStyle);
+			sheet.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 2));
+
+			int c = 3;
+			for (double v : overallTotals) {
+				Cell cell = totalRow.createCell(c++);
+				cell.setCellValue(v);
+				cell.setCellStyle(sumRowStyle);
+			}
+
+			// === Footer ===
+
+			wb.write(out);
+			ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+			String filename = "Accounts-PIPC-" + year + ".xlsx";
+
+			return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
+					.contentType(MediaType
+							.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+					.body(new InputStreamResource(in));
 		}
 	}
+
+	private static final Map<String, String> CATEGORY_DISPLAY = Map.of("majorProjects",
+			"मोठे प्रकल्प - लेखाशिर्ष 4700 0096", "expansionAndImprovement", "विस्तार व सुधारणा - लेखाशिर्ष 4700 0238",
+			"damSafety", "धरण सुरक्षितता - लेखाशिर्ष 2700 0154", "mediumProjects",
+			"मध्यम प्रकल्प - लेखाशिर्ष 4701 H629", "pmksy", "प्रधानमंत्री कृषि सिंचाई योजना (PMKSY)", "pmksyCADA",
+			"प्रधानमंत्री कृषि सिंचाई योजना (PMKSY)(CADA)");
+
+	private static final Map<String, String> CATEGORY_TOTAL_NAMES = Map.of("majorProjects", "मोठे प्रकल्प",
+			"expansionAndImprovement", "विस्तार व सुधारणा", "damSafety", "धरण सुरक्षितता", "mediumProjects",
+			"मध्यम प्रकल्प", "pmksy", "प्रधानमंत्री कृषि सिंचाई योजना (PMKSY)", "pmksyCADA",
+			"प्रधानमंत्री कृषि सिंचाई योजना (PMKSY)(CADA)");
 
 }

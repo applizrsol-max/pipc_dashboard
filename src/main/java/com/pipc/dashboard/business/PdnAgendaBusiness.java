@@ -25,4 +25,6 @@ public interface PdnAgendaBusiness {
 
 	ResponseEntity<InputStreamResource> generateNrldExcel(String year) throws IOException;
 
+	ResponseEntity<InputStreamResource> downloadPdnAgendaData(String year) throws IOException;
+
 }

@@ -1,5 +1,6 @@
 package com.pipc.dashboard.pdn.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -14,6 +15,8 @@ public interface PdnAgendaRepository extends JpaRepository<PdnAgendaEntity, Long
 			String pointOfAgenda, String recordId, String nameOfDam);
 
 	Page<PdnAgendaEntity> findBySubmissionYear(String projectYear, Pageable pageable);
+
+	List<PdnAgendaEntity> findBySubmissionYear(String year);
 
 	
 }
