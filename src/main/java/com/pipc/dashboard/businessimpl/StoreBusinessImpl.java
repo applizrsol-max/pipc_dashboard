@@ -1,6 +1,8 @@
 package com.pipc.dashboard.businessimpl;
 
 import org.slf4j.MDC;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.pipc.dashboard.business.StoreBusiness;
@@ -44,5 +46,10 @@ public class StoreBusinessImpl implements StoreBusiness {
 	@Override
 	public StoreResponse getStores(int page, int size) {
 		return storeService.getStores(page, size);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadStoreData() throws Exception {
+		return storeService.downloadStoreData();
 	}
 }

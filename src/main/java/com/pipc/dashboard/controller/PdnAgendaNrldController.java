@@ -61,8 +61,5 @@ public class PdnAgendaNrldController {
 		return pdnAgendaBusiness.generateNrldExcel(year);
 	}
 
-	@GetMapping("/downloadPdnAgendaData")
-	public ResponseEntity<InputStreamResource> downloadPdnAgendaData(@RequestParam String year) throws Exception {
-		return pdnAgendaBusiness.downloadPdnAgendaData(year);
-	}
+	
 }

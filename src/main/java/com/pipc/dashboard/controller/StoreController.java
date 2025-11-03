@@ -2,8 +2,8 @@ package com.pipc.dashboard.controller;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.pipc.dashboard.business.StoreBusiness;
-import com.pipc.dashboard.store.repository.StoreEntity;
 import com.pipc.dashboard.store.request.StoreRequest;
 import com.pipc.dashboard.store.response.StoreResponse;
 
@@ -39,6 +38,11 @@ public class StoreController {
 			@RequestParam(defaultValue = "10") int size) {
 
 		return storeBusiness.getStores(page, size);
+	}
+
+	@GetMapping("/downloadStoreData")
+	public ResponseEntity<InputStreamResource> downloadStoreData() throws Exception {
+		return storeBusiness.downloadStoreData();
 	}
 
 }
