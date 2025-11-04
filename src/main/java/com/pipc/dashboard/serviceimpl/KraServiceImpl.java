@@ -169,8 +169,12 @@ public class KraServiceImpl implements KraService {
 			Pageable pageable = PageRequest.of(page, size);
 			Page<KraEntity> kraPage = kraRepository.findByKraPeriod(kraPeriod, pageable);
 
-			List<JsonNode> kraData = kraPage.getContent().stream().map(KraEntity::getKraRow)
-					.collect(Collectors.toList());
+			// ✅ Sort by rowId ascending before mapping
+			List<JsonNode> kraData = kraPage.getContent().stream().sorted(Comparator.comparingLong(e -> e.getRowId())) // <--
+																														// Sort
+																														// by
+																														// rowId
+					.map(KraEntity::getKraRow).collect(Collectors.toList());
 
 			ObjectMapper mapper = this.objectMapper;
 			ObjectNode responseNode = mapper.createObjectNode();
