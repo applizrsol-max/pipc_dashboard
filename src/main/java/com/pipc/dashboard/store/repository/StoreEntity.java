@@ -43,6 +43,8 @@ public class StoreEntity {
 	@Column(name = "row_id")
 	private Integer rowId;
 
+	private Long deleteId;
+
 	@Column(name = "created_by")
 	private String createdBy;
 

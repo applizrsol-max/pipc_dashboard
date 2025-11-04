@@ -120,19 +120,24 @@ public class StoreServiceImpl implements StoreService {
 					continue;
 				for (VibhagRow row : dept.getRows()) {
 					Integer rowId = row.getRowId();
+					Long deleteId = row.getDeleteId();
 					if (rowId == null)
 						continue;
 
 					Optional<StoreEntity> existingEntityOpt = storeRepository.findByDepartmentNameAndRowId(deptName,
 							rowId);
 
+					Optional<StoreEntity> existingEntityOptFordeletion = storeRepository
+							.findByDepartmentNameAndDeleteId(deptName, deleteId);
+
 					// ---------- DELETE LOGIC ADDED HERE ----------
 					if ("D".equalsIgnoreCase(row.getFlag())) {
-						if (existingEntityOpt.isPresent()) {
-							storeRepository.delete(existingEntityOpt.get());
-							log.append("Deleted rowId ").append(rowId).append(" from '").append(deptName).append("'. ");
+						if (existingEntityOptFordeletion.isPresent()) {
+							storeRepository.delete(existingEntityOptFordeletion.get());
+							log.append("Deleted deleteId ").append(deleteId).append(" from '").append(deptName)
+									.append("'. ");
 						} else {
-							log.append("Delete requested for rowId ").append(rowId).append(" in '").append(deptName)
+							log.append("Delete requested for deleteId ").append(rowId).append(" in '").append(deptName)
 									.append("' but not found. ");
 						}
 						continue; // skip further processing for this row

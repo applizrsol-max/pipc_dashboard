@@ -36,7 +36,7 @@ public class SupremeServiceImpl implements SupremaService {
         ApplicationError error = new ApplicationError();
 
         try {
-            String currentUser = Optional.ofNullable(MDC.get("userId")).orElse("SYSTEM");
+            String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
             String projectYear = request.getProjectYear();
 
             List<String> createdProjects = new ArrayList<>();

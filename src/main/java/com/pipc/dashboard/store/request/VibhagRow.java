@@ -13,4 +13,5 @@ public class VibhagRow {
 	private Sadyasthiti sadyasthiti; // सद्यस्थिती
 	private Integer rowId;
 	private String flag;
+	private Long deleteId;
 }

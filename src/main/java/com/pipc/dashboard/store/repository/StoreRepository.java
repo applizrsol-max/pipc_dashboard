@@ -54,4 +54,6 @@ public interface StoreRepository extends JpaRepository<StoreEntity, Long> {
 
 	Page<StoreEntity> findByDepartmentName(String departmentName, Pageable pageable);
 
+	Optional<StoreEntity> findByDepartmentNameAndDeleteId(String departmentName, Long deleteId);
+
 }
