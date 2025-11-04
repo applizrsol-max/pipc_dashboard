@@ -191,6 +191,7 @@ public class StoreServiceImpl implements StoreService {
 						// create new record (row-level)
 						StoreEntity entity = new StoreEntity();
 						entity.setDepartmentName(deptName);
+						entity.setDeleteId(deleteId);
 						entity.setRowId(rowId);
 						entity.setRowsData(incomingJson);
 						entity.setEkun(newDeptEkun);
@@ -244,6 +245,7 @@ public class StoreServiceImpl implements StoreService {
 				for (StoreEntity entity : deptPage.getContent()) {
 					VibhagRow row = new ObjectMapper().convertValue(entity.getRowsData(), VibhagRow.class);
 					row.setRowId(entity.getRowId());
+					row.setDeleteId(entity.getDeleteId());
 					rows.add(row);
 				}
 
