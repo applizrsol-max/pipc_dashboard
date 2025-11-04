@@ -200,7 +200,7 @@ public class KraServiceImpl implements KraService {
 	@Override
 	public ByteArrayInputStream generateKraExcel(String kraPeriod) throws IOException {
 		List<KraEntity> records = kraRepository.findByKraPeriod(kraPeriod).stream()
-				.sorted(Comparator.comparingInt(e -> e.getKraRow().path("kraNo").asInt(0))) // Sort by KRA No
+				.sorted(Comparator.comparing(KraEntity::getRowId)) // ✅ Sort by DB rowId instead of kraNo
 				.toList();
 
 		try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -250,9 +250,7 @@ public class KraServiceImpl implements KraService {
 			headerStyle.setFont(boldFont);
 			headerStyle.setAlignment(HorizontalAlignment.CENTER);
 
-			// --- 1️⃣ Top Left Reference Block ---
-
-			// --- 2️⃣ Main Title ---
+			// --- 1️⃣ Title ---
 			int titleRowIndex = 2;
 			Row titleRow = sheet.createRow(titleRowIndex);
 			Cell titleCell = titleRow.createCell(0);
@@ -260,16 +258,15 @@ public class KraServiceImpl implements KraService {
 			titleCell.setCellStyle(headerCenter);
 			sheet.addMergedRegion(new CellRangeAddress(titleRowIndex, titleRowIndex, 0, 4));
 
-			// --- 3️⃣ KRA Period Title ---
+			// --- 2️⃣ KRA Period Title ---
 			Row periodRow = sheet.createRow(titleRowIndex + 1);
 			Cell periodCell = periodRow.createCell(0);
-
 			periodCell.setCellValue(
 					"KRA " + kraPeriod + " उद्दिष्टे (जुन 30/06/20" + kraPeriod.split("-")[1] + " अखेर सद्यस्थिती)");
 			periodCell.setCellStyle(headerCenter);
 			sheet.addMergedRegion(new CellRangeAddress(titleRowIndex + 1, titleRowIndex + 1, 0, 4));
 
-			// --- 4️⃣ Reference line ---
+			// --- 3️⃣ Reference line ---
 			Row refLineRow = sheet.createRow(titleRowIndex + 2);
 			Cell refLineCell = refLineRow.createCell(0);
 			String referenceText = "संदर्भ :- प्रदेश कार्यालयाचे पत्र जा.क्र.मुअ.(जसं)/काअ-2/उअ-5/06/5444/2023 दि.13/12/2024";
@@ -277,7 +274,7 @@ public class KraServiceImpl implements KraService {
 			refLineCell.setCellStyle(boldLeft);
 			sheet.addMergedRegion(new CellRangeAddress(titleRowIndex + 2, titleRowIndex + 2, 0, 4));
 
-			// --- 5️⃣ Table Header ---
+			// --- 4️⃣ Table Header ---
 			int headerRowIndex = titleRowIndex + 4;
 			Row headerRow = sheet.createRow(headerRowIndex);
 			String[] columns = { "KRA No", "विषय", "उद्दिष्ट", "साध्य", "शेरा" };
@@ -287,7 +284,7 @@ public class KraServiceImpl implements KraService {
 				cell.setCellStyle(headerStyle);
 			}
 
-			// --- 6️⃣ Data Rows ---
+			// --- 5️⃣ Data Rows ---
 			int rowNum = headerRowIndex + 1;
 			for (KraEntity entity : records) {
 				JsonNode rowData = entity.getKraRow();
@@ -303,11 +300,9 @@ public class KraServiceImpl implements KraService {
 					row.getCell(i).setCellStyle(textStyle);
 			}
 
-			// --- 7️⃣ Footer Section ---
-			// --- 7️⃣ Footer Section (multi-line parallel) ---
+			// --- 6️⃣ Footer Section (parallel layout) ---
 			int footerStart = rowNum + 2;
 
-			// (A) LEFT SIDE 3 lines
 			Row leftRow1 = sheet.createRow(footerStart);
 			Cell left1 = leftRow1.createCell(0);
 			left1.setCellValue("जा.क्र.पुपाप्रमं/प्रशा-5/                    /सन " + kraPeriod);
@@ -323,7 +318,6 @@ public class KraServiceImpl implements KraService {
 			left3.setCellValue("दिनांक :- ");
 			left3.setCellStyle(boldLeft);
 
-			// (B) RIGHT SIDE 2 lines (aligned with left)
 			Row rightRow1 = sheet.getRow(footerStart);
 			if (rightRow1 == null)
 				rightRow1 = sheet.createRow(footerStart);
@@ -338,14 +332,12 @@ public class KraServiceImpl implements KraService {
 			right2.setCellValue("पुणे पाटबंधारे प्रकल्प मंडळ, पुणे-01.");
 			right2.setCellStyle(boldRight);
 
-			// merge left + right side blocks properly
 			sheet.addMergedRegion(new CellRangeAddress(footerStart, footerStart, 0, 1));
 			sheet.addMergedRegion(new CellRangeAddress(footerStart + 1, footerStart + 1, 0, 1));
 			sheet.addMergedRegion(new CellRangeAddress(footerStart + 2, footerStart + 2, 0, 1));
 			sheet.addMergedRegion(new CellRangeAddress(footerStart, footerStart, 3, 4));
 			sheet.addMergedRegion(new CellRangeAddress(footerStart + 1, footerStart + 1, 3, 4));
 
-			// (C) प्रति line below both blocks
 			Row copyRow = sheet.createRow(footerStart + 4);
 			Cell copyCell = copyRow.createCell(0);
 			copyCell.setCellValue(
