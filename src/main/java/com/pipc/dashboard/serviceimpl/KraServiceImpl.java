@@ -70,7 +70,17 @@ public class KraServiceImpl implements KraService {
 
 			for (Map<String, Object> rowData : request.getKraData()) {
 				Integer rowId = (Integer) rowData.get("rowId");
-				Long deleteId = (Long) rowData.get("deleteId");
+				Object deleteIdObj = rowData.get("deleteId");
+				Long deleteId = null;
+				if (deleteIdObj != null) {
+					if (deleteIdObj instanceof Integer) {
+						deleteId = ((Integer) deleteIdObj).longValue();
+					} else if (deleteIdObj instanceof Long) {
+						deleteId = (Long) deleteIdObj;
+					} else if (deleteIdObj instanceof String) {
+						deleteId = Long.parseLong((String) deleteIdObj);
+					}
+				}
 				if (rowId == null)
 					continue;
 
