@@ -66,73 +66,77 @@ public class KraServiceImpl implements KraService {
 				userFromMDC = "SYSTEM";
 			final String currentUser = userFromMDC;
 			ObjectMapper mapper = this.objectMapper;
-			// Use a single timestamp for consistency within the transaction
 			LocalDateTime now = LocalDateTime.now();
 
 			for (Map<String, Object> rowData : request.getKraData()) {
 				Integer rowId = (Integer) rowData.get("rowId");
+				Long deleteId = (Long) rowData.get("deleteId");
 				if (rowId == null)
 					continue;
 
-				JsonNode incomingNode = mapper.valueToTree(rowData);
-
-				// Find the entity based on the unique combination (kraPeriod + rowId)
+				// Extract flag for deletion check
+				String flag = (String) rowData.getOrDefault("flag", "");
 				Optional<KraEntity> existingOpt = kraRepository.findByKraPeriodAndRowId(request.getKraPeriod(), rowId);
+				Optional<KraEntity> existingOptDelId = kraRepository.findByKraPeriodAndDeleteId(request.getKraPeriod(),
+						deleteId);
+
+				// ✅ 1️⃣ Handle DELETE logic
+				if ("D".equalsIgnoreCase(flag)) {
+					if (existingOptDelId.isPresent()) {
+						kraRepository.delete(existingOptDelId.get());
+						msg.append("Deleted deleteId: ").append(deleteId).append(" | ");
+					} else {
+						msg.append("Delete requested but deleteId not found: ").append(deleteId).append(" | ");
+					}
+					continue; // skip further processing for this row
+				}
+
+				// ✅ 2️⃣ Handle Create / Update logic
+				JsonNode incomingNode = mapper.valueToTree(rowData);
 
 				if (existingOpt.isPresent()) {
 					KraEntity existing = existingOpt.get();
-					boolean entityChanged = false; // Flag to track if ANY change occurred
+					boolean entityChanged = false;
 
-					// --- 1. Check for KRA Row Data change (JSON column) ---
 					JsonNode existingNode = existing.getKraRow() == null ? mapper.createObjectNode()
 							: existing.getKraRow();
 
-					// Compare JSON string representations for change detection
 					if (!existingNode.toString().equals(incomingNode.toString())) {
 						existing.setKraRow(incomingNode);
 						entityChanged = true;
 					}
 
-					// --- 2. Check for Header field changes (title) ---
-					// Use null-safe comparison logic
 					if (existing.getTitle() == null ? request.getTitle() != null
 							: !existing.getTitle().equals(request.getTitle())) {
 						existing.setTitle(request.getTitle());
 						entityChanged = true;
 					}
 
-					// --- 3. Check for Header field changes (reference) ---
 					if (existing.getReference() == null ? request.getReference() != null
 							: !existing.getReference().equals(request.getReference())) {
 						existing.setReference(request.getReference());
 						entityChanged = true;
 					}
 
-					// --- 4. Final Save/Detach decision ---
 					if (entityChanged) {
-						// Update audit fields MANUALLY (since @UpdateTimestamp was removed)
 						existing.setUpdatedBy(currentUser);
 						existing.setUpdatedAt(now);
 						existing.setFlag("U");
 						kraRepository.save(existing);
 						msg.append("Updated rowId: ").append(rowId).append(" | ");
 					} else {
-						// If no change, detach to break the link with the persistence context
-						// This is VITAL to stop phantom updates.
 						entityManager.detach(existing);
 						msg.append("No change for rowId: ").append(rowId).append(" | ");
 					}
 
 				} else {
-					// --- Creation Logic ---
 					KraEntity entity = new KraEntity();
 					entity.setTitle(request.getTitle());
 					entity.setKraPeriod(request.getKraPeriod());
 					entity.setReference(request.getReference());
 					entity.setKraRow(incomingNode);
 					entity.setRowId(rowId);
-
-					// Manually set all audit fields for creation
+					entity.setDeleteId(deleteId);
 					entity.setCreatedBy(currentUser);
 					entity.setCreatedAt(now);
 					entity.setUpdatedBy(currentUser);
@@ -153,7 +157,6 @@ public class KraServiceImpl implements KraService {
 			error.setErrorDescription("Error while saving: " + e.getMessage());
 			kraResponse.setErrorDetails(error);
 			kraResponse.setMessage("Operation failed.");
-			// Re-throw to ensure the transaction rolls back
 			throw new RuntimeException("KRA save failed due to an exception.", e);
 		}
 

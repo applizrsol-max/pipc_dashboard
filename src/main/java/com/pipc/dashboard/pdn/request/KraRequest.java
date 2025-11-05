@@ -12,5 +12,7 @@ public class KraRequest {
 	private String reference;
 	private List<Map<String, Object>> kraData; // ✅ dynamic keys
 	private Integer rowId; // for update
+	private Long deleteId;
+	private String flag;
 
 }

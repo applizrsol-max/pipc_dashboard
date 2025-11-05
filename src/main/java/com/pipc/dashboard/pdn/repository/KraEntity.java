@@ -23,28 +23,30 @@ import lombok.Data;
 @Data
 public class KraEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    private String title;
-    private String kraPeriod;
-    private String reference;
+	private String title;
+	private String kraPeriod;
+	private String reference;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
-    private JsonNode kraRow;
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "jsonb")
+	private JsonNode kraRow;
 
-    @Column(name = "row_id", nullable = false)
-    private Integer rowId;
+	@Column(name = "row_id", nullable = false)
+	private Integer rowId;
 
-    private String createdBy;
-    private String updatedBy;
-    private String flag;
+	private Long deleteId;
 
-    // *** REMOVED @CreationTimestamp ***
-    private LocalDateTime createdAt;
+	private String createdBy;
+	private String updatedBy;
+	private String flag;
 
-    // *** REMOVED @UpdateTimestamp ***
-    private LocalDateTime updatedAt; 
+	// *** REMOVED @CreationTimestamp ***
+	private LocalDateTime createdAt;
+
+	// *** REMOVED @UpdateTimestamp ***
+	private LocalDateTime updatedAt;
 }

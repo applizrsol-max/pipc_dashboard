@@ -17,4 +17,6 @@ public interface KraRepository extends JpaRepository<KraEntity, Long> {
 
 	List<KraEntity> findByKraPeriod(String kraPeriod);
 
+	Optional<KraEntity> findByKraPeriodAndDeleteId(String kraPeriod, Long deleteId);
+
 }
