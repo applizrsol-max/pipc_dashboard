@@ -28,27 +28,28 @@ import lombok.Setter;
 @Builder
 public class NrldEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    @Column(name = "row_id", nullable = false)
-    private String rowId;
+	@Column(name = "row_id", nullable = false)
+	private Integer rowId;
 
-    @Column(name = "dam_name", nullable = false)
-    private String damName;
+	@Column(name = "dam_name", nullable = false)
+	private String damName;
 
-    @Column(name = "year")
-    private String year;
+	@Column(name = "year")
+	private String year;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb", nullable = false)
-    private JsonNode data;
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "jsonb", nullable = false)
+	private JsonNode data;
 
-    private String createdBy;
-    private String updatedBy;
-    private String recordFlag;
+	private Long deleteId;
+	private String createdBy;
+	private String updatedBy;
+	private String recordFlag;
 
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+	private LocalDateTime createdAt;
+	private LocalDateTime updatedAt;
 }

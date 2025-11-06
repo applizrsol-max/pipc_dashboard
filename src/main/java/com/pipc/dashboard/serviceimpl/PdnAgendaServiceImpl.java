@@ -72,118 +72,113 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 	@Transactional
 	public PdnAgendaResponse saveOrUpdatePdnAgenda(PdnAgendaRequest pdnAgendaRequest) {
 
-	    PdnAgendaResponse response = new PdnAgendaResponse();
-	    ApplicationError error = new ApplicationError();
-	    StringBuilder statusMsg = new StringBuilder();
+		PdnAgendaResponse response = new PdnAgendaResponse();
+		ApplicationError error = new ApplicationError();
+		StringBuilder statusMsg = new StringBuilder();
 
-	    try {
-	        String currentUser = Optional.ofNullable(MDC.get("userId")).orElse("SYSTEM");
+		try {
+			String currentUser = Optional.ofNullable(MDC.get("userId")).orElse("SYSTEM");
 
-	        for (AgendaPoint point : pdnAgendaRequest.getAgendaPoints()) {
-	            for (AgendaDetail detail : point.getDetails()) {
+			for (AgendaPoint point : pdnAgendaRequest.getAgendaPoints()) {
+				for (AgendaDetail detail : point.getDetails()) {
 
-	                JsonNode incomingData = detail.getColumnData();
+					JsonNode incomingData = detail.getColumnData();
 
-	                // 🔹 Extract dam name dynamically
-	                String damName = extractFieldValue(incomingData, "NameOfDam");
-	                if (damName == null || damName.isEmpty()) {
-	                    statusMsg.append("[Skipped: Missing Dam Name for RowId ")
-	                            .append(detail.getRowId()).append("], ");
-	                    continue;
-	                }
+					// 🔹 Extract dam name dynamically
+					String damName = extractFieldValue(incomingData, "NameOfDam");
+					if (damName == null || damName.isEmpty()) {
+						statusMsg.append("[Skipped: Missing Dam Name for RowId ").append(detail.getRowId())
+								.append("], ");
+						continue;
+					}
 
-	                // 🔹 Read flag & deleteId from detail (top-level)
-	                String flag = detail.getFlag();
-	                Long deleteId = detail.getDeleteId();
+					// 🔹 Read flag & deleteId from detail (top-level)
+					String flag = detail.getFlag();
+					Long deleteId = detail.getDeleteId();
 
-	                // 🔹 Find matching records (for both update & delete)
-	                Optional<PdnAgendaEntity> existingOpt = pdnAgnedaRepo
-	                        .findBySubmissionYearAndPointOfAgendaAndRecordIdAndNameOfDam(
-	                                pdnAgendaRequest.getSubmissionYear(),
-	                                point.getPointOfAgenda(),
-	                                detail.getRowId(),
-	                                damName
-	                        );
+					// 🔹 Find matching records (for both update & delete)
+					Optional<PdnAgendaEntity> existingOpt = pdnAgnedaRepo
+							.findBySubmissionYearAndPointOfAgendaAndRecordIdAndNameOfDam(
+									pdnAgendaRequest.getSubmissionYear(), point.getPointOfAgenda(), detail.getRowId(),
+									damName);
 
-	                Optional<PdnAgendaEntity> existingOptByDeleteId = Optional.empty();
-	                if (deleteId != null) {
-	                    existingOptByDeleteId = pdnAgnedaRepo
-	                            .findBySubmissionYearAndPointOfAgendaAndDeleteIdAndNameOfDam(
-	                                    pdnAgendaRequest.getSubmissionYear(),
-	                                    point.getPointOfAgenda(),
-	                                    deleteId,
-	                                    damName
-	                            );
-	                }
+					Optional<PdnAgendaEntity> existingOptByDeleteId = Optional.empty();
+					if (deleteId != null) {
+						existingOptByDeleteId = pdnAgnedaRepo
+								.findBySubmissionYearAndPointOfAgendaAndDeleteIdAndNameOfDam(
+										pdnAgendaRequest.getSubmissionYear(), point.getPointOfAgenda(), deleteId,
+										damName);
+					}
 
-	                // ✅ DELETE LOGIC (based on flag 'D')
-	                if ("D".equalsIgnoreCase(flag)) {
-	                    if (existingOptByDeleteId.isPresent()) {
-	                        pdnAgnedaRepo.delete(existingOptByDeleteId.get());
-	                        statusMsg.append("Deleted: ").append(damName).append(" (DeleteId: ")
-	                                .append(deleteId).append("), ");
-	                    } else if (existingOpt.isPresent()) {
-	                        pdnAgnedaRepo.delete(existingOpt.get());
-	                        statusMsg.append("Deleted by RowId: ").append(detail.getRowId())
-	                                .append(" (").append(damName).append("), ");
-	                    } else {
-	                        statusMsg.append("Delete requested but record not found for: ").append(damName).append(", ");
-	                    }
-	                    continue; // skip rest (no update/create)
-	                }
+					// ✅ DELETE LOGIC (based on flag 'D')
+					if ("D".equalsIgnoreCase(flag)) {
+						if (existingOptByDeleteId.isPresent()) {
+							pdnAgnedaRepo.delete(existingOptByDeleteId.get());
+							statusMsg.append("Deleted: ").append(damName).append(" (DeleteId: ").append(deleteId)
+									.append("), ");
+						} else if (existingOpt.isPresent()) {
+							pdnAgnedaRepo.delete(existingOpt.get());
+							statusMsg.append("Deleted by RowId: ").append(detail.getRowId()).append(" (")
+									.append(damName).append("), ");
+						} else {
+							statusMsg.append("Delete requested but record not found for: ").append(damName)
+									.append(", ");
+						}
+						continue; // skip rest (no update/create)
+					}
 
-	                // 🔹 Otherwise handle Create or Update
-	                PdnAgendaEntity entity;
-	                if (existingOpt.isPresent()) {
-	                    entity = existingOpt.get();
-	                    JsonNode existingData = entity.getColumnData();
+					// 🔹 Otherwise handle Create or Update
+					PdnAgendaEntity entity;
+					if (existingOpt.isPresent()) {
+						entity = existingOpt.get();
+						JsonNode existingData = entity.getColumnData();
 
-	                    if (!existingData.equals(incomingData)) {
-	                        entity.setColumnData(incomingData);
-	                        entity.setUpdatedBy(currentUser);
-	                        entity.setUpdatedAt(LocalDateTime.now());
-	                        entity.setRecordFlag("U");
-	                        pdnAgnedaRepo.save(entity);
-	                        statusMsg.append("Updated: ").append(damName).append(", ");
-	                    } else {
-	                        statusMsg.append("No change for: ").append(damName).append(", ");
-	                    }
+						if (!existingData.equals(incomingData)) {
+							entity.setColumnData(incomingData);
+							entity.setUpdatedBy(currentUser);
+							entity.setUpdatedAt(LocalDateTime.now());
+							entity.setRecordFlag("U");
+							pdnAgnedaRepo.save(entity);
+							statusMsg.append("Updated: ").append(damName).append(", ");
+						} else {
+							statusMsg.append("No change for: ").append(damName).append(", ");
+						}
 
-	                } else {
-	                    entity = new PdnAgendaEntity();
-	                    entity.setSubmissionTitle(pdnAgendaRequest.getSubmissionTitle());
-	                    entity.setSubmissionYear(pdnAgendaRequest.getSubmissionYear());
-	                    entity.setSrNo(point.getSrNo());
-	                    entity.setPointOfAgenda(point.getPointOfAgenda());
-	                    entity.setRecordId(detail.getRowId());
-	                    entity.setNameOfDam(damName);
-	                    entity.setColumnData(incomingData);
-	                    entity.setRecordFlag("C");
-	                    entity.setCreatedBy(currentUser);
-	                    entity.setUpdatedBy(currentUser);
-	                    entity.setCreatedAt(LocalDateTime.now());
-	                    entity.setUpdatedAt(LocalDateTime.now());
-	                    entity.setDeleteId(deleteId); // ✅ Save deleteId if given
+					} else {
+						entity = new PdnAgendaEntity();
+						entity.setSubmissionTitle(pdnAgendaRequest.getSubmissionTitle());
+						entity.setSubmissionYear(pdnAgendaRequest.getSubmissionYear());
+						entity.setSrNo(point.getSrNo());
+						entity.setPointOfAgenda(point.getPointOfAgenda());
+						entity.setRecordId(detail.getRowId());
+						entity.setNameOfDam(damName);
+						entity.setColumnData(incomingData);
+						entity.setRecordFlag("C");
+						entity.setCreatedBy(currentUser);
+						entity.setUpdatedBy(currentUser);
+						entity.setCreatedAt(LocalDateTime.now());
+						entity.setUpdatedAt(LocalDateTime.now());
+						entity.setDeleteId(deleteId); // ✅ Save deleteId if given
 
-	                    pdnAgnedaRepo.save(entity);
-	                    statusMsg.append("Created: ").append(damName).append(", ");
-	                }
-	            }
-	        }
+						pdnAgnedaRepo.save(entity);
+						statusMsg.append("Created: ").append(damName).append(", ");
+					}
+				}
+			}
 
-	        error.setErrorCode("0");
-	        error.setErrorDescription("Agenda processed: " + statusMsg);
-	        response.setMessage("Success");
-	        response.setErrorDetails(error);
+			error.setErrorCode("0");
+			error.setErrorDescription("Agenda processed: " + statusMsg);
+			response.setMessage("Success");
+			response.setErrorDetails(error);
 
-	    } catch (Exception e) {
-	        error.setErrorCode("1");
-	        error.setErrorDescription("Error while saving agenda: " + e.getMessage());
-	        response.setMessage("Failed");
-	        response.setErrorDetails(error);
-	    }
+		} catch (Exception e) {
+			error.setErrorCode("1");
+			error.setErrorDescription("Error while saving agenda: " + e.getMessage());
+			response.setMessage("Failed");
+			response.setErrorDetails(error);
+		}
 
-	    return response;
+		return response;
 	}
 
 	// ----------------------------------------------------
@@ -196,6 +191,7 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 
 		List<String> createdRecords = new ArrayList<>();
 		List<String> updatedRecords = new ArrayList<>();
+		List<String> deletedRecords = new ArrayList<>();
 
 		String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
 
@@ -206,15 +202,33 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 				if (recordData == null || recordData.isNull())
 					continue;
 
-				String rowId = recordData.has("rowId") ? recordData.get("rowId").asText() : null;
-				String damName = extractFieldValue(recordData, "dam");
-				String year = extractFieldValue(recordData, "year");
+				String year = nrldRequest.getSubmissionYear();
+				String damName = recordData.has("NameOfDam") ? recordData.get("NameOfDam").asText() : null;
+				Integer rowId = recordData.has("rowId") ? recordData.get("rowId").asInt() : null;
+				Long deleteId = recordData.has("deleteId") ? recordData.get("deleteId").asLong() : null;
+				String flag = recordData.has("flag") ? recordData.get("flag").asText().trim() : null;
 
-				if (rowId == null || damName == null) {
-					continue; // skip invalid records
+				if (damName == null || damName.isEmpty())
+					continue;
+
+				// ✅ DELETE logic
+				if ("D".equalsIgnoreCase(flag) && deleteId != null) {
+					Optional<NrldEntity> existingToDelete = nrldRepo.findByYearAndDamNameAndDeleteId(year, damName,
+							deleteId);
+
+					if (existingToDelete.isPresent()) {
+						nrldRepo.delete(existingToDelete.get());
+						deletedRecords.add("Deleted: " + damName + " (DeleteId: " + deleteId + ")");
+					} else {
+						deletedRecords.add("Delete requested but record not found for " + damName + " (DeleteId: "
+								+ deleteId + ")");
+					}
+					continue; // Skip further processing for deleted record
 				}
 
+				// 🔍 Check for existing record
 				Optional<NrldEntity> existingOpt = nrldRepo.findByRowIdAndDamNameAndYear(rowId, damName, year);
+
 				NrldEntity entity;
 
 				if (existingOpt.isPresent()) {
@@ -225,28 +239,28 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 						entity.setUpdatedAt(LocalDateTime.now());
 						entity.setRecordFlag("U");
 						nrldRepo.save(entity);
-						updatedRecords.add(rowId + " (" + damName + ")");
+						updatedRecords.add("Updated: " + damName);
 					}
 				} else {
-					entity = NrldEntity.builder().rowId(rowId).damName(damName).year(year).data(recordData)
-							.createdBy(currentUser).updatedBy(currentUser).createdAt(LocalDateTime.now())
-							.updatedAt(LocalDateTime.now()).recordFlag("C").build();
+					entity = NrldEntity.builder().rowId(rowId).deleteId(deleteId).damName(damName).year(year)
+							.data(recordData).createdBy(currentUser).updatedBy(currentUser)
+							.createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).recordFlag("C").build();
 
 					nrldRepo.save(entity);
-					createdRecords.add(rowId + " (" + damName + ")");
+					createdRecords.add("Created: " + damName);
 				}
 			}
 
+			// ✅ Combine summary message
 			StringBuilder desc = new StringBuilder();
-			if (!createdRecords.isEmpty()) {
-				desc.append("Created: ").append(String.join(", ", createdRecords)).append(". ");
-			}
-			if (!updatedRecords.isEmpty()) {
-				desc.append("Updated: ").append(String.join(", ", updatedRecords)).append(". ");
-			}
-			if (createdRecords.isEmpty() && updatedRecords.isEmpty()) {
+			if (!createdRecords.isEmpty())
+				desc.append(String.join(", ", createdRecords)).append(". ");
+			if (!updatedRecords.isEmpty())
+				desc.append(String.join(", ", updatedRecords)).append(". ");
+			if (!deletedRecords.isEmpty())
+				desc.append(String.join(", ", deletedRecords)).append(". ");
+			if (createdRecords.isEmpty() && updatedRecords.isEmpty() && deletedRecords.isEmpty())
 				desc.append("No changes detected.");
-			}
 
 			error.setErrorCode("0");
 			error.setErrorDescription(desc.toString());
@@ -254,7 +268,7 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 
 		} catch (Exception e) {
 			error.setErrorCode("1");
-			error.setErrorDescription("Error while saving dam data: " + e.getMessage());
+			error.setErrorDescription("Error while saving NRLD data: " + e.getMessage());
 			response.setErrorDetails(error);
 		}
 
@@ -375,9 +389,9 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 				int col = 0;
 
 				String[] keys = { "Sr.No.", "PIC", "NameOfDam", "SDSO Name", "Dam Owner", "Latitude-Longitude",
-						"YearOfCompletion", "River Basin", "River", "District", "Dam Type",
-						"Height above Lowest Foundation Level (M)", "Dam Length (M)", "Gross Storage Capacity (MM3)",
-						"Live Storage Capacity (MM3)", "Designed Spillway Capacity (M3/Sec)", "Purpose" };
+						"YearOfCompletion", "RiverBasin", "River", "District", "DamType",
+						"HeightAboveLowestFoundationLevel(M)", "DamLength(M)", "GrossStorageCapacity(MM3)",
+						"LiveStorageCapacity(MM3)", "DesignedSpillwayCapacity(M3/Sec)", "Purpose" };
 
 				for (String key : keys) {
 					Cell cell = row.createCell(col++);

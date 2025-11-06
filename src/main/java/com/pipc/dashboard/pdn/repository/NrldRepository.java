@@ -9,11 +9,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface NrldRepository extends JpaRepository<NrldEntity, Long>{
-	Optional<NrldEntity> findByRowIdAndDamNameAndYear(String rowId, String damName, String year);
+public interface NrldRepository extends JpaRepository<NrldEntity, Long> {
+	Optional<NrldEntity> findByRowIdAndDamNameAndYear(Integer rowId, String damName, String year);
+
 	Page<NrldEntity> findByYear(String year, Pageable pageable);
 
-    Page<NrldEntity> findByYearAndDamNameContainingIgnoreCase(String year, String damName, Pageable pageable);
+	Page<NrldEntity> findByYearAndDamNameContainingIgnoreCase(String year, String damName, Pageable pageable);
 
 	List<NrldEntity> findByYear(String year);
+
+	Optional<NrldEntity> findByYearAndDamNameAndDeleteId(String year, String damName, Long deleteId);
+
 }

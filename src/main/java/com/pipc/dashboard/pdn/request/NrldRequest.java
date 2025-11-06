@@ -8,5 +8,6 @@ import lombok.Data;
 
 @Data
 public class NrldRequest {
+	private String submissionYear;
 	private List<JsonNode> records;
 }
