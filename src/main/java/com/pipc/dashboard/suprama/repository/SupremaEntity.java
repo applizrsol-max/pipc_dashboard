@@ -47,6 +47,7 @@ public class SupremaEntity {
 	private LocalDateTime createdDatetime;
 	@Column(name = "row_id")
 	private Integer rowId;
+	private Long deleteId;
 	private String updatedBy;
 
 	@UpdateTimestamp

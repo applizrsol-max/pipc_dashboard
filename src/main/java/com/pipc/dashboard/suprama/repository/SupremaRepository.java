@@ -17,4 +17,7 @@ public interface SupremaRepository extends JpaRepository<SupremaEntity, Long> {
 
 	Page<SupremaEntity> findByProjectYear(String projectYear, Pageable pageable);
 
+	Optional<SupremaEntity> findByProjectYearAndDeleteIdAndProjectName(String projectYear, Long deleteId,
+			String projectName);
+
 }
