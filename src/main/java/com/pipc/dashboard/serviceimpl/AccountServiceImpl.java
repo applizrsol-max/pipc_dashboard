@@ -64,26 +64,24 @@ public class AccountServiceImpl implements AcountService {
 			String accountsYear = request.getAccountsYear();
 			StringBuilder actionSummary = new StringBuilder();
 
-			// Loop through all categories (both ekun & normal)
+			// 🔹 Loop through all categories (both ekun & normal)
 			for (Map.Entry<String, JsonNode> entry : request.getReports().entrySet()) {
 				String category = entry.getKey();
 				JsonNode valueNode = entry.getValue();
 
 				// 🟦 Case 1: Ekun data (aggregated totals)
 				if (category.startsWith("ekun")) {
-					// derive base category (e.g. ekunMajorProjects → majorProjects)
 					String tempBase = category.replaceFirst("^ekun", "");
 					if (tempBase.length() > 0) {
 						tempBase = Character.toLowerCase(tempBase.charAt(0)) + tempBase.substring(1);
 					}
-					final String baseCategory = tempBase; // ✅ make effectively final
+					final String baseCategory = tempBase;
 
 					AccountsEntity ekunEntity = accountRepo
 							.findByCategoryNameAndProjectYearAndRecordType(baseCategory, accountsYear, "E")
 							.orElseGet(() -> AccountsEntity.builder().createdBy(currentUser).updatedBy(currentUser)
-									.recordFlag("C").categoryName(baseCategory).projectYear(accountsYear)
-									.recordType("E") // 'E' means ekun
-									.build());
+									.recordFlag("C").categoryName(baseCategory).projectYear(accountsYear).deleteId(0L)
+									.recordType("E").build());
 
 					ObjectNode existingNode = JsonUtils.ensureObjectNode(ekunEntity.getAccountsData());
 					ObjectNode incomingNode = JsonUtils.ensureObjectNode(valueNode);
@@ -104,15 +102,29 @@ public class AccountServiceImpl implements AcountService {
 
 					for (JsonNode rowNode : rowsArray) {
 						int rowId = rowNode.has("rowId") ? rowNode.get("rowId").asInt() : -1;
+						Long deleteId = rowNode.has("deleteId") ? rowNode.get("deleteId").asLong() : null;
+						String flag = rowNode.has("flag") ? rowNode.get("flag").asText().trim() : null;
+
 						if (rowId == -1)
 							continue;
 
+						// ✅ DELETE LOGIC
+						if ("D".equalsIgnoreCase(flag) && deleteId != null) {
+							accountRepo.findByCategoryNameAndProjectYearAndDeleteId(category, accountsYear, deleteId)
+									.ifPresent(entity -> {
+										accountRepo.delete(entity);
+										actionSummary.append("Deleted row for category: ").append(category)
+												.append(" (deleteId=").append(deleteId).append("); ");
+									});
+							continue; // skip save for deleted rows
+						}
+
+						// ✅ SAVE or UPDATE LOGIC
 						AccountsEntity entity = accountRepo
 								.findByCategoryNameAndProjectYearAndRowId(category, accountsYear, rowId)
 								.orElseGet(() -> AccountsEntity.builder().createdBy(currentUser).updatedBy(currentUser)
 										.recordFlag("C").categoryName(category).projectYear(accountsYear).rowId(rowId)
-										.recordType("R") // 'R' means regular row
-										.build());
+										.recordType("R").deleteId(deleteId).build());
 
 						ObjectNode existingNode = JsonUtils.ensureObjectNode(entity.getAccountsData());
 						ObjectNode incomingNode = JsonUtils.ensureObjectNode(rowNode);
@@ -126,7 +138,7 @@ public class AccountServiceImpl implements AcountService {
 						accountRepo.save(entity);
 					}
 
-					actionSummary.append(category).append(": ").append(rowsArray.size()).append(" rows saved; ");
+					actionSummary.append(category).append(": ").append(rowsArray.size()).append(" rows processed; ");
 				}
 			}
 

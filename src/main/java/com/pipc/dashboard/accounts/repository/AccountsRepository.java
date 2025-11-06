@@ -20,4 +20,7 @@ public interface AccountsRepository extends JpaRepository<AccountsEntity, Long> 
 	Optional<AccountsEntity> findByCategoryNameAndProjectYearAndRecordType(String categoryName, String projectYear,
 			String recordType);
 
+	Optional<AccountsEntity> findByCategoryNameAndProjectYearAndDeleteId(String category, String accountsYear,
+			Long deleteId);
+
 }

@@ -44,6 +44,8 @@ public class AccountsEntity {
 	@Column(name = "row_id")
 	private int rowId;
 
+	private Long deleteId;
+
 	@CreationTimestamp
 	private LocalDateTime createdDatetime;
 
