@@ -30,7 +30,8 @@ public class PdnAgendaEntity {
 	private String submissionYear;
 	private Integer srNo;
 	private String pointOfAgenda;
-	private String recordId;
+	private Integer recordId;
+	private Long deleteId;
 	private String nameOfDam;
 
 	@JdbcTypeCode(SqlTypes.JSON)

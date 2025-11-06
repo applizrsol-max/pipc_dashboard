@@ -69,87 +69,121 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 	// 🔹 Save or Update PDN Agenda
 	// ----------------------------------------------------
 	@Override
+	@Transactional
 	public PdnAgendaResponse saveOrUpdatePdnAgenda(PdnAgendaRequest pdnAgendaRequest) {
 
-		PdnAgendaResponse response = new PdnAgendaResponse();
-		ApplicationError error = new ApplicationError();
-		StringBuilder statusMsg = new StringBuilder();
+	    PdnAgendaResponse response = new PdnAgendaResponse();
+	    ApplicationError error = new ApplicationError();
+	    StringBuilder statusMsg = new StringBuilder();
 
-		try {
-			String currentUser = Optional.ofNullable(MDC.get("userId")).orElse("SYSTEM");
+	    try {
+	        String currentUser = Optional.ofNullable(MDC.get("userId")).orElse("SYSTEM");
 
-			for (AgendaPoint point : pdnAgendaRequest.getAgendaPoints()) {
-				for (AgendaDetail detail : point.getDetails()) {
+	        for (AgendaPoint point : pdnAgendaRequest.getAgendaPoints()) {
+	            for (AgendaDetail detail : point.getDetails()) {
 
-					JsonNode incomingData = detail.getColumnData();
+	                JsonNode incomingData = detail.getColumnData();
 
-					// Dynamic extraction of dam name & year
-					String damName = extractFieldValue(incomingData, "dam");
-					String year = extractFieldValue(incomingData, "year");
+	                // 🔹 Extract dam name dynamically
+	                String damName = extractFieldValue(incomingData, "NameOfDam");
+	                if (damName == null || damName.isEmpty()) {
+	                    statusMsg.append("[Skipped: Missing Dam Name for RowId ")
+	                            .append(detail.getRowId()).append("], ");
+	                    continue;
+	                }
 
-					if (damName == null || damName.isEmpty()) {
-						statusMsg.append("[Skipped: Missing Dam Name for RowId ").append(detail.getRowId())
-								.append("], ");
-						continue;
-					}
+	                // 🔹 Read flag & deleteId from detail (top-level)
+	                String flag = detail.getFlag();
+	                Long deleteId = detail.getDeleteId();
 
-					// 🔍 Find existing entity
-					Optional<PdnAgendaEntity> existingOpt = pdnAgnedaRepo
-							.findBySubmissionYearAndPointOfAgendaAndRecordIdAndNameOfDam(
-									pdnAgendaRequest.getSubmissionYear(), point.getPointOfAgenda(), detail.getRowId(),
-									damName);
+	                // 🔹 Find matching records (for both update & delete)
+	                Optional<PdnAgendaEntity> existingOpt = pdnAgnedaRepo
+	                        .findBySubmissionYearAndPointOfAgendaAndRecordIdAndNameOfDam(
+	                                pdnAgendaRequest.getSubmissionYear(),
+	                                point.getPointOfAgenda(),
+	                                detail.getRowId(),
+	                                damName
+	                        );
 
-					PdnAgendaEntity entity;
+	                Optional<PdnAgendaEntity> existingOptByDeleteId = Optional.empty();
+	                if (deleteId != null) {
+	                    existingOptByDeleteId = pdnAgnedaRepo
+	                            .findBySubmissionYearAndPointOfAgendaAndDeleteIdAndNameOfDam(
+	                                    pdnAgendaRequest.getSubmissionYear(),
+	                                    point.getPointOfAgenda(),
+	                                    deleteId,
+	                                    damName
+	                            );
+	                }
 
-					if (existingOpt.isPresent()) {
-						entity = existingOpt.get();
-						JsonNode existingData = entity.getColumnData();
+	                // ✅ DELETE LOGIC (based on flag 'D')
+	                if ("D".equalsIgnoreCase(flag)) {
+	                    if (existingOptByDeleteId.isPresent()) {
+	                        pdnAgnedaRepo.delete(existingOptByDeleteId.get());
+	                        statusMsg.append("Deleted: ").append(damName).append(" (DeleteId: ")
+	                                .append(deleteId).append("), ");
+	                    } else if (existingOpt.isPresent()) {
+	                        pdnAgnedaRepo.delete(existingOpt.get());
+	                        statusMsg.append("Deleted by RowId: ").append(detail.getRowId())
+	                                .append(" (").append(damName).append("), ");
+	                    } else {
+	                        statusMsg.append("Delete requested but record not found for: ").append(damName).append(", ");
+	                    }
+	                    continue; // skip rest (no update/create)
+	                }
 
-						if (!existingData.equals(incomingData)) {
-							entity.setColumnData(incomingData);
-							entity.setUpdatedBy(currentUser);
-							entity.setUpdatedAt(LocalDateTime.now());
-							entity.setRecordFlag("U");
-							pdnAgnedaRepo.save(entity);
-							statusMsg.append("Updated: ").append(damName).append(", ");
-						} else {
-							statusMsg.append("No change for: ").append(damName).append(", ");
-						}
+	                // 🔹 Otherwise handle Create or Update
+	                PdnAgendaEntity entity;
+	                if (existingOpt.isPresent()) {
+	                    entity = existingOpt.get();
+	                    JsonNode existingData = entity.getColumnData();
 
-					} else {
-						entity = new PdnAgendaEntity();
-						entity.setSubmissionTitle(pdnAgendaRequest.getSubmissionTitle());
-						entity.setSubmissionYear(pdnAgendaRequest.getSubmissionYear());
-						entity.setSrNo(point.getSrNo());
-						entity.setPointOfAgenda(point.getPointOfAgenda());
-						entity.setRecordId(detail.getRowId());
-						entity.setNameOfDam(damName);
-						entity.setColumnData(incomingData);
-						entity.setRecordFlag("C");
-						entity.setCreatedBy(currentUser);
-						entity.setUpdatedBy(currentUser);
-						entity.setCreatedAt(LocalDateTime.now());
-						entity.setUpdatedAt(LocalDateTime.now());
+	                    if (!existingData.equals(incomingData)) {
+	                        entity.setColumnData(incomingData);
+	                        entity.setUpdatedBy(currentUser);
+	                        entity.setUpdatedAt(LocalDateTime.now());
+	                        entity.setRecordFlag("U");
+	                        pdnAgnedaRepo.save(entity);
+	                        statusMsg.append("Updated: ").append(damName).append(", ");
+	                    } else {
+	                        statusMsg.append("No change for: ").append(damName).append(", ");
+	                    }
 
-						pdnAgnedaRepo.save(entity);
-						statusMsg.append("Created: ").append(damName).append(", ");
-					}
-				}
-			}
+	                } else {
+	                    entity = new PdnAgendaEntity();
+	                    entity.setSubmissionTitle(pdnAgendaRequest.getSubmissionTitle());
+	                    entity.setSubmissionYear(pdnAgendaRequest.getSubmissionYear());
+	                    entity.setSrNo(point.getSrNo());
+	                    entity.setPointOfAgenda(point.getPointOfAgenda());
+	                    entity.setRecordId(detail.getRowId());
+	                    entity.setNameOfDam(damName);
+	                    entity.setColumnData(incomingData);
+	                    entity.setRecordFlag("C");
+	                    entity.setCreatedBy(currentUser);
+	                    entity.setUpdatedBy(currentUser);
+	                    entity.setCreatedAt(LocalDateTime.now());
+	                    entity.setUpdatedAt(LocalDateTime.now());
+	                    entity.setDeleteId(deleteId); // ✅ Save deleteId if given
 
-			error.setErrorCode("0");
-			error.setErrorDescription("Agenda processed: " + statusMsg);
-			response.setMessage("Success");
-			response.setErrorDetails(error);
+	                    pdnAgnedaRepo.save(entity);
+	                    statusMsg.append("Created: ").append(damName).append(", ");
+	                }
+	            }
+	        }
 
-		} catch (Exception e) {
-			error.setErrorCode("1");
-			error.setErrorDescription("Error while saving agenda: " + e.getMessage());
-			response.setMessage("Failed");
-			response.setErrorDetails(error);
-		}
+	        error.setErrorCode("0");
+	        error.setErrorDescription("Agenda processed: " + statusMsg);
+	        response.setMessage("Success");
+	        response.setErrorDetails(error);
 
-		return response;
+	    } catch (Exception e) {
+	        error.setErrorCode("1");
+	        error.setErrorDescription("Error while saving agenda: " + e.getMessage());
+	        response.setMessage("Failed");
+	        response.setErrorDetails(error);
+	    }
+
+	    return response;
 	}
 
 	// ----------------------------------------------------

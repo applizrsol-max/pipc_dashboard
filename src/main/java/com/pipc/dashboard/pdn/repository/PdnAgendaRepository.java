@@ -11,12 +11,14 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface PdnAgendaRepository extends JpaRepository<PdnAgendaEntity, Long> {
 
-	Optional<PdnAgendaEntity> findBySubmissionYearAndPointOfAgendaAndRecordIdAndNameOfDam(String submissionYear,
-			String pointOfAgenda, String recordId, String nameOfDam);
-
 	Page<PdnAgendaEntity> findBySubmissionYear(String projectYear, Pageable pageable);
 
 	List<PdnAgendaEntity> findBySubmissionYear(String year);
 
-	
+	Optional<PdnAgendaEntity> findBySubmissionYearAndPointOfAgendaAndDeleteIdAndNameOfDam(String submissionYear,
+			String pointOfAgenda, Long deleteId, String damName);
+
+	Optional<PdnAgendaEntity> findBySubmissionYearAndPointOfAgendaAndRecordIdAndNameOfDam(String submissionYear,
+			String pointOfAgenda, Integer rowId, String damName);
+
 }

@@ -6,6 +6,8 @@ import lombok.Data;
 
 @Data
 public class AgendaDetail {
-    private String rowId;
-    private JsonNode columnData;
+	private Integer rowId;
+	private JsonNode columnData;
+	private Long deleteId;
+	private String flag;
 }
