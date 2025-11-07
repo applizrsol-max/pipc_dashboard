@@ -28,6 +28,7 @@ public class DamSafetyEntity {
 	private Long id;
 
 	private Integer rowId;
+	private Long deleteId;
 	private String year;
 	private String month;
 	private String projectName;

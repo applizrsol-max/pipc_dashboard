@@ -136,12 +136,12 @@ public class DrawingServiceImpl implements DrawingService {
 
 				// ---------- DELETE ----------
 				if ("D".equalsIgnoreCase(row.getFlag())) {
-					damRepository.findByRowIdAndYearAndMonthAndProjectNameAndMetaId(row.getRowId(), row.getYear(),
+					damRepository.findByDeleteIdAndYearAndMonthAndProjectNameAndMetaId(row.getDeleteId(), row.getYear(),
 							row.getMonth(), projectName, savedMeta.getId()).ifPresent(entity -> {
 								damRepository.delete(entity);
 							});
 					deleted++;
-					log.append("Deleted rowId ").append(row.getRowId()).append(", project '").append(projectName)
+					log.append("Deleted deleteId ").append(row.getDeleteId()).append(", project '").append(projectName)
 							.append("' for metaId ").append(savedMeta.getId()).append(". ");
 					continue;
 				}
@@ -181,6 +181,7 @@ public class DrawingServiceImpl implements DrawingService {
 
 				} else {
 					DamSafetyEntity entity = new DamSafetyEntity();
+					entity.setDeleteId(row.getDeleteId());
 					entity.setRowId(row.getRowId());
 					entity.setYear(row.getYear());
 					entity.setMonth(row.getMonth());

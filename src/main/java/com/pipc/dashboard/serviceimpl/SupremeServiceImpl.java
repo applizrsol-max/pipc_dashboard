@@ -1,17 +1,36 @@
 package com.pipc.dashboard.serviceimpl;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.MDC;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -162,4 +181,210 @@ public class SupremeServiceImpl implements SupremaService {
 		}
 		return null;
 	}
+
+	public ResponseEntity<InputStreamResource> downloadSupremaExcel(String projectYear) throws IOException {
+
+		List<SupremaEntity> allRecords = supremaRepo.findByProjectYearOrderByRowIdAsc(projectYear);
+
+		Workbook workbook = new XSSFWorkbook();
+		Sheet sheet = workbook.createSheet("सुप्रमा प्रस्ताव सध्यस्थिती");
+
+		// ✅ Column widths
+		sheet.setColumnWidth(0, 1500); // क्रमांक
+		sheet.setColumnWidth(1, 7000); // प्रकल्पाचे नाव
+		sheet.setColumnWidth(2, 3000); // मंजूर प्रमा/सुप्रमा
+		sheet.setColumnWidth(3, 4000); // किंमत (₹ कोटी)
+		sheet.setColumnWidth(4, 4000); // मंजुरीचा दिनांक
+		sheet.setColumnWidth(5, 3000); // प्रस्तावित सुप्रमा
+		sheet.setColumnWidth(6, 4000); // किंमत (₹ कोटी)
+		sheet.setColumnWidth(7, 18000); // सुप्रमा प्रस्ताव सध्यस्थिती
+
+		// ✅ Styles
+		CellStyle titleStyle = createTitleStyle(workbook);
+		CellStyle headerStyle = createHeaderStyle(workbook);
+		CellStyle subHeaderStyle = createSubHeaderStyle(workbook);
+		CellStyle textStyle = createTextStyle(workbook);
+
+		int rowIdx = 0;
+
+		// 🔹 Title Row
+		Row titleRow = sheet.createRow(rowIdx++);
+		Cell titleCell = titleRow.createCell(0);
+		titleCell.setCellValue("सुप्रमा प्रस्ताव सध्यस्थिती");
+		titleCell.setCellStyle(titleStyle);
+		sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 7));
+		titleRow.setHeightInPoints(30);
+
+		// 🔹 Empty spacer row
+		rowIdx++;
+
+		// 🔹 Department Row
+		Row deptRow = sheet.createRow(rowIdx++);
+		Cell deptCell = deptRow.createCell(0);
+		deptCell.setCellValue("पुणे पाटबंधारे प्रकल्प मंडळ, पुणे");
+
+		// ✅ Bold + centered style for dept name
+		CellStyle deptStyle = workbook.createCellStyle();
+		Font deptFont = workbook.createFont();
+		deptFont.setBold(true);
+		deptFont.setFontHeightInPoints((short) 10);
+		deptStyle.setFont(deptFont);
+//		deptStyle.setAlignment(HorizontalAlignment.CENTER);
+//		deptStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		deptCell.setCellStyle(deptStyle);
+
+		// ✅ Merge department row across all columns
+		sheet.addMergedRegion(new CellRangeAddress(rowIdx - 1, rowIdx - 1, 0, 7));
+
+		// 🔹 Empty spacer after department
+		rowIdx++;
+
+		// ✅ Header rows start at rowIdx = 4 (Excel row 5)
+		// --------------------------------------------------
+
+		// 🔹 Header Row 1 (Top-level)
+		Row header1 = sheet.createRow(rowIdx++);
+		String[] headers1 = { "अ. क्र.", "प्रकल्पाचे नाव", "मंजुर प्रमा / सुप्रमा किंमत (रु.कोटी) ", "",
+				"मंजुरीचा दिनांक", "प्रस्तावित सुप्रमा", "", "सुप्रमा प्रस्ताव सध्यस्थिती" };
+		for (int i = 0; i < headers1.length; i++) {
+			Cell cell = header1.createCell(i);
+			cell.setCellValue(headers1[i]);
+			cell.setCellStyle(headerStyle);
+		}
+
+		// ✅ Correct Merge Structure (row index offset fixed)
+		sheet.addMergedRegion(new CellRangeAddress(4, 6, 0, 0)); // अ. क्र. rowspan=3
+		sheet.addMergedRegion(new CellRangeAddress(4, 6, 1, 1)); // प्रकल्पाचे नाव rowspan=3
+		sheet.addMergedRegion(new CellRangeAddress(4, 4, 2, 3)); // मंजूर प्रमा / सुप्रमा colspan=2
+		sheet.addMergedRegion(new CellRangeAddress(4, 6, 4, 4)); // मंजुरीचा दिनांक rowspan=3
+		sheet.addMergedRegion(new CellRangeAddress(4, 4, 5, 6)); // प्रस्तावित सुप्रमा colspan=2 (parent)
+		sheet.addMergedRegion(new CellRangeAddress(4, 6, 7, 7)); // सुप्रमा प्रस्ताव सध्यस्थिती rowspan=3
+
+		// 🔹 Header Row 2 (Second Level)
+		Row header2 = sheet.createRow(rowIdx++);
+		String[] headers2 = { "", "", "प्रमा / सुप्रमा", "किंमत (₹ कोटी)", "", "किंमत (रु. कोटी)", "", "" };
+		for (int i = 0; i < headers2.length; i++) {
+			Cell cell = header2.createCell(i);
+			cell.setCellValue(headers2[i]);
+			cell.setCellStyle(subHeaderStyle);
+		}
+
+		// ✅ Merge “किंमत (रु. कोटी)” under प्रस्तावित सुप्रमा (colspan=2)
+		sheet.addMergedRegion(new CellRangeAddress(5, 5, 5, 6));
+
+		// 🔹 Header Row 3 (Third Level)
+		Row header3 = sheet.createRow(rowIdx++);
+		String[] headers3 = { "", "", "", "", "", "प्रमा / सुप्रमा", "किंमत (₹ कोटी)", "" };
+		for (int i = 0; i < headers3.length; i++) {
+			Cell cell = header3.createCell(i);
+			cell.setCellValue(headers3[i]);
+			cell.setCellStyle(subHeaderStyle);
+		}
+
+		// --------------------------------------------------
+		// 🔹 Data Rows
+		int serial = 1;
+		for (SupremaEntity entity : allRecords) {
+			JsonNode data = entity.getSupremaData();
+			Row row = sheet.createRow(rowIdx++);
+			int col = 0;
+
+			createCell(row, col++, serial++, textStyle); // अ. क्र.
+			createCell(row, col++, data.path("prakalchenav").asText(""), textStyle);
+			createCell(row, col++, data.path("manjurPramaSuprama").asText(""), textStyle);
+			createCell(row, col++, data.path("manjurKimta").asText(""), textStyle);
+			createCell(row, col++, formatDate(data.path("manjuriDate").asText("")), textStyle);
+			createCell(row, col++, data.path("prastavitSuprama").asText(""), textStyle);
+			createCell(row, col++, data.path("prastavitKimta").asText(""), textStyle);
+			createCell(row, col++, data.path("supramaProposalStatus").asText(""), textStyle);
+		}
+
+		// ✅ Write to output
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		workbook.write(out);
+		workbook.close();
+
+		ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+		HttpHeaders headers = new HttpHeaders();
+		headers.add("Content-Disposition", "attachment; filename=Suprema_Report_" + projectYear + ".xlsx");
+
+		return ResponseEntity.ok().headers(headers)
+				.contentType(
+						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(new InputStreamResource(in));
+	}
+
+	// ----------------- Helper Methods -----------------
+
+	private String formatDate(String dateStr) {
+		try {
+			return DateTimeFormatter.ofPattern("yyyy-MM-dd").parse(dateStr)
+					.query(java.time.temporal.TemporalQueries.localDate())
+					.format(DateTimeFormatter.ofPattern("d/M/yyyy"));
+		} catch (Exception e) {
+			return dateStr;
+		}
+	}
+
+	private void createCell(Row row, int col, Object value, CellStyle style) {
+		Cell cell = row.createCell(col);
+		if (value instanceof String)
+			cell.setCellValue((String) value);
+		else if (value instanceof Number)
+			cell.setCellValue(((Number) value).doubleValue());
+		else if (value != null)
+			cell.setCellValue(value.toString());
+		cell.setCellStyle(style);
+	}
+
+	private CellStyle createTitleStyle(Workbook wb) {
+		Font font = wb.createFont();
+		font.setBold(true);
+		font.setFontHeightInPoints((short) 14);
+		CellStyle style = wb.createCellStyle();
+		style.setFont(font);
+		style.setAlignment(HorizontalAlignment.CENTER);
+		style.setVerticalAlignment(VerticalAlignment.CENTER);
+		return style;
+	}
+
+	private CellStyle createHeaderStyle(Workbook wb) {
+		Font font = wb.createFont();
+		font.setBold(true);
+		font.setFontHeightInPoints((short) 10);
+		CellStyle style = wb.createCellStyle();
+		style.setFont(font);
+		style.setAlignment(HorizontalAlignment.CENTER);
+		style.setVerticalAlignment(VerticalAlignment.CENTER);
+		style.setBorderBottom(BorderStyle.THIN);
+		style.setBorderTop(BorderStyle.THIN);
+		style.setBorderLeft(BorderStyle.THIN);
+		style.setBorderRight(BorderStyle.THIN);
+		style.setWrapText(true);
+		return style;
+	}
+
+	private CellStyle createSubHeaderStyle(Workbook wb) {
+		CellStyle style = createHeaderStyle(wb);
+		Font font = wb.createFont();
+		font.setBold(true);
+		font.setFontHeightInPoints((short) 10);
+		style.setFont(font);
+		return style;
+	}
+
+	private CellStyle createTextStyle(Workbook wb) {
+		Font font = wb.createFont();
+		font.setFontHeightInPoints((short) 10);
+		CellStyle style = wb.createCellStyle();
+		style.setFont(font);
+		style.setVerticalAlignment(VerticalAlignment.TOP);
+		style.setWrapText(true);
+		style.setBorderBottom(BorderStyle.THIN);
+		style.setBorderTop(BorderStyle.THIN);
+		style.setBorderLeft(BorderStyle.THIN);
+		style.setBorderRight(BorderStyle.THIN);
+		return style;
+	}
+
 }

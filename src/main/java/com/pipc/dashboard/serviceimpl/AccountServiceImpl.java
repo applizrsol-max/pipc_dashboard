@@ -3,6 +3,7 @@ package com.pipc.dashboard.serviceimpl;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -87,13 +88,18 @@ public class AccountServiceImpl implements AcountService {
 					ObjectNode incomingNode = JsonUtils.ensureObjectNode(valueNode);
 
 					boolean changed = JsonUtils.mergeAndDetectChanges(existingNode, incomingNode);
-					ekunEntity.setAccountsData(existingNode);
+					ekunEntity.setAccountsData(existingNode.deepCopy());
 					ekunEntity.setUpdatedBy(currentUser);
-					if (changed)
-						ekunEntity.setRecordFlag("U");
+					ekunEntity.setUpdatedDatetime(LocalDateTime.now());
 
-					accountRepo.save(ekunEntity);
-					actionSummary.append(category).append(": ekun data saved; ");
+					if (changed) {
+						ekunEntity.setRecordFlag("U");
+						actionSummary.append("Updated ekun data for ").append(baseCategory).append(". ");
+					} else if (ekunEntity.getId() == null) {
+						actionSummary.append("Created ekun data for ").append(baseCategory).append(". ");
+					}
+
+					accountRepo.saveAndFlush(ekunEntity);
 				}
 
 				// 🟩 Case 2: Regular category (array of rows)
@@ -113,13 +119,13 @@ public class AccountServiceImpl implements AcountService {
 							accountRepo.findByCategoryNameAndProjectYearAndDeleteId(category, accountsYear, deleteId)
 									.ifPresent(entity -> {
 										accountRepo.delete(entity);
-										actionSummary.append("Deleted row for category: ").append(category)
-												.append(" (deleteId=").append(deleteId).append("); ");
+										actionSummary.append("Deleted row [deleteId=").append(deleteId)
+												.append("] for category '").append(category).append("'. ");
 									});
-							continue; // skip save for deleted rows
+							continue;
 						}
 
-						// ✅ SAVE or UPDATE LOGIC
+						// ✅ SAVE / UPDATE LOGIC
 						AccountsEntity entity = accountRepo
 								.findByCategoryNameAndProjectYearAndRowId(category, accountsYear, rowId)
 								.orElseGet(() -> AccountsEntity.builder().createdBy(currentUser).updatedBy(currentUser)
@@ -130,24 +136,32 @@ public class AccountServiceImpl implements AcountService {
 						ObjectNode incomingNode = JsonUtils.ensureObjectNode(rowNode);
 
 						boolean hasChanged = JsonUtils.mergeAndDetectChanges(existingNode, incomingNode);
-						entity.setAccountsData(existingNode);
+						entity.setAccountsData(existingNode.deepCopy());
 						entity.setUpdatedBy(currentUser);
-						if (hasChanged)
+						entity.setUpdatedDatetime(LocalDateTime.now());
+
+						// 🔸 Status message handling
+						if (entity.getId() == null) {
+							entity.setRecordFlag("C");
+							actionSummary.append("Created rowId [").append(rowId).append("] for category '")
+									.append(category).append("'. ");
+						} else if (hasChanged) {
 							entity.setRecordFlag("U");
+							actionSummary.append("Updated rowId [").append(rowId).append("] for category '")
+									.append(category).append("'. ");
+						}
 
-						accountRepo.save(entity);
+						accountRepo.saveAndFlush(entity);
 					}
-
-					actionSummary.append(category).append(": ").append(rowsArray.size()).append(" rows processed; ");
 				}
 			}
 
 			error.setErrorCode("0");
-			error.setErrorDescription("Saved Successfully → " + actionSummary);
+			error.setErrorDescription("✅ Saved Successfully → " + actionSummary);
 
 		} catch (Exception e) {
 			error.setErrorCode("1");
-			error.setErrorDescription("Error while saving: " + e.getMessage());
+			error.setErrorDescription("❌ Error while saving: " + e.getMessage());
 			e.printStackTrace();
 		}
 

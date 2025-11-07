@@ -26,9 +26,12 @@ public interface DamSafetyRepository extends JpaRepository<DamSafetyEntity, Long
 	int updateMetaForAllRows(@Param("title") String title, @Param("period") String period, @Param("unit") String unit,
 			@Param("metaId") Long metaId);
 
-	Optional<DamSafetyEntity> findByRowIdAndYearAndMonthAndProjectNameAndMetaId(Integer rowId, String year, String month,
-			String projectName, Long metaId);
+	Optional<DamSafetyEntity> findByRowIdAndYearAndMonthAndProjectNameAndMetaId(Integer rowId, String year,
+			String month, String projectName, Long metaId);
 
 	Page<DamSafetyEntity> findByMetaId(Long metaId, Pageable pageable);
+
+	Optional<DamSafetyEntity> findByDeleteIdAndYearAndMonthAndProjectNameAndMetaId(Long deleteId, String year,
+			String month, String projectName, Long id);
 
 }

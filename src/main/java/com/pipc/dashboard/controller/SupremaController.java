@@ -2,8 +2,11 @@ package com.pipc.dashboard.controller;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,11 +35,16 @@ public class SupremaController {
 	public SupremaResponse saveOrUpdateSuprema(@RequestBody SupremaRequest supremaRequest) {
 		return supremaBusiness.saveOrUpdateSuprema(supremaRequest);
 	}
-	 @GetMapping("/getSuprema")
-	    public Page<SupremaEntity> getSuprema(
-	            @RequestParam String projectYear,
-	            @RequestParam(defaultValue = "0") int page,
-	            @RequestParam(defaultValue = "10") int size) {
-	        return supremaBusiness.getSupremaByProjectYear(projectYear, page, size);
-	    }
+
+	@GetMapping("/getSuprema")
+	public Page<SupremaEntity> getSuprema(@RequestParam String projectYear, @RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size) {
+		return supremaBusiness.getSupremaByProjectYear(projectYear, page, size);
+	}
+
+	@GetMapping("/downloadSupremaExcel")
+	public ResponseEntity<InputStreamResource> downloadSupremaExcel(@RequestParam("year") String year)
+			throws Exception {
+		return supremaBusiness.downloadSupremaExcel(year);
+	}
 }
