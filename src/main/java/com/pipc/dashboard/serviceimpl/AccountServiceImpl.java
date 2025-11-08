@@ -210,15 +210,9 @@ public class AccountServiceImpl implements AcountService {
 			String category = entity.getCategoryName();
 			JsonNode dataNode = entity.getAccountsData();
 
-			// 🟩 Ekun (summary/aggregate)
-			if ("E".equalsIgnoreCase(entity.getRecordType())) {
-				groupedData.put("ekun" + capitalize(category), dataNode);
-			}
-			// 🟦 Regular rows
-			else {
-				groupedData.computeIfAbsent(category, k -> new ArrayList<JsonNode>());
-				((List<JsonNode>) groupedData.get(category)).add(dataNode);
-			}
+			groupedData.computeIfAbsent(category, k -> new ArrayList<JsonNode>());
+			((List<JsonNode>) groupedData.get(category)).add(dataNode);
+
 		}
 
 		// 🧩 Pagination info at end of map
