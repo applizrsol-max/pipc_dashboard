@@ -1,6 +1,7 @@
 package com.pipc.dashboard.controller;
 
 import java.io.IOException;
+import java.util.Map;
 
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
@@ -34,9 +35,15 @@ public class AccountsController {
 	}
 
 	@GetMapping("/getAccounts")
-	public Page<AccountsEntity> getAccounts(@RequestParam(defaultValue = "0") int page,
+	public Map<String, Object> getAccounts(@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "10") int size) {
 		return accountsBusiness.getAllAccounts(page, size);
+	}
+
+	@GetMapping("/getAllAccountsByYear")
+	public Map<String, Object> getAllAccountsByYear(@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size, String year) {
+		return accountsBusiness.getAllAccountsByYear(page, size, year);
 	}
 
 	@GetMapping("/downloadAccountReport")

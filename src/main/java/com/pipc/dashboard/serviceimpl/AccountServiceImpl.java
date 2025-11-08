@@ -4,9 +4,11 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -169,13 +171,85 @@ public class AccountServiceImpl implements AcountService {
 		return response;
 	}
 
-	public Page<AccountsEntity> getAllAccounts(int page, int size) {
-		return accountRepo.findAll(PageRequest.of(page, size));
+	@Override
+	public Map<String, Object> getAllAccounts(int page, int size) {
+		Page<AccountsEntity> pagedRecords = accountRepo.findAll(PageRequest.of(page, size));
+
+		Map<String, Object> groupedData = new LinkedHashMap<>();
+
+		for (AccountsEntity entity : pagedRecords.getContent()) {
+			String category = entity.getCategoryName();
+			JsonNode dataNode = entity.getAccountsData();
+
+			// 🟩 Ekun (summary) data
+			if ("E".equalsIgnoreCase(entity.getRecordType())) {
+				groupedData.put("ekun" + capitalize(category), dataNode);
+			}
+			// 🟦 Regular (row-wise) data
+			else {
+				groupedData.computeIfAbsent(category, k -> new ArrayList<JsonNode>());
+				((List<JsonNode>) groupedData.get(category)).add(dataNode);
+			}
+		}
+
+		// Optional: include pagination metadata
+		groupedData.put("_pageInfo", Map.of("currentPage", pagedRecords.getNumber() + 1, "totalPages",
+				pagedRecords.getTotalPages(), "totalRecords", pagedRecords.getTotalElements()));
+
+		return groupedData;
 	}
 
 	@Override
-	public List<AccountsEntity> getAllAccountsByYear(String year) {
-		return accountRepo.findByProjectYear(year);
+	public Map<String, Object> getAllAccountsByYear(int page, int size, String year) {
+		List<AccountsEntity> allRecords = accountRepo.findByProjectYear(year);
+
+		// 🧩 Group all entities by department name
+		Map<String, List<AccountsEntity>> departmentGroups = allRecords.stream().collect(
+				Collectors.groupingBy(AccountsEntity::getCategoryName, LinkedHashMap::new, Collectors.toList()));
+
+		Map<String, Object> groupedData = new LinkedHashMap<>();
+
+		for (Map.Entry<String, List<AccountsEntity>> entry : departmentGroups.entrySet()) {
+			String category = entry.getKey();
+			List<AccountsEntity> deptEntities = entry.getValue();
+
+			// Split ekun from regular rows
+			Optional<AccountsEntity> ekunEntity = deptEntities.stream()
+					.filter(e -> "E".equalsIgnoreCase(e.getRecordType())).findFirst();
+
+			List<AccountsEntity> regularEntities = deptEntities.stream()
+					.filter(e -> !"E".equalsIgnoreCase(e.getRecordType())).collect(Collectors.toList());
+
+			// 🧮 Pagination for each department’s regular rows
+			int totalRecords = regularEntities.size();
+			int totalPages = (int) Math.ceil((double) totalRecords / size);
+			int fromIndex = Math.min(page * size, totalRecords);
+			int toIndex = Math.min(fromIndex + size, totalRecords);
+
+			List<JsonNode> paginatedData = regularEntities.subList(fromIndex, toIndex).stream()
+					.map(AccountsEntity::getAccountsData).collect(Collectors.toList());
+
+			// 🧩 Department structure
+			Map<String, Object> deptResponse = new LinkedHashMap<>();
+			deptResponse.put("data", paginatedData);
+			deptResponse.put("pageInfo", Map.of("currentPage", page + 1, "pageSize", size, "totalPages", totalPages,
+					"totalRecords", totalRecords));
+
+			// Add ekun data if exists
+			ekunEntity.ifPresent(ekun -> deptResponse.put("ekunData", ekun.getAccountsData()));
+
+			groupedData.put(category, deptResponse);
+		}
+
+		// Add year info
+		groupedData.put("_year", year);
+		return groupedData;
+	}
+
+	private String capitalize(String str) {
+		if (str == null || str.isEmpty())
+			return str;
+		return Character.toUpperCase(str.charAt(0)) + str.substring(1);
 	}
 
 	@Override
@@ -391,5 +465,11 @@ public class AccountServiceImpl implements AcountService {
 			"expansionAndImprovement", "विस्तार व सुधारणा", "damSafety", "धरण सुरक्षितता", "mediumProjects",
 			"मध्यम प्रकल्प", "pmksy", "प्रधानमंत्री कृषि सिंचाई योजना (PMKSY)", "pmksyCADA",
 			"प्रधानमंत्री कृषि सिंचाई योजना (PMKSY)(CADA)");
+
+	@Override
+	public Map<String, Object> getAllAccountsByYear(String year) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
 }

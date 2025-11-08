@@ -3,6 +3,7 @@ package com.pipc.dashboard.businessimpl;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
@@ -31,12 +32,12 @@ public class AccountsBusinessImpl implements AccountsBusiness {
 	}
 
 	@Override
-	public Page<AccountsEntity> getAllAccounts(int page, int size) {
+	public Map<String, Object> getAllAccounts(int page, int size) {
 		return accountService.getAllAccounts(page, size);
 	}
 
 	@Override
-	public List<AccountsEntity> getAllAccountsByYear(String year) {
+	public Map<String, Object> getAllAccountsByYear(String year) {
 		return accountService.getAllAccountsByYear(year);
 	}
 
@@ -48,6 +49,11 @@ public class AccountsBusinessImpl implements AccountsBusiness {
 	@Override
 	public ResponseEntity<InputStreamResource> downloadAccountsReport(String year) throws IOException {
 		return accountService.downloadAccountsReport(year);
+	}
+
+	@Override
+	public Map<String, Object> getAllAccountsByYear(int page, int size, String year) {
+		return accountService.getAllAccountsByYear(page, size, year);
 	}
 
 }
