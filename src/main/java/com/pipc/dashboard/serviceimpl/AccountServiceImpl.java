@@ -201,48 +201,34 @@ public class AccountServiceImpl implements AcountService {
 
 	@Override
 	public Map<String, Object> getAllAccountsByYear(int page, int size, String year) {
-		List<AccountsEntity> allRecords = accountRepo.findByProjectYear(year);
 
-		// 🧩 Group all entities by department name
-		Map<String, List<AccountsEntity>> departmentGroups = allRecords.stream().collect(
-				Collectors.groupingBy(AccountsEntity::getCategoryName, LinkedHashMap::new, Collectors.toList()));
+		Page<AccountsEntity> pagedRecords = accountRepo.findByProjectYear(year, PageRequest.of(page, size));
 
 		Map<String, Object> groupedData = new LinkedHashMap<>();
 
-		for (Map.Entry<String, List<AccountsEntity>> entry : departmentGroups.entrySet()) {
-			String category = entry.getKey();
-			List<AccountsEntity> deptEntities = entry.getValue();
+		for (AccountsEntity entity : pagedRecords.getContent()) {
+			String category = entity.getCategoryName();
+			JsonNode dataNode = entity.getAccountsData();
 
-			// Split ekun from regular rows
-			Optional<AccountsEntity> ekunEntity = deptEntities.stream()
-					.filter(e -> "E".equalsIgnoreCase(e.getRecordType())).findFirst();
-
-			List<AccountsEntity> regularEntities = deptEntities.stream()
-					.filter(e -> !"E".equalsIgnoreCase(e.getRecordType())).collect(Collectors.toList());
-
-			// 🧮 Pagination for each department’s regular rows
-			int totalRecords = regularEntities.size();
-			int totalPages = (int) Math.ceil((double) totalRecords / size);
-			int fromIndex = Math.min(page * size, totalRecords);
-			int toIndex = Math.min(fromIndex + size, totalRecords);
-
-			List<JsonNode> paginatedData = regularEntities.subList(fromIndex, toIndex).stream()
-					.map(AccountsEntity::getAccountsData).collect(Collectors.toList());
-
-			// 🧩 Department structure
-			Map<String, Object> deptResponse = new LinkedHashMap<>();
-			deptResponse.put("data", paginatedData);
-			deptResponse.put("pageInfo", Map.of("currentPage", page + 1, "pageSize", size, "totalPages", totalPages,
-					"totalRecords", totalRecords));
-
-			// Add ekun data if exists
-			ekunEntity.ifPresent(ekun -> deptResponse.put("ekunData", ekun.getAccountsData()));
-
-			groupedData.put(category, deptResponse);
+			// 🟩 Ekun (summary/aggregate)
+			if ("E".equalsIgnoreCase(entity.getRecordType())) {
+				groupedData.put("ekun" + capitalize(category), dataNode);
+			}
+			// 🟦 Regular rows
+			else {
+				groupedData.computeIfAbsent(category, k -> new ArrayList<JsonNode>());
+				((List<JsonNode>) groupedData.get(category)).add(dataNode);
+			}
 		}
 
-		// Add year info
+		// 🧩 Pagination info at end of map
+		Map<String, Object> pageInfo = Map.of("currentPage", pagedRecords.getNumber() + 1, "pageSize",
+				pagedRecords.getSize(), "totalPages", pagedRecords.getTotalPages(), "totalRecords",
+				pagedRecords.getTotalElements());
+
+		groupedData.put("_pageInfo", pageInfo);
 		groupedData.put("_year", year);
+
 		return groupedData;
 	}
 
