@@ -34,6 +34,7 @@ public class DamNalikaEntity {
 	private String month;
 	private String flag;
 
+	private Long deleteId;
 	@JdbcTypeCode(SqlTypes.JSON)
 	@Column(columnDefinition = "jsonb")
 	private JsonNode data;

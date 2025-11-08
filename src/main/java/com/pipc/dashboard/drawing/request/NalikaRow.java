@@ -7,6 +7,7 @@ import lombok.Data;
 @Data
 public class NalikaRow {
 	private Integer rowId;
-    private String flag; // "D" or ""
-    private Map<String, Object> data;
+	private Long deleteId;
+	private String flag; // "D" or ""
+	private Map<String, Object> data;
 }

@@ -1,6 +1,9 @@
 package com.pipc.dashboard.controller;
 
+import java.io.IOException;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -75,6 +78,11 @@ public class DrawingController {
 			@RequestParam(required = false) String star, @RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "10") int size) {
 		return ResponseEntity.ok(drawingBusiness.getPralambitBhusampadan(period, star, page, size));
+	}
+
+	@GetMapping("/downloadDamSafetyExcel")
+	public ResponseEntity<InputStreamResource> downloadDamSafetyExcel(@RequestParam String period) throws IOException {
+		return drawingBusiness.downloadDamSafetyExcel(period);
 	}
 
 }

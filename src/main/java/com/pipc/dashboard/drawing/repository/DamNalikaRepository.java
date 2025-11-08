@@ -31,4 +31,7 @@ public interface DamNalikaRepository extends JpaRepository<DamNalikaEntity, Inte
 	Page<DamNalikaEntity> findByPeriodAndDepartment(@Param("period") String period, @Param("deptKey") String deptKey,
 			Pageable pageable);
 
+	Optional<DamNalikaEntity> findByDepartmentKeyAndDeleteIdAndYearAndMonthAndPeriod(String deptKey, Long deleteId,
+			String year, String month, String period);
+
 }

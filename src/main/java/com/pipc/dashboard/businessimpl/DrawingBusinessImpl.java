@@ -1,6 +1,10 @@
 package com.pipc.dashboard.businessimpl;
 
+import java.io.IOException;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import com.pipc.dashboard.business.DrawingBusiness;
@@ -60,6 +64,11 @@ public class DrawingBusinessImpl implements DrawingBusiness {
 	@Override
 	public PralambitBhusampadanResponse getPralambitBhusampadan(String period, String star, int page, int size) {
 		return drawingService.getPralambitBhusampadan(period, star, page, size);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadDamSafetyExcel(String period) throws IOException {
+		return drawingService.downloadDamSafetyExcel(period);
 	}
 
 }

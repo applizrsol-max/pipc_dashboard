@@ -17,31 +17,30 @@ import jakarta.persistence.UniqueConstraint;
 import lombok.Data;
 
 @Entity
-@Table(
-    name = "pralambit_bhusampadan_data",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"period", "kramank", "sub_id", "star"})
-)
+@Table(name = "pralambit_bhusampadan_data", uniqueConstraints = @UniqueConstraint(columnNames = { "period", "kramank",
+		"sub_id", "star" }))
 @Data
 public class PralambitBhusampadanEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    private String title;
-    private String period;
-    private Integer kramank;
-    @Column(name = "sub_id")
-    private Integer subId;
-    private String star;
+	private String title;
+	private String period;
+	private Integer kramank;
+	@Column(name = "sub_id")
+	private Integer subId;
+	private String star;
+	private Long deleteId;
+	private Long overAllDeleteId;
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "jsonb")
+	private JsonNode data;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
-    private JsonNode data;
-
-    private String flag;
-    private String createdBy;
-    private String updatedBy;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+	private String flag;
+	private String createdBy;
+	private String updatedBy;
+	private LocalDateTime createdAt;
+	private LocalDateTime updatedAt;
 }

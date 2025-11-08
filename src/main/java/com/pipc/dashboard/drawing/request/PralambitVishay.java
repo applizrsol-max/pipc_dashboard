@@ -7,4 +7,5 @@ public class PralambitVishay {
 	private Integer subId;
 	private String vishay;
 	private String flag; // "" / "D"
+	private Long deleteId;
 }

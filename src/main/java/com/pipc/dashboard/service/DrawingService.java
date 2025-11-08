@@ -1,5 +1,10 @@
 package com.pipc.dashboard.service;
 
+import java.io.IOException;
+
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.ResponseEntity;
+
 import com.pipc.dashboard.drawing.request.DamInspectionRequest;
 import com.pipc.dashboard.drawing.request.DamNalikaRequest;
 import com.pipc.dashboard.drawing.request.DamSafetyRequest;
@@ -26,5 +31,7 @@ public interface DrawingService {
 	PralambitBhusampadanResponse saveOrUpdatePralambitBhusampadan(PralambitBhusampadanRequest req);
 
 	PralambitBhusampadanResponse getPralambitBhusampadan(String period, String star, int page, int size);
+
+	ResponseEntity<InputStreamResource> downloadDamSafetyExcel(String period) throws IOException;
 
 }

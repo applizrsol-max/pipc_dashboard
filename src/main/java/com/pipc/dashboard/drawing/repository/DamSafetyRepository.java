@@ -1,5 +1,6 @@
 package com.pipc.dashboard.drawing.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -33,5 +34,7 @@ public interface DamSafetyRepository extends JpaRepository<DamSafetyEntity, Long
 
 	Optional<DamSafetyEntity> findByDeleteIdAndYearAndMonthAndProjectNameAndMetaId(Long deleteId, String year,
 			String month, String projectName, Long id);
+
+	List<DamSafetyEntity> findByMetaIdOrderByRowIdAsc(Long id);
 
 }

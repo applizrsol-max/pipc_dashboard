@@ -6,7 +6,9 @@ import lombok.Data;
 
 @Data
 public class PralambitBhusampadanRow {
-    private Integer kramank;
-    private String star;
-    private List<PralambitVishay> pralambitVishay;
+	private Integer kramank;
+	private String star;
+	private List<PralambitVishay> pralambitVishay;
+	private Long overalldeleteId;
+	private String overallflag;
 }

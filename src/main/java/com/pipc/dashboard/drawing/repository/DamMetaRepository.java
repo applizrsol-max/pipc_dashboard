@@ -12,5 +12,8 @@ public interface DamMetaRepository extends JpaRepository<DamMetaEntity, Long> {
 
 	Optional<DamMetaEntity> findByTitleAndPeriod(String title, String period);
 
-	  List<DamMetaEntity> findByPeriodContaining(String year);
+	List<DamMetaEntity> findByPeriodContaining(String year);
+
+	Optional<DamMetaEntity> findFirstByPeriod(String period);
+
 }
