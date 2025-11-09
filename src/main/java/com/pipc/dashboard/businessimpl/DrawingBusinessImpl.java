@@ -71,4 +71,9 @@ public class DrawingBusinessImpl implements DrawingBusiness {
 		return drawingService.downloadDamSafetyExcel(period);
 	}
 
+	@Override
+	public ResponseEntity<InputStreamResource> downloadNalikaExcel(String period) throws IOException {
+		return drawingService.downloadNalikaExcel(period);
+	}
+
 }

@@ -1,5 +1,6 @@
 package com.pipc.dashboard.drawing.repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -33,5 +34,7 @@ public interface DamNalikaRepository extends JpaRepository<DamNalikaEntity, Inte
 
 	Optional<DamNalikaEntity> findByDepartmentKeyAndDeleteIdAndYearAndMonthAndPeriod(String deptKey, Long deleteId,
 			String year, String month, String period);
+
+	List<DamNalikaEntity> findByPeriodOrderByDepartmentKeyAscRowIdAsc(String period);
 
 }

@@ -3,6 +3,7 @@ package com.pipc.dashboard.serviceimpl;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.RegionUtil;
 import org.apache.poi.xssf.usermodel.XSSFRichTextString;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -1165,6 +1167,325 @@ public class DrawingServiceImpl implements DrawingService {
 		RegionUtil.setBorderBottom(BorderStyle.THIN, region, sheet);
 		RegionUtil.setBorderLeft(BorderStyle.THIN, region, sheet);
 		RegionUtil.setBorderRight(BorderStyle.THIN, region, sheet);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadNalikaExcel(String period) throws IOException {
+
+		List<DamNalikaEntity> rows = damNalikaRepository.findByPeriodOrderByDepartmentKeyAscRowIdAsc(period);
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sh = wb.createSheet("नळिका पाणी वितरण");
+
+		// ---------- column widths ----------
+		int[] widths = { 1600, 7200, 5200, 4200, 4200, 4200, 4200, 4200, 4200, 7200 };
+		for (int i = 0; i < widths.length; i++)
+			sh.setColumnWidth(i, widths[i]);
+
+		// ---------- styles ----------
+		DataFormat fmt = wb.createDataFormat();
+
+		Font titleFont = wb.createFont();
+		titleFont.setBold(true);
+		titleFont.setFontHeightInPoints((short) 14);
+
+		Font subTitleFont = wb.createFont();
+		subTitleFont.setBold(true);
+		subTitleFont.setFontHeightInPoints((short) 12);
+
+		Font smallFont = wb.createFont();
+		smallFont.setBold(true);
+		smallFont.setFontHeightInPoints((short) 10);
+
+		Font normalFont = wb.createFont();
+		normalFont.setFontHeightInPoints((short) 10);
+
+		Font boldFont = wb.createFont();
+		boldFont.setBold(true);
+
+		CellStyle title = wb.createCellStyle();
+		title.setFont(titleFont);
+		title.setAlignment(HorizontalAlignment.CENTER);
+		title.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		CellStyle subTitle = wb.createCellStyle();
+		subTitle.setFont(subTitleFont);
+		subTitle.setAlignment(HorizontalAlignment.CENTER);
+		subTitle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		CellStyle header = wb.createCellStyle();
+		header.setFont(smallFont);
+		header.setAlignment(HorizontalAlignment.CENTER);
+		header.setVerticalAlignment(VerticalAlignment.CENTER);
+		header.setWrapText(true);
+		header.setBorderTop(BorderStyle.MEDIUM);
+		header.setBorderBottom(BorderStyle.MEDIUM);
+		header.setBorderLeft(BorderStyle.MEDIUM);
+		header.setBorderRight(BorderStyle.MEDIUM);
+
+		CellStyle cellTxt = wb.createCellStyle();
+		cellTxt.setFont(normalFont);
+		cellTxt.setAlignment(HorizontalAlignment.LEFT);
+		cellTxt.setVerticalAlignment(VerticalAlignment.CENTER);
+		cellTxt.setWrapText(true);
+		cellTxt.setBorderTop(BorderStyle.THIN);
+		cellTxt.setBorderBottom(BorderStyle.THIN);
+		cellTxt.setBorderLeft(BorderStyle.THIN);
+		cellTxt.setBorderRight(BorderStyle.THIN);
+
+		CellStyle cellNum = wb.createCellStyle();
+		cellNum.cloneStyleFrom(cellTxt);
+		cellNum.setAlignment(HorizontalAlignment.RIGHT);
+		cellNum.setDataFormat(fmt.getFormat("0.00"));
+
+		CellStyle totalStyle = wb.createCellStyle();
+		totalStyle.cloneStyleFrom(cellNum);
+		totalStyle.setFont(boldFont);
+		totalStyle.setBorderTop(BorderStyle.MEDIUM);
+
+		int r = 0;
+
+		// ---------- titles ----------
+		createMergedText(sh, sh.createRow(r++), 0, 9, "महाराष्ट्र कृष्णा खोरे विकास महामंडळ, पुणे", title);
+		createMergedText(sh, sh.createRow(r++), 0, 9, "पुणे पाटबंधारे प्रकल्प मंडळ, पुणे", subTitle);
+		createMergedText(sh, sh.createRow(r++), 0, 9,
+				"नलिका द्वारे पाणी वितरण व्यवस्था - धोरण अंमलबजावणी (दि. 30/09/2025 अखेर)", subTitle);
+		r++;
+
+		// ---------- header ----------
+		Row h1 = sh.createRow(r++);
+		Row h2 = sh.createRow(r++);
+		Row h3 = sh.createRow(r++);
+
+		// Col 0–2
+		applyHeaderMerge(sh, wb, h1, h3, 0, 0, "अ. क्र.", header);
+		applyHeaderMerge(sh, wb, h1, h3, 1, 1, "महामंडळ / प्रादेशिक कार्यालयाचे नांव", header);
+		applyHeaderMerge(sh, wb, h1, h3, 2, 2,
+				"प्रकल्पांतर्गत नलिकाव्दारे सिंचन वितरणाचे प्रस्तावित संपूर्ण क्षेत्र (हे.)", header);
+
+		// भौतिक प्रगती साध्य (cols 3–7)
+		CellRangeAddress bhoutikMerge = new CellRangeAddress(h1.getRowNum(), h1.getRowNum(), 3, 7);
+		createHeader(h1, 3, "भौतिक प्रगती साध्य", header);
+		sh.addMergedRegion(bhoutikMerge);
+		applyBorderToMergedRegionForNalika(sh, bhoutikMerge, wb);
+
+		// Row 2 (subheaders)
+		String[] subs = { "नलिकाव्दारे सिंचन वितरणाची कामे पूर्ण झालेले क्षेत्र (हे)", "प्रगतीपथावरील क्षेत्र (हे)",
+				"कामाचे आदेश दिलेले क्षेत्र (हे)", "निविदा स्तरावरील क्षेत्र (हे)",
+				"सर्वेक्षण स्तरावर प्रलंबित क्षेत्र (हे)" };
+		for (int i = 0; i < subs.length; i++)
+			createHeader(h2, 3 + i, subs[i], header);
+
+		// Row 3 (IPs)
+		for (int i = 3; i <= 7; i++)
+			createHeader(h3, i, "IP", header);
+
+		// प्रत्यक्ष सिंचन क्षेत्र (हे) IP (col 8)
+		applyHeaderMerge(sh, wb, h1, h3, 8, 8, "प्रत्यक्ष सिंचन क्षेत्र (हे) IP", header);
+
+		// शेरा कॉलम (col 9) rowspan 3
+		applyHeaderMerge(sh, wb, h1, h3, 9, 9,
+				"शेरा / नलिकाद्वारे पाणी वितरण व्यवस्था कामे करण्यास येणार्या अडचणीबाबत तपशील", header);
+
+		// ---------- numbering ----------
+		Row numRow = sh.createRow(r++);
+		for (int i = 0; i < 10; i++) {
+			Cell c = numRow.createCell(i);
+			c.setCellValue(i + 1);
+			c.setCellStyle(header);
+		}
+
+		// ---------- data ----------
+		Map<String, List<DamNalikaEntity>> deptGroup = rows.stream().collect(
+				Collectors.groupingBy(DamNalikaEntity::getDepartmentKey, LinkedHashMap::new, Collectors.toList()));
+
+		double[] totals = new double[7];
+		for (Map.Entry<String, List<DamNalikaEntity>> dept : deptGroup.entrySet()) {
+			Row deptRow = sh.createRow(r++);
+			// 🔹 Department name row (smaller font, left aligned)
+			CellStyle deptStyle = wb.createCellStyle();
+			deptStyle.cloneStyleFrom(subTitle);
+			Font deptFont = wb.createFont();
+			deptFont.setBold(true);
+			deptFont.setFontHeightInPoints((short) 10); // 👈 same as column name size
+			deptStyle.setFont(deptFont);
+			deptStyle.setAlignment(HorizontalAlignment.LEFT);
+			deptStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+			createMergedTextLeft(sh, deptRow, 1, 9, dept.getValue().get(0).getDepartmentName(), deptStyle);
+
+			int sr = 1;
+			for (DamNalikaEntity e : dept.getValue()) {
+				JsonNode d = e.getData();
+				Row dr = sh.createRow(r++);
+				int c = 0;
+
+				createCenter(dr, c++, String.valueOf(sr++), cellTxt);
+				createText(dr, c++, d.path("projectName").asText(""), cellTxt);
+
+				double[] vals = { d.path("prakalpantargatNalikaSinchanSampurnKshetra").asDouble(0),
+						d.path("nalikaSinchanPurnKshetra").asDouble(0), d.path("pragatipathavarilKshetra").asDouble(0),
+						d.path("kamacheAadeshDilaleleKshetra").asDouble(0),
+						d.path("nividaStaravarilKshetra").asDouble(0),
+						d.path("sarvekshanStaravarPralambitKshetra").asDouble(0),
+						d.path("pratyakshSinchanKshetraIp").asDouble(0) };
+				String v9 = d.path("remarks").asText("");
+
+				for (double val : vals)
+					createNum(dr, c++, val, cellNum);
+				createText(dr, c++, v9, cellTxt);
+
+				for (int i = 0; i < totals.length; i++)
+					totals[i] += vals[i];
+			}
+		}
+
+		// ---------- total ----------
+		Row totalRow = sh.createRow(r++);
+		createText(totalRow, 1, "एकूण", totalStyle);
+		for (int i = 0; i < totals.length; i++)
+			createNum(totalRow, i + 2, totals[i], totalStyle);
+
+		// ---------- signatures ----------
+		r += 3;
+		Row sigRow = sh.createRow(r);
+		sigRow.setHeightInPoints(100);
+
+		CellStyle sigStyle = wb.createCellStyle();
+		Font sigFont = wb.createFont();
+		sigFont.setBold(true);
+		sigFont.setFontHeightInPoints((short) 11);
+		sigStyle.setFont(sigFont);
+		sigStyle.setAlignment(HorizontalAlignment.CENTER);
+		sigStyle.setVerticalAlignment(VerticalAlignment.TOP);
+		sigStyle.setWrapText(true);
+
+		int leftCol = 6, rightCol = 8;
+
+		Cell left = sigRow.createCell(leftCol);
+		left.setCellValue("(कु. ह. पाटील)\nअधीक्षक अभियंता,\nपुणे पाटबंधारे प्रकल्प मंडळ,\nपुणे-01.");
+		left.setCellStyle(sigStyle);
+		sh.addMergedRegion(new CellRangeAddress(r, r, leftCol, leftCol + 1));
+
+		Cell right = sigRow.createCell(rightCol);
+		right.setCellValue("(निकिता लि. हेमने)\nउपअधीक्षक अभियंता,\nपुणे पाटबंधारे प्रकल्प मंडळ,\nपुणे.");
+		right.setCellStyle(sigStyle);
+		sh.addMergedRegion(new CellRangeAddress(r, r, rightCol, rightCol + 1));
+
+		// ---------- output ----------
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		String safeFileName = URLEncoder.encode("Nalika_Pani_Vitaran_" + period + ".xlsx", StandardCharsets.UTF_8);
+		HttpHeaders headers = new HttpHeaders();
+		headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + safeFileName);
+
+		return ResponseEntity.ok().headers(headers)
+				.contentType(
+						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	// --------------------------- 🔹 Helper Methods 🔹 ---------------------------
+	// //
+
+	/** 🔸 Creates merged centered text (for title rows etc.) */
+	private void createMergedText(XSSFSheet sh, Row row, int from, int to, String text, CellStyle style) {
+		Cell cell = row.createCell(from);
+		cell.setCellValue(text);
+		cell.setCellStyle(style);
+		sh.addMergedRegion(new CellRangeAddress(row.getRowNum(), row.getRowNum(), from, to));
+	}
+
+	/** 🔸 Creates merged left-aligned text (for department name rows) */
+	private void createMergedTextLeft(XSSFSheet sh, Row row, int from, int to, String text, CellStyle baseStyle) {
+		Cell cell = row.createCell(from);
+		CellStyle left = sh.getWorkbook().createCellStyle();
+		left.cloneStyleFrom(baseStyle);
+		left.setAlignment(HorizontalAlignment.LEFT);
+		left.setVerticalAlignment(VerticalAlignment.CENTER);
+		cell.setCellValue(text);
+		cell.setCellStyle(left);
+		sh.addMergedRegion(new CellRangeAddress(row.getRowNum(), row.getRowNum(), from, to));
+	}
+
+	/** 🔸 Simple header cell creator */
+	private void createHeader(Row row, int col, String text, CellStyle style) {
+		Cell cell = row.createCell(col);
+		cell.setCellValue(text);
+		cell.setCellStyle(style);
+	}
+
+	/** 🔸 Applies merge + borders for headers (multi-row merge) */
+	private void applyHeaderMerge(XSSFSheet sh, XSSFWorkbook wb, Row h1, Row h2, int from, int to, String text,
+			CellStyle style) {
+		createHeader(h1, from, text, style);
+		CellRangeAddress region = new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), from, to);
+		sh.addMergedRegion(region);
+		applyBorderToMergedRegionForNalika(sh, region, wb);
+	}
+
+	/** 🔸 Applies MEDIUM borders to merged header region */
+	private void applyBorderToMergedRegionForNalika(Sheet sheet, CellRangeAddress region, Workbook wb) {
+		RegionUtil.setBorderTop(BorderStyle.MEDIUM, region, sheet);
+		RegionUtil.setBorderBottom(BorderStyle.MEDIUM, region, sheet);
+		RegionUtil.setBorderLeft(BorderStyle.MEDIUM, region, sheet);
+		RegionUtil.setBorderRight(BorderStyle.MEDIUM, region, sheet);
+	}
+
+	/** 🔸 Generic text cell creator */
+	private void createText(Row row, int col, String text, CellStyle style) {
+		Cell cell = row.createCell(col);
+		cell.setCellValue(text);
+		cell.setCellStyle(style);
+	}
+
+	/** 🔸 Center-aligned text cell */
+	private void createCenter(Row row, int col, String text, CellStyle baseStyle) {
+		CellStyle style = row.getSheet().getWorkbook().createCellStyle();
+		style.cloneStyleFrom(baseStyle);
+		style.setAlignment(HorizontalAlignment.CENTER);
+		style.setVerticalAlignment(VerticalAlignment.CENTER);
+		Cell cell = row.createCell(col);
+		cell.setCellValue(text);
+		cell.setCellStyle(style);
+	}
+
+	/** 🔸 Numeric cell (right aligned with borders) */
+	private void createNum(Row row, int col, double val, CellStyle style) {
+		Cell cell = row.createCell(col);
+		cell.setCellValue(val);
+		cell.setCellStyle(style);
+	}
+
+	/** 🔸 Right aligned multi-cell text (for footer/signatures) */
+	private void createRight(XSSFSheet sh, Row row, int start, String text, CellStyle style, int end) {
+		Cell cell = row.createCell(start);
+		cell.setCellValue(text);
+		CellStyle right = sh.getWorkbook().createCellStyle();
+		right.cloneStyleFrom(style);
+		right.setWrapText(true);
+		right.setAlignment(HorizontalAlignment.RIGHT);
+		right.setVerticalAlignment(VerticalAlignment.TOP);
+		cell.setCellStyle(right);
+		sh.addMergedRegion(new CellRangeAddress(row.getRowNum(), row.getRowNum(), start, end));
+	}
+
+	/**
+	 * 🔸 Creates centered merged text (e.g., for header labels like "भौतिक प्रगती
+	 * साध्य")
+	 */
+	private void createCenteredText(XSSFSheet sh, Row row, int from, int to, String text, CellStyle baseStyle) {
+		Cell cell = row.createCell(from);
+		CellStyle centered = sh.getWorkbook().createCellStyle();
+		centered.cloneStyleFrom(baseStyle);
+		centered.setAlignment(HorizontalAlignment.CENTER);
+		centered.setVerticalAlignment(VerticalAlignment.CENTER);
+		cell.setCellValue(text);
+		cell.setCellStyle(centered);
+		sh.addMergedRegion(new CellRangeAddress(row.getRowNum(), row.getRowNum(), from, to));
+		applyBorderToMergedRegionForNalika(sh, new CellRangeAddress(row.getRowNum(), row.getRowNum(), from, to),
+				sh.getWorkbook());
 	}
 
 }
