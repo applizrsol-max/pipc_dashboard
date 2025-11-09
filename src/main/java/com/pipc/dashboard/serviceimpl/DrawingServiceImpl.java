@@ -1488,4 +1488,199 @@ public class DrawingServiceImpl implements DrawingService {
 				sh.getWorkbook());
 	}
 
+	@Override
+	public ResponseEntity<InputStreamResource> downloadPralambitBhusampadanExcel(String period) throws IOException {
+
+		List<PralambitBhusampadanEntity> rows = pralambitBhusampadanRepository
+				.findByPeriodOrderByKramankAscSubIdAsc(period);
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sh = wb.createSheet("प्रलंबित प्रकरणे");
+
+		// ---------- Column widths ----------
+		int[] widths = { 1600, 5200, 1200, 12000 };
+		for (int i = 0; i < widths.length; i++)
+			sh.setColumnWidth(i, widths[i]);
+
+		// ---------- Fonts ----------
+		Font titleFont = wb.createFont();
+		titleFont.setBold(true);
+		titleFont.setFontHeightInPoints((short) 13);
+
+		Font headerFont = wb.createFont();
+		headerFont.setBold(true);
+		headerFont.setFontHeightInPoints((short) 11);
+
+		Font normalFont = wb.createFont();
+		normalFont.setFontHeightInPoints((short) 10);
+
+		// ---------- Styles ----------
+		CellStyle titleStyle = wb.createCellStyle();
+		titleStyle.setFont(titleFont);
+		titleStyle.setAlignment(HorizontalAlignment.CENTER);
+		titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		titleStyle.setWrapText(true);
+		// ❌ no border for title
+
+		CellStyle headerStyle = wb.createCellStyle();
+		headerStyle.setFont(headerFont);
+		headerStyle.setAlignment(HorizontalAlignment.CENTER);
+		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		headerStyle.setWrapText(true);
+		setBoldBorders(headerStyle);
+
+		CellStyle textStyle = wb.createCellStyle();
+		textStyle.setFont(normalFont);
+		textStyle.setAlignment(HorizontalAlignment.LEFT);
+		textStyle.setVerticalAlignment(VerticalAlignment.TOP);
+		textStyle.setWrapText(true);
+		setBoldBorders(textStyle);
+
+		CellStyle centerStyle = wb.createCellStyle();
+		centerStyle.cloneStyleFrom(textStyle);
+		centerStyle.setAlignment(HorizontalAlignment.CENTER);
+		centerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		setBoldBorders(centerStyle);
+
+		int r = 0;
+
+		// ---------- Leave two blank rows ----------
+		sh.createRow(r++);
+		sh.createRow(r++);
+
+		// ---------- Title ----------
+		Row titleRow = sh.createRow(r++);
+		titleRow.setHeightInPoints(28);
+		Cell titleCell = titleRow.createCell(0);
+		titleCell.setCellValue("प्रलंबित प्रकरणे यादी (भूमिपादन)");
+		titleCell.setCellStyle(titleStyle);
+		sh.addMergedRegion(new CellRangeAddress(titleRow.getRowNum(), titleRow.getRowNum(), 0, 3));
+
+		r++; // gap
+
+		// ---------- Header ----------
+		Row h1 = sh.createRow(r++);
+		Row h2 = sh.createRow(r++);
+		Row h3 = sh.createRow(r++);
+
+		createHeaderForBhu(h1, 0, "अ. क्र.", headerStyle);
+		sh.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h3.getRowNum(), 0, 0));
+
+		createHeaderForBhu(h1, 1, "स्तर", headerStyle);
+		sh.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h3.getRowNum(), 1, 1));
+
+		createHeaderForBhu(h1, 2, "प्रलंबित विषय", headerStyle);
+		sh.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h3.getRowNum(), 2, 3));
+
+		// ---------- Group data ----------
+		Map<Integer, List<PralambitBhusampadanEntity>> grouped = rows.stream().collect(
+				Collectors.groupingBy(PralambitBhusampadanEntity::getKramank, LinkedHashMap::new, Collectors.toList()));
+
+		int srNo = 1;
+
+		for (Map.Entry<Integer, List<PralambitBhusampadanEntity>> entry : grouped.entrySet()) {
+			List<PralambitBhusampadanEntity> groupRows = entry.getValue();
+			String star = groupRows.get(0).getStar();
+
+			int startRow = r;
+			int totalSub = groupRows.size();
+			int innerSr = 1;
+
+			for (PralambitBhusampadanEntity e : groupRows) {
+				JsonNode d = e.getData();
+				String vishay = d.path("vishay").asText("");
+
+				Row row = sh.createRow(r++);
+				row.setHeightInPoints(45); // Increase vertical space
+
+				// Show numbering only if multiple प्रलंबित विषय exist
+				if (totalSub > 1) {
+					createCenterForBhu(row, 2, String.valueOf(innerSr++), centerStyle);
+				} else {
+					createCenterForBhu(row, 2, "", centerStyle);
+				}
+
+				createTextForBhu(row, 3, vishay, textStyle);
+			}
+
+			// ✅ Merge only if more than one row
+			if (r - 1 > startRow) {
+				sh.addMergedRegion(new CellRangeAddress(startRow, r - 1, 0, 0));
+				sh.addMergedRegion(new CellRangeAddress(startRow, r - 1, 1, 1));
+			}
+
+			Row firstRow = sh.getRow(startRow);
+			createCenterForBhu(firstRow, 0, String.valueOf(srNo++), centerStyle);
+			createCenterForBhu(firstRow, 1, star, centerStyle);
+		}
+
+		// ---------- Apply bold borders (skip top rows) ----------
+		for (int i = 3; i < r; i++) {
+			Row row = sh.getRow(i);
+			if (row == null)
+				continue;
+			for (int j = 0; j < 4; j++) {
+				Cell cell = row.getCell(j);
+				if (cell == null)
+					cell = row.createCell(j);
+				CellStyle s = wb.createCellStyle();
+				s.cloneStyleFrom(cell.getCellStyle());
+				setBoldBorders(s);
+				cell.setCellStyle(s);
+			}
+		}
+
+		// ---------- Output ----------
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		String safeFileName = URLEncoder.encode("Pralambit_Bhusampadan_" + period + ".xlsx", StandardCharsets.UTF_8);
+		HttpHeaders headersHttp = new HttpHeaders();
+		headersHttp.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + safeFileName);
+
+		return ResponseEntity.ok().headers(headersHttp)
+				.contentType(
+						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	// ---------- helper methods ----------
+	private void createHeaderForBhu(Row row, int col, String text, CellStyle style) {
+		Cell c = row.createCell(col);
+		c.setCellValue(text);
+		c.setCellStyle(style);
+	}
+
+	private void createTextForBhu(Row row, int col, String text, CellStyle style) {
+		Cell c = row.createCell(col);
+		c.setCellValue(text);
+		c.setCellStyle(style);
+	}
+
+	private void createCenterForBhu(Row row, int col, String text, CellStyle style) {
+		CellStyle s = row.getSheet().getWorkbook().createCellStyle();
+		s.cloneStyleFrom(style);
+		s.setAlignment(HorizontalAlignment.CENTER);
+		s.setVerticalAlignment(VerticalAlignment.CENTER);
+		setBoldBorders(s);
+		Cell c = row.createCell(col);
+		c.setCellValue(text);
+		c.setCellStyle(s);
+	}
+
+	private void setBoldBorders(CellStyle style) {
+		style.setBorderTop(BorderStyle.MEDIUM);
+		style.setBorderBottom(BorderStyle.MEDIUM);
+		style.setBorderLeft(BorderStyle.MEDIUM);
+		style.setBorderRight(BorderStyle.MEDIUM);
+	}
+
+	private void applyBorderToMergedRegion(Sheet sheet, CellRangeAddress region) {
+		RegionUtil.setBorderTop(BorderStyle.MEDIUM, region, sheet);
+		RegionUtil.setBorderBottom(BorderStyle.MEDIUM, region, sheet);
+		RegionUtil.setBorderLeft(BorderStyle.MEDIUM, region, sheet);
+		RegionUtil.setBorderRight(BorderStyle.MEDIUM, region, sheet);
+	}
+
 }

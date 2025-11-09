@@ -36,4 +36,6 @@ public interface DrawingService {
 
 	ResponseEntity<InputStreamResource> downloadNalikaExcel(String period) throws IOException;
 
+	ResponseEntity<InputStreamResource> downloadPralambitBhusampadanExcel(String period) throws IOException;
+
 }

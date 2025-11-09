@@ -84,10 +84,15 @@ public class DrawingController {
 	public ResponseEntity<InputStreamResource> downloadDamSafetyExcel(@RequestParam String period) throws IOException {
 		return drawingBusiness.downloadDamSafetyExcel(period);
 	}
-	
-	 @GetMapping("/downloadNalikaExcel")
-	    public ResponseEntity<InputStreamResource> downloadNalikaExcel(@RequestParam String period) throws IOException {
-	        return drawingBusiness.downloadNalikaExcel(period);
-	    }
 
+	@GetMapping("/downloadNalikaExcel")
+	public ResponseEntity<InputStreamResource> downloadNalikaExcel(@RequestParam String period) throws IOException {
+		return drawingBusiness.downloadNalikaExcel(period);
+	}
+
+	@GetMapping("/downloadPralambitBhusampadanExcel")
+	public ResponseEntity<InputStreamResource> downloadPralambitBhusampadanExcel(@RequestParam String period)
+			throws IOException {
+		return drawingBusiness.downloadPralambitBhusampadanExcel(period);
+	}
 }

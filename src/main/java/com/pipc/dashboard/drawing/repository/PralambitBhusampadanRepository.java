@@ -1,5 +1,6 @@
 package com.pipc.dashboard.drawing.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -39,4 +40,6 @@ public interface PralambitBhusampadanRepository extends JpaRepository<PralambitB
 	@Modifying
 	@Query("DELETE FROM PralambitBhusampadanEntity e WHERE e.overAllDeleteId = :overAllDeleteId")
 	void deleteByCustomOverAllDeleteId(@Param("overAllDeleteId") long overAllDeleteId);
+
+	List<PralambitBhusampadanEntity> findByPeriodOrderByKramankAscSubIdAsc(String period);
 }
