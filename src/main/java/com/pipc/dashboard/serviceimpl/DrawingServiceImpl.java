@@ -1316,19 +1316,23 @@ public class DrawingServiceImpl implements DrawingService {
 			int sr = 1;
 			for (DamNalikaEntity e : dept.getValue()) {
 				JsonNode d = e.getData();
+				JsonNode main = d.path("data"); // ✅ get actual nested object
+
 				Row dr = sh.createRow(r++);
 				int c = 0;
 
 				createCenter(dr, c++, String.valueOf(sr++), cellTxt);
-				createText(dr, c++, d.path("projectName").asText(""), cellTxt);
+				createText(dr, c++, main.path("projectName").asText(""), cellTxt);
 
-				double[] vals = { d.path("prakalpantargatNalikaSinchanSampurnKshetra").asDouble(0),
-						d.path("nalikaSinchanPurnKshetra").asDouble(0), d.path("pragatipathavarilKshetra").asDouble(0),
-						d.path("kamacheAadeshDilaleleKshetra").asDouble(0),
-						d.path("nividaStaravarilKshetra").asDouble(0),
-						d.path("sarvekshanStaravarPralambitKshetra").asDouble(0),
-						d.path("pratyakshSinchanKshetraIp").asDouble(0) };
-				String v9 = d.path("remarks").asText("");
+				double[] vals = { main.path("prakalpantargatNalikaSinchanSampurnKshetra").asDouble(0),
+						main.path("nalikaSinchanPurnKshetra").asDouble(0),
+						main.path("pragatipathavarilKshetra").asDouble(0),
+						main.path("kamacheAadeshDilaleleKshetra").asDouble(0),
+						main.path("nividaStaravarilKshetra").asDouble(0),
+						main.path("sarvekshanStaravarPralambitKshetra").asDouble(0),
+						main.path("pratyakshSinchanKshetraIp").asDouble(0) };
+
+				String v9 = main.path("remarks").asText("");
 
 				for (double val : vals)
 					createNum(dr, c++, val, cellNum);
@@ -1336,6 +1340,7 @@ public class DrawingServiceImpl implements DrawingService {
 
 				for (int i = 0; i < totals.length; i++)
 					totals[i] += vals[i];
+
 			}
 		}
 
