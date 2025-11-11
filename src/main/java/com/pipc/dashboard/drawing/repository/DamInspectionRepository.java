@@ -36,6 +36,8 @@ public interface DamInspectionRepository extends JpaRepository<DamInspectionEnti
 
 	Page<DamInspectionEntity> findByYearAndPeriodAndDepartmentKey(String year, String period, String departmentKey, Pageable pageable);
 
+	List<DamInspectionEntity> findByPeriodOrderByDepartmentKeyAscRowIdAsc(String period);
+
 	
 
 }

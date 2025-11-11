@@ -7,6 +7,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -1686,6 +1687,198 @@ public class DrawingServiceImpl implements DrawingService {
 		RegionUtil.setBorderBottom(BorderStyle.MEDIUM, region, sheet);
 		RegionUtil.setBorderLeft(BorderStyle.MEDIUM, region, sheet);
 		RegionUtil.setBorderRight(BorderStyle.MEDIUM, region, sheet);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadDamInspectionExcel(String period) throws IOException {
+
+		List<DamInspectionEntity> rows = damInspectionRepository.findByPeriodOrderByDepartmentKeyAscRowIdAsc(period);
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sh = wb.createSheet("अहवाल तपशील");
+
+		// ---------- column widths ----------
+		int[] widths = { 2000, 4500, 5000, 4000, 4000, 5000, 5000, 5000, 6000, 7000 };
+		for (int i = 0; i < widths.length; i++)
+			sh.setColumnWidth(i, widths[i]);
+
+		// ---------- fonts ----------
+		Font titleFont = wb.createFont();
+		titleFont.setBold(true);
+		titleFont.setFontHeightInPoints((short) 11);
+
+		Font headerFont = wb.createFont();
+		headerFont.setBold(true);
+		headerFont.setFontHeightInPoints((short) 10);
+
+		Font normalFont = wb.createFont();
+		normalFont.setFontHeightInPoints((short) 10);
+
+		// ---------- styles ----------
+		CellStyle titleStyle = wb.createCellStyle();
+		titleStyle.setFont(titleFont);
+		titleStyle.setAlignment(HorizontalAlignment.CENTER);
+		titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		titleStyle.setWrapText(true);
+
+		CellStyle headerStyle = wb.createCellStyle();
+		headerStyle.setFont(headerFont);
+		headerStyle.setAlignment(HorizontalAlignment.CENTER);
+		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		headerStyle.setWrapText(true);
+		headerStyle.setBorderTop(BorderStyle.MEDIUM);
+		headerStyle.setBorderBottom(BorderStyle.MEDIUM);
+		headerStyle.setBorderLeft(BorderStyle.MEDIUM);
+		headerStyle.setBorderRight(BorderStyle.MEDIUM);
+
+		CellStyle cellStyle = wb.createCellStyle();
+		cellStyle.setFont(normalFont);
+		cellStyle.setAlignment(HorizontalAlignment.CENTER);
+		cellStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		cellStyle.setWrapText(true);
+		cellStyle.setBorderTop(BorderStyle.MEDIUM);
+		cellStyle.setBorderBottom(BorderStyle.MEDIUM);
+		cellStyle.setBorderLeft(BorderStyle.MEDIUM);
+		cellStyle.setBorderRight(BorderStyle.MEDIUM);
+
+		CellStyle leftStyle = wb.createCellStyle();
+		leftStyle.cloneStyleFrom(cellStyle);
+		leftStyle.setAlignment(HorizontalAlignment.LEFT);
+
+		int r = 0;
+
+		// ---------- split "2025-2026" into a and b ----------
+		String a = "", b = "";
+		if (period != null && period.contains("-")) {
+			String[] parts = period.split("-");
+			if (parts.length == 2) {
+				a = parts[0].trim();
+				b = parts[1].trim();
+			}
+		}
+
+		// ---------- title ----------
+		Row t = sh.createRow(r++);
+		createMergedTextForIns(sh, t, 0, 9,
+				"मा.मुख्य अभियंता,(स्था) जलविद्युत प्रकल्प व गुणनियंत्रण, पुणे-11, अधीक्षक अभियंता, गुणनियंत्रण मंडळ, पुणे तसेच कार्यकारी अभियंता, गुणनियंत्रण विभाग यांच्या निरीक्षण टिपणी-प्राप्त ते अंतिम अनुपालन अहवालाबाबतच्या कार्यवाहीचा तपशील (कालावधी "
+						+ a + " ते " + b + " आज अखेरपर्यंत)",
+				titleStyle);
+		t.setHeightInPoints(45);
+
+		r++;
+
+		// ---------- headers ----------
+		Row h1 = sh.createRow(r++);
+		String[] headers = { "अ.क्र.", "निरीक्षणाचा दिनांक", "कामाचे नांव", "निरीक्षण टिपणी क्रमांक प्राप्त‍ दिनांक",
+				"निरीक्षण टिपणीतील नमूद मुद्यांची संख्या", "प्रथम अनुपालन अहवाल सादर दिनांक",
+				"प्रथम अहवालानुसार अमान्य/अंशत: मान्य राहिलेल्या मुद्यांची संख्या",
+				"व्दितीय अनुपालन सादर केल्याचा दिनांक",
+				"प्रथम/व्दितीय अनुपालन अहवालानुसार अमान्य असलेल्या मुद्यांपैंकी मान्य झालेल्या मुद्यांची संख्या",
+				"शेरा" };
+		for (int i = 0; i < headers.length; i++) {
+			Cell c = h1.createCell(i);
+			c.setCellValue(headers[i]);
+			c.setCellStyle(headerStyle);
+		}
+
+		// numbering row
+		Row numRow = sh.createRow(r++);
+		for (int i = 0; i < headers.length; i++) {
+			Cell c = numRow.createCell(i);
+			c.setCellValue(i + 1);
+			c.setCellStyle(headerStyle);
+		}
+
+		// ---------- group data by department ----------
+		// ---------- group data by department ----------
+		// Fetch and group data first
+		Map<String, List<DamInspectionEntity>> grouped = rows.stream().collect(
+				Collectors.groupingBy(DamInspectionEntity::getDepartmentKey, LinkedHashMap::new, Collectors.toList()));
+
+		// 🔹 Define fixed order
+		List<String> fixedOrder = Arrays.asList("mamukhyaAbhiyanta", "maAdhikshakAbhiyanta", "karyakariAbhiyanta");
+
+		// 🔹 Loop through fixed order only
+		for (String deptKey : fixedOrder) {
+			List<DamInspectionEntity> deptRows = grouped.get(deptKey);
+			if (deptRows == null || deptRows.isEmpty())
+				continue;
+
+			String deptName = deptRows.get(0).getDepartmentName();
+
+			// 🔹 Department header row (center aligned + bold)
+			Row deptRow = sh.createRow(r++);
+			Cell deptCell = deptRow.createCell(0);
+			deptCell.setCellValue(deptName);
+
+			CellStyle deptStyle = wb.createCellStyle();
+			deptStyle.setAlignment(HorizontalAlignment.CENTER);
+			deptStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+			Font deptFont = wb.createFont();
+			deptFont.setBold(true);
+			deptFont.setFontHeightInPoints((short) 10);
+			deptStyle.setFont(deptFont);
+			deptCell.setCellStyle(deptStyle);
+
+			sh.addMergedRegion(new CellRangeAddress(deptRow.getRowNum(), deptRow.getRowNum(), 0, 9));
+
+			// ---------- rows under department ----------
+			int sr = 1;
+			for (DamInspectionEntity e : deptRows) {
+				JsonNode d = e.getData();
+				Row dr = sh.createRow(r++);
+				int c = 0;
+
+				createTextForIns(dr, c++, String.valueOf(sr++), cellStyle);
+				createTextForIns(dr, c++, d.path("nirikshanTariq").asText(""), cellStyle);
+				createTextForIns(dr, c++, d.path("kamacheNav").asText(""), leftStyle);
+				createTextForIns(dr, c++, d.path("tipaniKrPr").asText(""), cellStyle);
+				createTextForIns(dr, c++, String.valueOf(d.path("namudMudheSankhya").asInt(0)), cellStyle);
+				createTextForIns(dr, c++, d.path("prathamAnupalan").asText(""), leftStyle);
+				createTextForIns(dr, c++, String.valueOf(d.path("prathamMudheSankhya").asInt(0)), cellStyle);
+				createTextForIns(dr, c++, d.path("dwitiyAnupalanTariq").asText(""), cellStyle);
+				createTextForIns(dr, c++, String.valueOf(d.path("prathamDwitiyAnupalanAmanjurMudhe").asInt(0)),
+						cellStyle);
+				createTextForIns(dr, c++, d.path("shera").asText(""), leftStyle);
+			}
+		}
+
+		// ---------- footer ----------
+		r += 2;
+		Row sig = sh.createRow(r);
+		sig.setHeightInPoints(40);
+		Cell sigCell = sig.createCell(8);
+		sigCell.setCellValue("(सही)\nकार्यकारी अभियंता");
+		sigCell.setCellStyle(titleStyle);
+		sh.addMergedRegion(new CellRangeAddress(r, r, 8, 9));
+
+		// ---------- output ----------
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		String safeFileName = URLEncoder.encode("Inspection_Report_" + period + ".xlsx", StandardCharsets.UTF_8);
+		HttpHeaders headersHttp = new HttpHeaders();
+		headersHttp.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + safeFileName);
+
+		return ResponseEntity.ok().headers(headersHttp)
+				.contentType(
+						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	// ---------- helper ----------
+	private void createMergedTextForIns(XSSFSheet sh, Row row, int from, int to, String text, CellStyle style) {
+		Cell cell = row.createCell(from);
+		cell.setCellValue(text);
+		cell.setCellStyle(style);
+		sh.addMergedRegion(new CellRangeAddress(row.getRowNum(), row.getRowNum(), from, to));
+	}
+
+	private void createTextForIns(Row row, int col, String text, CellStyle style) {
+		Cell c = row.createCell(col);
+		c.setCellValue(text);
+		c.setCellStyle(style);
 	}
 
 }

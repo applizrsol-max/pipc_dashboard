@@ -95,4 +95,10 @@ public class DrawingController {
 			throws IOException {
 		return drawingBusiness.downloadPralambitBhusampadanExcel(period);
 	}
+
+	@GetMapping("/downloadDamInspectionExcel")
+	public ResponseEntity<InputStreamResource> downloadDamInspectionExcel(@RequestParam String period)
+			throws IOException {
+		return drawingBusiness.downloadDamInspectionExcel(period);
+	}
 }

@@ -81,4 +81,9 @@ public class DrawingBusinessImpl implements DrawingBusiness {
 		return drawingService.downloadPralambitBhusampadanExcel(period);
 	}
 
+	@Override
+	public ResponseEntity<InputStreamResource> downloadDamInspectionExcel(String period) throws IOException {
+		return drawingService.downloadDamInspectionExcel(period);
+	}
+
 }
