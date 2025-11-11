@@ -37,6 +37,7 @@ public class DamInspectionEntity {
 	private String departmentKey; // e.g. mamukhyaAbhiyanta
 
 	private Integer rowId;
+	private Long deleteId;
 	private String year;
 	private String month;
 

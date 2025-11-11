@@ -329,22 +329,25 @@ public class DrawingServiceImpl implements DrawingService {
 				DepartmentData deptData = deptEntry.getValue();
 
 				for (InspectionRow row : deptData.getRows()) {
-					if (row.getRowId() == null || row.getYear() == null)
+					if (row.getRowId() == null || row.getYear() == null || row.getDeleteId() == null)
 						continue;
 
 					Optional<DamInspectionEntity> existingOpt = damInspectionRepository
 							.findByTitleAndDepartmentKeyAndRowIdAndYearAndMonthAndPeriod(title, deptKey, row.getRowId(),
 									row.getYear(), row.getMonth(), period);
 
+					Optional<DamInspectionEntity> existingOptForDel = damInspectionRepository
+							.findByTitleAndDepartmentKeyAndDeleteIdAndYearAndMonthAndPeriod(title, deptKey,
+									row.getDeleteId(), row.getYear(), row.getMonth(), period);
 					JsonNode jsonData = objectMapper.valueToTree(row.getData());
 					String flag = row.getFlag() == null ? "" : row.getFlag().trim().toUpperCase();
 
 					// --- DELETE ---
 					if ("D".equals(flag)) {
-						existingOpt.ifPresent(entity -> {
+						existingOptForDel.ifPresent(entity -> {
 							damInspectionRepository.delete(entity);
-							log.append("Deleted row ").append(row.getRowId()).append(" from dept ").append(deptKey)
-									.append(". ");
+							log.append("Deleted deleteId ").append(row.getDeleteId()).append(" from dept ")
+									.append(deptKey).append(". ");
 						});
 						deleted++;
 						continue;
@@ -370,6 +373,7 @@ public class DrawingServiceImpl implements DrawingService {
 						entity.setDepartmentKey(deptKey);
 						entity.setDepartmentName(deptData.getName());
 						entity.setRowId(row.getRowId());
+						entity.setDeleteId(row.getDeleteId());
 						entity.setYear(row.getYear());
 						entity.setMonth(row.getMonth());
 						entity.setData(jsonData);

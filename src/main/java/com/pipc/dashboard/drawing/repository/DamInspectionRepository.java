@@ -26,18 +26,18 @@ public interface DamInspectionRepository extends JpaRepository<DamInspectionEnti
 	Optional<DamInspectionEntity> findByTitleAndDepartmentKeyAndRowIdAndYearAndMonthAndPeriod(String title,
 			String departmentKey, Integer rowId, String year, String month, String period);
 
-	
-
 	// For all departments (no dept filter)
 	Page<DamInspectionEntity> findByYearAndPeriod(String year, String period, Pageable pageable);
-	
+
 	@Query("SELECT DISTINCT d.departmentKey FROM DamInspectionEntity d WHERE d.year = :year AND d.period = :period")
 	List<String> findDistinctDepartmentKeys(@Param("year") String year, @Param("period") String period);
 
-	Page<DamInspectionEntity> findByYearAndPeriodAndDepartmentKey(String year, String period, String departmentKey, Pageable pageable);
+	Page<DamInspectionEntity> findByYearAndPeriodAndDepartmentKey(String year, String period, String departmentKey,
+			Pageable pageable);
 
 	List<DamInspectionEntity> findByPeriodOrderByDepartmentKeyAscRowIdAsc(String period);
 
-	
+	Optional<DamInspectionEntity> findByTitleAndDepartmentKeyAndDeleteIdAndYearAndMonthAndPeriod(String title,
+			String deptKey, Long deleteId, String year, String month, String period);
 
 }
