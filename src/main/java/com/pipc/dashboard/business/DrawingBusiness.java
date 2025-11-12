@@ -9,10 +9,12 @@ import com.pipc.dashboard.drawing.request.DamInspectionRequest;
 import com.pipc.dashboard.drawing.request.DamNalikaRequest;
 import com.pipc.dashboard.drawing.request.DamSafetyRequest;
 import com.pipc.dashboard.drawing.request.PralambitBhusampadanRequest;
+import com.pipc.dashboard.drawing.request.SinchanKshamataRequest;
 import com.pipc.dashboard.drawing.response.DamInspectionResponse;
 import com.pipc.dashboard.drawing.response.DamNalikaResponse;
 import com.pipc.dashboard.drawing.response.DamSafetyResponse;
 import com.pipc.dashboard.drawing.response.PralambitBhusampadanResponse;
+import com.pipc.dashboard.drawing.response.SinchanKshamataResponse;
 
 public interface DrawingBusiness {
 
@@ -39,5 +41,11 @@ public interface DrawingBusiness {
 	ResponseEntity<InputStreamResource> downloadPralambitBhusampadanExcel(String period) throws IOException;
 
 	ResponseEntity<InputStreamResource> downloadDamInspectionExcel(String period) throws IOException;
+
+	SinchanKshamataResponse saveOrUpdateIrrigationCapacity(SinchanKshamataRequest request);
+
+	SinchanKshamataResponse getSinchanKshamataData(String period, String date);
+
+	ResponseEntity<InputStreamResource> downloadSinchanKshamataExcel(String period, String year) throws IOException;
 
 }

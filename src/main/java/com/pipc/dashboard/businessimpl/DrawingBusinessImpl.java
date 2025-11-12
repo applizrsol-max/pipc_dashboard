@@ -12,10 +12,12 @@ import com.pipc.dashboard.drawing.request.DamInspectionRequest;
 import com.pipc.dashboard.drawing.request.DamNalikaRequest;
 import com.pipc.dashboard.drawing.request.DamSafetyRequest;
 import com.pipc.dashboard.drawing.request.PralambitBhusampadanRequest;
+import com.pipc.dashboard.drawing.request.SinchanKshamataRequest;
 import com.pipc.dashboard.drawing.response.DamInspectionResponse;
 import com.pipc.dashboard.drawing.response.DamNalikaResponse;
 import com.pipc.dashboard.drawing.response.DamSafetyResponse;
 import com.pipc.dashboard.drawing.response.PralambitBhusampadanResponse;
+import com.pipc.dashboard.drawing.response.SinchanKshamataResponse;
 import com.pipc.dashboard.service.DrawingService;
 
 @Component
@@ -84,6 +86,22 @@ public class DrawingBusinessImpl implements DrawingBusiness {
 	@Override
 	public ResponseEntity<InputStreamResource> downloadDamInspectionExcel(String period) throws IOException {
 		return drawingService.downloadDamInspectionExcel(period);
+	}
+
+	@Override
+	public SinchanKshamataResponse saveOrUpdateIrrigationCapacity(SinchanKshamataRequest request) {
+		return drawingService.saveOrUpdateIrrigationCapacity(request);
+	}
+
+	@Override
+	public SinchanKshamataResponse getSinchanKshamataData(String period, String date) {
+		return drawingService.getSinchanKshamataData(period, date);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadSinchanKshamataExcel(String period, String year)
+			throws IOException {
+		return drawingService.downloadSinchanKshamataExcel(period, year);
 	}
 
 }

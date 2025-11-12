@@ -17,10 +17,12 @@ import com.pipc.dashboard.drawing.request.DamInspectionRequest;
 import com.pipc.dashboard.drawing.request.DamNalikaRequest;
 import com.pipc.dashboard.drawing.request.DamSafetyRequest;
 import com.pipc.dashboard.drawing.request.PralambitBhusampadanRequest;
+import com.pipc.dashboard.drawing.request.SinchanKshamataRequest;
 import com.pipc.dashboard.drawing.response.DamInspectionResponse;
 import com.pipc.dashboard.drawing.response.DamNalikaResponse;
 import com.pipc.dashboard.drawing.response.DamSafetyResponse;
 import com.pipc.dashboard.drawing.response.PralambitBhusampadanResponse;
+import com.pipc.dashboard.drawing.response.SinchanKshamataResponse;
 
 @RestController
 @RequestMapping("/pipc/dashboard/drawing")
@@ -101,4 +103,25 @@ public class DrawingController {
 			throws IOException {
 		return drawingBusiness.downloadDamInspectionExcel(period);
 	}
+
+	@PostMapping("/saveOrUpdateIrrigationCapacity")
+	public SinchanKshamataResponse saveOrUpdateIrrigationCapacity(@RequestBody SinchanKshamataRequest request) {
+		return drawingBusiness.saveOrUpdateIrrigationCapacity(request);
+
+	}
+
+	@GetMapping("/getIrrigationCapacityData")
+	public ResponseEntity<SinchanKshamataResponse> getIrrigationCapacityData(@RequestParam String period,
+			@RequestParam(required = false) String date) {
+
+		SinchanKshamataResponse response = drawingBusiness.getSinchanKshamataData(period, date);
+		return ResponseEntity.ok(response);
+	}
+
+	@GetMapping("/downloadIrrigationCapacityData")
+	public ResponseEntity<InputStreamResource> downloadSinchanKshamataExcel(@RequestParam String period,
+			@RequestParam String date) throws IOException {
+		return drawingBusiness.downloadSinchanKshamataExcel(period, date);
+	}
+
 }
