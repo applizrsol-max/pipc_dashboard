@@ -11,6 +11,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -25,6 +26,7 @@ import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataFormat;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
@@ -1906,78 +1908,84 @@ public class DrawingServiceImpl implements DrawingService {
 
 		try {
 			for (SinchanData section : request.getData()) {
-
-				String flag = Optional.ofNullable(section.getFlag()).orElse("").trim().toUpperCase();
 				String sectionTitle = section.getSectionTitle();
-				Integer rowId = section.getRowId();
-				Long deleteId = section.getDeleteId();
 
-				// 🔍 Find existing record
-				Optional<SinchanKshamataEntity> existingOpt = sinchanKshamataRepository
-						.findByPeriodAndSectionTitleAndDeleteId(request.getPeriod(), sectionTitle, deleteId);
-
-				// 🗑️ DELETE LOGIC
-				if ("D".equals(flag)) {
-					existingOpt.ifPresent(sinchanKshamataRepository::delete);
-					deleted++;
+				// ✅ Each "section" can contain multiple rows[]
+				JsonNode sectionRows = section.getRows();
+				if (sectionRows == null || !sectionRows.isArray()) {
 					continue;
 				}
 
-				SinchanKshamataEntity entity = existingOpt.orElseGet(SinchanKshamataEntity::new);
-				boolean isNew = entity.getId() == null;
+				for (JsonNode rowNode : sectionRows) {
+					Integer rowId = rowNode.path("rowId").asInt();
+					Long deleteId = rowNode.path("deleteId").asLong();
+					String flag = (rowNode.hasNonNull("flag") ? rowNode.get("flag").asText() : "").trim().toUpperCase();
 
-				JsonNode newSectionData = section.getRows();
+					// 🔍 Find existing record
+					Optional<SinchanKshamataEntity> existingOpt = sinchanKshamataRepository
+							.findByPeriodAndSectionTitleAndDeleteId(request.getPeriod(), sectionTitle, deleteId);
 
-				// 🔍 Strong change detection logic (works for all nested JSON)
-				boolean dataChanged = false;
-				if (!isNew) {
-					String newJsonStr = newSectionData == null ? "" : newSectionData.toString();
-					String oldJsonStr = entity.getSectionData() == null ? "" : entity.getSectionData().toString();
+					// 🗑️ DELETE LOGIC
+					if ("D".equals(flag)) {
+						existingOpt.ifPresent(sinchanKshamataRepository::delete);
+						deleted++;
+						continue;
+					}
 
-					dataChanged = !oldJsonStr.equals(newJsonStr)
-							|| !Objects.equals(entity.getSectionTitle(), sectionTitle)
-							|| !Objects.equals(entity.getMonth(), request.getMonth())
-							|| !Objects.equals(entity.getYear(), request.getYear())
-							|| !Objects.equals(entity.getDate(), LocalDate.parse(request.getDate()))
-							|| !Objects.equals(entity.getDeleteId(), deleteId)
-							|| !Objects.equals(entity.getRowId(), rowId)
-							|| !Objects.equals(entity.getTitle(), request.getTitle());
+					// Extract row-level data (the inner "rows" object)
+					JsonNode rowData = rowNode.path("rows");
+
+					SinchanKshamataEntity entity = existingOpt.orElseGet(SinchanKshamataEntity::new);
+					boolean isNew = entity.getId() == null;
+
+					// 🔍 Detect changes
+					boolean dataChanged = false;
+					if (!isNew) {
+						String newJsonStr = rowData == null ? "" : rowData.toString();
+						String oldJsonStr = entity.getSectionData() == null ? "" : entity.getSectionData().toString();
+
+						dataChanged = !oldJsonStr.equals(newJsonStr)
+								|| !Objects.equals(entity.getSectionTitle(), sectionTitle)
+								|| !Objects.equals(entity.getMonth(), request.getMonth())
+								|| !Objects.equals(entity.getYear(), request.getYear())
+								|| !Objects.equals(entity.getDate(), LocalDate.parse(request.getDate()))
+								|| !Objects.equals(entity.getDeleteId(), deleteId)
+								|| !Objects.equals(entity.getRowId(), rowId)
+								|| !Objects.equals(entity.getTitle(), request.getTitle());
+					}
+
+					// ✅ Assign common fields
+					entity.setTitle(request.getTitle());
+					entity.setPeriod(request.getPeriod());
+					entity.setMonth(request.getMonth());
+					entity.setYear(request.getYear());
+					entity.setDate(LocalDate.parse(request.getDate()));
+					entity.setSectionTitle(sectionTitle);
+					entity.setRowId(rowId);
+					entity.setDeleteId(deleteId);
+					entity.setSectionData(rowData);
+
+					if (isNew) {
+						entity.setFlag("C");
+						entity.setCreatedBy(user);
+						entity.setCreatedAt(LocalDateTime.now());
+						entity.setUpdatedBy(user);
+						entity.setUpdatedAt(LocalDateTime.now());
+						created++;
+					} else if (dataChanged) {
+						entity.setFlag("U");
+						entity.setUpdatedBy(user);
+						entity.setUpdatedAt(LocalDateTime.now());
+						updated++;
+					} else {
+						entity.setFlag(entity.getFlag() != null ? entity.getFlag() : "S");
+					}
+
+					sinchanKshamataRepository.save(entity);
 				}
-
-				// ✅ Assign common fields
-				entity.setTitle(request.getTitle());
-				entity.setPeriod(request.getPeriod());
-				entity.setMonth(request.getMonth());
-				entity.setYear(request.getYear());
-				entity.setDate(LocalDate.parse(request.getDate()));
-				entity.setSectionTitle(sectionTitle);
-				entity.setRowId(rowId);
-				entity.setDeleteId(deleteId);
-				entity.setSectionData(newSectionData);
-
-				if (isNew) {
-					// 🆕 Create new record
-					entity.setFlag("C");
-					entity.setCreatedBy(user);
-					entity.setCreatedAt(LocalDateTime.now());
-					entity.setUpdatedBy(user);
-					entity.setUpdatedAt(LocalDateTime.now());
-					created++;
-				} else if (dataChanged) {
-					// ✏️ Update existing record only if data changed
-					entity.setFlag("U");
-					entity.setUpdatedBy(user);
-					entity.setUpdatedAt(LocalDateTime.now());
-					updated++;
-				} else {
-					// ➖ No change
-					entity.setFlag(entity.getFlag() != null ? entity.getFlag() : "S");
-				}
-
-				sinchanKshamataRepository.save(entity);
 			}
 
-			// ✅ Success
+			// ✅ Success Response
 			res.setMessage(String.format("Created: %d | Updated: %d | Deleted: %d", created, updated, deleted));
 			err.setErrorCode("SINSAVE_OK");
 			err.setErrorDescription("Save or update operation completed successfully");
@@ -2001,33 +2009,52 @@ public class DrawingServiceImpl implements DrawingService {
 
 		List<SinchanKshamataEntity> list;
 		if (date != null) {
-			list = sinchanKshamataRepository.findByPeriodAndDate(period, LocalDate.parse(date));
+			list = sinchanKshamataRepository.findByPeriodAndDateOrderBySectionTitleAscRowIdAsc(period,
+					LocalDate.parse(date));
 		} else {
-			list = sinchanKshamataRepository.findByPeriod(period);
+			list = sinchanKshamataRepository.findByPeriodOrderBySectionTitleAscRowIdAsc(period);
 		}
 
-		// ✅ Dynamic grouping by normalized section title
-		Map<String, Object> sectionMap = new LinkedHashMap<>();
+		// ✅ Group rows by sectionTitle (in insertion order)
+		Map<String, List<SinchanKshamataEntity>> grouped = list.stream().collect(
+				Collectors.groupingBy(SinchanKshamataEntity::getSectionTitle, LinkedHashMap::new, Collectors.toList()));
 
-		for (SinchanKshamataEntity e : list) {
-			String sectionTitle = Optional.ofNullable(e.getSectionTitle()).orElse("").trim();
+		// ✅ FIXED ORDER (consistent with Excel)
+		List<String> fixedOrder = Arrays.asList("मोठे प्रकल्प (प्रमाण)", "उपसा सिंचन योजना", "मध्यम प्रकल्प (प्रमाण)",
+				"त.पा. प्रकल्प (प्रमाण)");
 
-			// 🔹 Convert Marathi/any title → lowercase English-style key (safe for JSON)
-			String key = normalizeSectionKey(sectionTitle);
+		// ✅ Build section list in fixed order (if exists in DB)
+		List<Map<String, Object>> sectionList = new ArrayList<>();
 
+		for (String sectionKey : fixedOrder) {
+			List<SinchanKshamataEntity> sectionRows = grouped.get(sectionKey);
+			if (sectionRows == null || sectionRows.isEmpty())
+				continue;
+
+			// 🔹 Create section object
 			Map<String, Object> sectionObj = new LinkedHashMap<>();
-			sectionObj.put("rowId", e.getRowId());
-			sectionObj.put("deleteId", e.getDeleteId());
-			sectionObj.put("flag", e.getFlag());
-			sectionObj.put("rows", e.getSectionData());
-			sectionMap.put(key, sectionObj);
+			sectionObj.put("sectionTitle", sectionKey);
+
+			// 🔹 Sort rows within section by rowId
+			List<Map<String, Object>> sortedRows = sectionRows.stream()
+					.sorted(Comparator.comparing(SinchanKshamataEntity::getRowId)).map(e -> {
+						Map<String, Object> row = new LinkedHashMap<>();
+						row.put("rowId", e.getRowId());
+						row.put("deleteId", e.getDeleteId());
+						row.put("flag", e.getFlag());
+						row.put("rows", e.getSectionData());
+						return row;
+					}).collect(Collectors.toList());
+
+			sectionObj.put("rows", sortedRows);
+			sectionList.add(sectionObj);
 		}
 
 		// ✅ Build response
 		res.setTitle(list.isEmpty() ? "" : list.get(0).getTitle());
 		res.setPeriod(period);
 		res.setDate(date);
-		res.setData(sectionMap);
+		res.setData(sectionList);
 
 		err.setErrorCode("SINGET_OK");
 		err.setErrorDescription("Fetched successfully");
@@ -2064,250 +2091,484 @@ public class DrawingServiceImpl implements DrawingService {
 		return key.toString();
 	}
 
-	@Override
-	public ResponseEntity<InputStreamResource> downloadSinchanKshamataExcel(String period, String date)
-	        throws IOException {
-
-	    LocalDate reportDate = LocalDate.parse(date);
-
-	    // Fetch rows for period + date
-	    List<SinchanKshamataEntity> rows = sinchanKshamataRepository
-	            .findByPeriodAndDateOrderBySectionTitleAscRowIdAsc(period, reportDate);
-
-	    if (rows.isEmpty()) {
-	        throw new RuntimeException("No data found for period: " + period + " and date: " + date);
-	    }
-
-	    String displayDate = formatDateToMarathi(date); // e.g., “30 जून 2025”
-
-	    XSSFWorkbook wb = new XSSFWorkbook();
-	    XSSFSheet sh = wb.createSheet("सिंचित सिंचन क्षमता");
-
-	    // ---------- Column Widths ----------
-	    int[] widths = {2000, 6000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000};
-	    for (int i = 0; i < widths.length; i++)
-	        sh.setColumnWidth(i, widths[i]);
-
-	    // ---------- Fonts ----------
-	    Font titleFont = wb.createFont();
-	    titleFont.setBold(true);
-	    titleFont.setFontHeightInPoints((short) 12);
-
-	    Font headerFont = wb.createFont();
-	    headerFont.setBold(true);
-	    headerFont.setFontHeightInPoints((short) 10);
-
-	    Font normalFont = wb.createFont();
-	    normalFont.setFontHeightInPoints((short) 10);
-
-	    Font boldFont = wb.createFont();
-	    boldFont.setBold(true);
-	    boldFont.setFontHeightInPoints((short) 10);
-
-	    // ---------- Styles ----------
-	    CellStyle titleStyle = wb.createCellStyle();
-	    titleStyle.setFont(titleFont);
-	    titleStyle.setAlignment(HorizontalAlignment.CENTER);
-	    titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-	    titleStyle.setWrapText(true);
-
-	    CellStyle headerStyle = wb.createCellStyle();
-	    headerStyle.setFont(headerFont);
-	    headerStyle.setAlignment(HorizontalAlignment.CENTER);
-	    headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-	    headerStyle.setWrapText(true);
-	    headerStyle.setBorderTop(BorderStyle.MEDIUM);
-	    headerStyle.setBorderBottom(BorderStyle.MEDIUM);
-	    headerStyle.setBorderLeft(BorderStyle.MEDIUM);
-	    headerStyle.setBorderRight(BorderStyle.MEDIUM);
-
-	    CellStyle textStyle = wb.createCellStyle();
-	    textStyle.setFont(normalFont);
-	    textStyle.setAlignment(HorizontalAlignment.LEFT);
-	    textStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-	    textStyle.setWrapText(true);
-	    textStyle.setBorderTop(BorderStyle.MEDIUM);
-	    textStyle.setBorderBottom(BorderStyle.MEDIUM);
-	    textStyle.setBorderLeft(BorderStyle.MEDIUM);
-	    textStyle.setBorderRight(BorderStyle.MEDIUM);
-
-	    CellStyle numStyle = wb.createCellStyle();
-	    numStyle.cloneStyleFrom(textStyle);
-	    numStyle.setAlignment(HorizontalAlignment.RIGHT);
-	    numStyle.setDataFormat(wb.createDataFormat().getFormat("0.000"));
-
-	    CellStyle boldLeftStyle = wb.createCellStyle();
-	    boldLeftStyle.cloneStyleFrom(textStyle);
-	    boldLeftStyle.setFont(boldFont);
-	    boldLeftStyle.setAlignment(HorizontalAlignment.LEFT);
-
-	    int r = 0;
-
-	    // ---------- Title ----------
-	    Row titleRow = sh.createRow(r++);
-	    createMergedTextIrr(sh, titleRow, 0, 11,
-	            "प्रपत्र - 2 : " + displayDate + " अखेर सिंचित सिंचन क्षमता", titleStyle);
-	    titleRow.setHeightInPoints(25);
-	    r++;
-
-	    // ---------- Header Rows ----------
-	    Row h1 = sh.createRow(r++);
-
-	    // Top headers
-	    createMergedHeaderIrr(sh, h1, 0, 0, "अ. क्र.", headerStyle);
-	    createMergedHeaderIrr(sh, h1, 1, 1, "प्रकल्पाचे नाव", headerStyle);
-	    createMergedHeaderIrr(sh, h1, 2, 2, "लाभार्थी जिल्हे", headerStyle);
-	    createMergedHeaderIrr(sh, h1, 3, 3, "अंतिम सिंचन क्षमता", headerStyle);
-	    createMergedHeaderIrr(sh, h1, 4, 8, displayDate + " अखेर निर्मित सिंचन क्षमता", headerStyle);
-	    createMergedHeaderIrr(sh, h1, 9, 10, "एकून नि.सिं.क्ष.", headerStyle);
-	    createMergedHeaderIrr(sh, h1, 11, 11, "रब्बी समतुल्य क्षेत्र", headerStyle);
-
-	    // ---------- Sub Header Row ----------
-	    Row h2 = sh.createRow(r++);
-	    createHeaderIrr(h2, 3, "IP", headerStyle);
-	    createHeaderIrr(h2, 4, "खरीप", headerStyle);
-	    createHeaderIrr(h2, 5, "रब्बी", headerStyle);
-	    createHeaderIrr(h2, 6, "उन्हाळी", headerStyle);
-	    createHeaderIrr(h2, 7, "दुर्गामी", headerStyle);
-	    createHeaderIrr(h2, 8, "वार्षिक", headerStyle);
-	    createHeaderIrr(h2, 9, "IP", headerStyle);
-	    createHeaderIrr(h2, 10, "ICA", headerStyle);
-
-	    // Merge vertically for single columns
-	    sh.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 0, 0));
-	    sh.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 1, 1));
-	    sh.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 2, 2));
-	    sh.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 11, 11));
-
-	    // Apply bold borders
-	    applyBorderToMergedRegionIrr(sh, new CellRangeAddress(h1.getRowNum(), h1.getRowNum(), 4, 8), wb);
-	    applyBorderToMergedRegionIrr(sh, new CellRangeAddress(h1.getRowNum(), h1.getRowNum(), 9, 10), wb);
-	    applyBorderToMergedRegionIrr(sh, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 0, 0), wb);
-	    applyBorderToMergedRegionIrr(sh, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 1, 1), wb);
-	    applyBorderToMergedRegionIrr(sh, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 2, 2), wb);
-	    applyBorderToMergedRegionIrr(sh, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 11, 11), wb);
-
-	    // ---------- Section Grouping ----------
-	    Map<String, List<SinchanKshamataEntity>> grouped = rows.stream()
-	            .collect(Collectors.groupingBy(SinchanKshamataEntity::getSectionTitle, LinkedHashMap::new,
-	                    Collectors.toList()));
-
-	    int sr = 1;
-	    for (Map.Entry<String, List<SinchanKshamataEntity>> section : grouped.entrySet()) {
-	        Row sectionRow = sh.createRow(r++);
-	        createMergedTextLeftIrr(sh, sectionRow, 1, 11, section.getKey(), boldLeftStyle);
-
-	        for (SinchanKshamataEntity e : section.getValue()) {
-	            JsonNode d = e.getSectionData();
-	            Row dr = sh.createRow(r++);
-	            int c = 0;
-
-	            createNumIrr(dr, c++, sr++, numStyle);
-	            createTextIrr(dr, c++, d.path("projectName").asText(""), textStyle);
-	            createTextIrr(dr, c++, d.path("labharthiDistrict").asText(""), textStyle);
-	            createNumIrr(dr, c++, d.path("ekunNishchit").path("IP").asDouble(0), numStyle);
-
-	            JsonNode j = d.path("sinchanKshamata30June");
-	            createNumIrr(dr, c++, j.path("kharip").asDouble(0), numStyle);
-	            createNumIrr(dr, c++, j.path("rabi").asDouble(0), numStyle);
-	            createNumIrr(dr, c++, j.path("unhali").asDouble(0), numStyle);
-	            createNumIrr(dr, c++, j.path("durgami").asDouble(0), numStyle);
-	            createNumIrr(dr, c++, j.path("varshik").asDouble(0), numStyle);
-
-	            createNumIrr(dr, c++, d.path("ekunNishchit").path("IP").asDouble(0), numStyle);
-	            createNumIrr(dr, c++, d.path("ekunNishchit").path("ICA").asDouble(0), numStyle);
-	            createNumIrr(dr, c++, d.path("rabbiSamtulyaKshtra").asDouble(0), numStyle);
-	        }
-	    }
-
-	    // ---------- Footer ----------
-	    r += 2;
-	    Row signRow = sh.createRow(r++);
-	    signRow.setHeightInPoints(60);
-
-	    Cell left = signRow.createCell(5);
-	    left.setCellValue("स्वतः प्रवीणर मा. अ.अ. यांची सही असे.");
-	    left.setCellStyle(titleStyle);
-	    sh.addMergedRegion(new CellRangeAddress(r - 1, r - 1, 5, 7));
-
-	    Cell right = signRow.createCell(8);
-	    right.setCellValue("(निकिता लि. हेमने)\nउपअधीक्षक अभियंता,\nपुणे पाटबंधारे प्रकल्प मंडळ,\nपुणे-01.");
-	    right.setCellStyle(titleStyle);
-	    sh.addMergedRegion(new CellRangeAddress(r - 1, r - 1, 8, 11));
-
-	    // ---------- Output ----------
-	    ByteArrayOutputStream out = new ByteArrayOutputStream();
-	    wb.write(out);
-	    wb.close();
-
-	    String safeFileName = URLEncoder.encode("Sinchan_Kshamata_" + period + "_" + date + ".xlsx",
-	            StandardCharsets.UTF_8);
-	    HttpHeaders headers = new HttpHeaders();
-	    headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + safeFileName);
-
-	    return ResponseEntity.ok().headers(headers)
-	            .contentType(
-	                    MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-	            .body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
-	}
-
 	private void createHeaderIrr(Row row, int col, String text, CellStyle style) {
-	    Cell c = row.createCell(col);
-	    c.setCellValue(text);
-	    c.setCellStyle(style);
+		Cell cell = row.createCell(col);
+		cell.setCellValue(text);
+		cell.setCellStyle(style);
 	}
 
 	private void createTextIrr(Row row, int col, String val, CellStyle style) {
-	    Cell c = row.createCell(col);
-	    c.setCellValue(val);
-	    c.setCellStyle(style);
+		Cell c = row.createCell(col);
+		c.setCellValue(val);
+		c.setCellStyle(style);
 	}
 
 	private void createNumIrr(Row row, int col, double val, CellStyle style) {
-	    Cell c = row.createCell(col);
-	    c.setCellValue(val);
-	    c.setCellStyle(style);
+		Cell c = row.createCell(col);
+		c.setCellValue(val);
+		c.setCellStyle(style);
+	}
+
+	private void createIntIrr(Row row, int col, int val, CellStyle style) {
+		Cell c = row.createCell(col);
+		c.setCellValue(val);
+		c.setCellStyle(style);
 	}
 
 	private void createMergedTextIrr(Sheet sh, Row row, int start, int end, String title, CellStyle style) {
-	    Cell cell = row.createCell(start);
-	    cell.setCellValue(title);
-	    cell.setCellStyle(style);
-	    if (end > start)
-	        sh.addMergedRegion(new CellRangeAddress(row.getRowNum(), row.getRowNum(), start, end));
+		Cell cell = row.createCell(start);
+		cell.setCellValue(title);
+		cell.setCellStyle(style);
+		if (end > start)
+			sh.addMergedRegion(new CellRangeAddress(row.getRowNum(), row.getRowNum(), start, end));
 	}
 
 	private void createMergedTextLeftIrr(Sheet sh, Row row, int start, int end, String title, CellStyle style) {
-	    Cell cell = row.createCell(start);
-	    cell.setCellValue(title);
-	    cell.setCellStyle(style);
-	    style.setAlignment(HorizontalAlignment.LEFT);
-	    if (end > start)
-	        sh.addMergedRegion(new CellRangeAddress(row.getRowNum(), row.getRowNum(), start, end));
+		Cell cell = row.createCell(start);
+		cell.setCellValue(title);
+		cell.setCellStyle(style);
+		style.setAlignment(HorizontalAlignment.LEFT);
+		if (end > start)
+			sh.addMergedRegion(new CellRangeAddress(row.getRowNum(), row.getRowNum(), start, end));
 	}
 
 	private void createMergedHeaderIrr(Sheet sh, Row row, int start, int end, String title, CellStyle style) {
-	    Cell cell = row.createCell(start);
-	    cell.setCellValue(title);
-	    cell.setCellStyle(style);
-	    if (end > start) {
-	        CellRangeAddress range = new CellRangeAddress(row.getRowNum(), row.getRowNum(), start, end);
-	        sh.addMergedRegion(range);
-	        applyBorderToMergedRegionIrr(sh, range, (XSSFWorkbook) sh.getWorkbook());
-	    }
+		Cell cell = row.createCell(start);
+		cell.setCellValue(title);
+		cell.setCellStyle(style);
+		if (end > start)
+			sh.addMergedRegion(new CellRangeAddress(row.getRowNum(), row.getRowNum(), start, end));
 	}
 
-	private void applyBorderToMergedRegionIrr(Sheet sheet, CellRangeAddress range, XSSFWorkbook wb) {
-	    RegionUtil.setBorderTop(BorderStyle.MEDIUM, range, sheet);
-	    RegionUtil.setBorderBottom(BorderStyle.MEDIUM, range, sheet);
-	    RegionUtil.setBorderLeft(BorderStyle.MEDIUM, range, sheet);
-	    RegionUtil.setBorderRight(BorderStyle.MEDIUM, range, sheet);
+	private void setAllBorders(CellStyle style, BorderStyle border) {
+		style.setBorderTop(border);
+		style.setBorderBottom(border);
+		style.setBorderLeft(border);
+		style.setBorderRight(border);
 	}
 
 	private String formatDateToMarathi(String isoDate) {
-	    LocalDate date = LocalDate.parse(isoDate);
-	    DateTimeFormatter marathiFmt = DateTimeFormatter.ofPattern("dd MMMM yyyy", new Locale("mr", "IN"));
-	    return date.format(marathiFmt);
+		LocalDate date = LocalDate.parse(isoDate);
+		DateTimeFormatter marathiFmt = DateTimeFormatter.ofPattern("dd MMMM yyyy", new Locale("mr", "IN"));
+		return date.format(marathiFmt);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadSinchanKshamataExcel(String period, String date)
+			throws IOException {
+
+		LocalDate reportDate = LocalDate.parse(date);
+		List<SinchanKshamataEntity> rows = sinchanKshamataRepository
+				.findByPeriodAndDateOrderBySectionTitleAscRowIdAsc(period, reportDate);
+
+		if (rows.isEmpty()) {
+			throw new RuntimeException("No data found for period: " + period + " and date: " + date);
+		}
+
+		String displayDate = formatDateToMarathi(date); // “30 जून 2025”
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sh = wb.createSheet("सिंचित सिंचन क्षमता");
+
+		// ---------- Column Widths ----------
+		int[] widths = { 2000, 6000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000 };
+		for (int i = 0; i < widths.length; i++)
+			sh.setColumnWidth(i, widths[i]);
+
+		// ---------- Fonts ----------
+		Font titleFont = wb.createFont();
+		titleFont.setBold(true);
+		titleFont.setFontHeightInPoints((short) 12);
+
+		Font headerFont = wb.createFont();
+		headerFont.setBold(true);
+		headerFont.setFontHeightInPoints((short) 10);
+
+		Font normalFont = wb.createFont();
+		normalFont.setFontHeightInPoints((short) 10);
+
+		Font boldFont = wb.createFont();
+		boldFont.setBold(true);
+		boldFont.setFontHeightInPoints((short) 10);
+
+		Font redBoldFont = wb.createFont();
+		redBoldFont.setBold(true);
+		redBoldFont.setFontHeightInPoints((short) 10);
+		redBoldFont.setColor(IndexedColors.RED.getIndex());
+
+		// ---------- Styles ----------
+		CellStyle titleStyle = wb.createCellStyle();
+		titleStyle.setFont(titleFont);
+		titleStyle.setAlignment(HorizontalAlignment.CENTER);
+		titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		titleStyle.setWrapText(true);
+
+		CellStyle headerStyle = wb.createCellStyle();
+		headerStyle.setFont(headerFont);
+		headerStyle.setAlignment(HorizontalAlignment.CENTER);
+		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		headerStyle.setWrapText(true);
+		setAllBorders(headerStyle, BorderStyle.MEDIUM);
+
+		CellStyle textStyle = wb.createCellStyle();
+		textStyle.setFont(normalFont);
+		textStyle.setAlignment(HorizontalAlignment.LEFT);
+		textStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		textStyle.setWrapText(true);
+		setAllBorders(textStyle, BorderStyle.MEDIUM);
+
+		CellStyle numStyle = wb.createCellStyle();
+		numStyle.cloneStyleFrom(textStyle);
+		numStyle.setAlignment(HorizontalAlignment.RIGHT);
+		numStyle.setDataFormat(wb.createDataFormat().getFormat("0.000"));
+
+		CellStyle intStyle = wb.createCellStyle();
+		intStyle.cloneStyleFrom(textStyle);
+		intStyle.setAlignment(HorizontalAlignment.CENTER);
+		intStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		CellStyle boldLeftStyle = wb.createCellStyle();
+		boldLeftStyle.cloneStyleFrom(textStyle);
+		boldLeftStyle.setFont(boldFont);
+		boldLeftStyle.setAlignment(HorizontalAlignment.LEFT);
+
+		CellStyle sectionRedBold = wb.createCellStyle();
+		sectionRedBold.cloneStyleFrom(boldLeftStyle);
+		sectionRedBold.setFont(redBoldFont);
+
+		// ---------- Title ----------
+		int r = 0;
+		Row titleRow = sh.createRow(r++);
+		createMergedTextIrr(sh, titleRow, 0, 12, "प्रपत्र - 2 : " + displayDate + " अखेर निर्मित सिंचन क्षमता",
+				titleStyle);
+		titleRow.setHeightInPoints(25);
+		r++;
+
+		// ---------- Header Rows ----------
+		// ---------- Header Rows ----------
+		Row h1 = sh.createRow(r++);
+
+		// Top headers
+		createMergedHeaderIrr(sh, h1, 0, 0, "अ. क्र.", headerStyle);
+		createMergedHeaderIrr(sh, h1, 1, 1, "प्रकल्पाचे नांव", headerStyle);
+		createMergedHeaderIrr(sh, h1, 2, 2, "लाभार्थी जिल्हे", headerStyle);
+		createMergedHeaderIrr(sh, h1, 3, 3, "अंतिम सिंचन क्षमता", headerStyle);
+		createMergedHeaderIrr(sh, h1, 4, 8, displayDate + " अखेर निर्मित सिंचन क्षमता", headerStyle);
+		createMergedHeaderIrr(sh, h1, 9, 9, "एकून नि.सिं.क्ष.", headerStyle);
+		createMergedHeaderIrr(sh, h1, 10, 10, "एकून नि.सिं.क्ष.", headerStyle);
+		createMergedHeaderIrr(sh, h1, 11, 11, "रब्बी समतुल्य क्षेत्र", headerStyle);
+
+		// Extra row for “क्षेत्र '000' हेक्टर” above last col (aligned right)
+		// ---------- "क्षेत्र '000' हेक्टर" Row (no borders, left-aligned) ----------
+		Row hTop = sh.createRow(h1.getRowNum() - 1);
+		Cell noBorderCell = hTop.createCell(11);
+		noBorderCell.setCellValue("क्षेत्र '000' हेक्टर");
+
+		// Create a clean, no-border style (based on header)
+		CellStyle noBorderStyle = wb.createCellStyle();
+		noBorderStyle.cloneStyleFrom(headerStyle);
+		noBorderStyle.setBorderTop(BorderStyle.NONE);
+		noBorderStyle.setBorderBottom(BorderStyle.NONE);
+		noBorderStyle.setBorderLeft(BorderStyle.NONE);
+		noBorderStyle.setBorderRight(BorderStyle.NONE);
+		noBorderStyle.setAlignment(HorizontalAlignment.LEFT);
+
+		noBorderCell.setCellStyle(noBorderStyle);
+
+		// ---------- Sub Header ----------
+		Row h2 = sh.createRow(r++);
+
+		createHeaderIrr(h2, 3, "IP", headerStyle);
+		createHeaderIrr(h2, 4, "खरीप", headerStyle);
+		createHeaderIrr(h2, 5, "रब्बी", headerStyle);
+		createHeaderIrr(h2, 6, "उन्हाळी", headerStyle);
+		createHeaderIrr(h2, 7, "दुहंगामी", headerStyle);
+		createHeaderIrr(h2, 8, "बारमाही", headerStyle);
+		createHeaderIrr(h2, 9, "IP", headerStyle);
+		createHeaderIrr(h2, 10, "ICA", headerStyle);
+
+		sh.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 0, 0));
+		sh.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 1, 1));
+		sh.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 2, 2));
+		sh.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 11, 11));
+
+		// Apply bold borders
+		applyBorderToMergedRegionIrr(sh, new CellRangeAddress(h1.getRowNum(), h1.getRowNum(), 4, 8), wb);
+		applyBorderToMergedRegionIrr(sh, new CellRangeAddress(h1.getRowNum(), h1.getRowNum(), 9, 10), wb);
+		applyBorderToMergedRegionIrr(sh, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 0, 0), wb);
+		applyBorderToMergedRegionIrr(sh, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 1, 1), wb);
+		applyBorderToMergedRegionIrr(sh, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 2, 2), wb);
+		applyBorderToMergedRegionIrr(sh, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), 11, 11), wb);
+
+		// ---------- Section Grouping ----------
+		// ---------- Section Grouping ----------
+		List<String> fixedSectionOrder = Arrays.asList("मोठे प्रकल्प (प्रमाण)", "उपसा सिंचन योजना",
+				"मध्यम प्रकल्प (प्रमाण)", "त.पा. प्रकल्प (प्रमाण)");
+
+		Map<String, List<SinchanKshamataEntity>> groupedSections = rows.stream().collect(
+				Collectors.groupingBy(SinchanKshamataEntity::getSectionTitle, LinkedHashMap::new, Collectors.toList()));
+
+		double grandIP = 0, grandICA = 0, grandRabbiSam = 0, grandKharip = 0, grandRabi = 0, grandUnhali = 0,
+				grandDurgami = 0, grandVarshik = 0;
+
+		// 🔹 Loop through fixed order
+		for (String sectionKey : fixedSectionOrder) {
+			List<SinchanKshamataEntity> sectionRows = groupedSections.get(sectionKey);
+			if (sectionRows == null || sectionRows.isEmpty())
+				continue;
+
+			// 🔹 Reset serial number per section
+			int sr = 1;
+
+			Row sectionRow = sh.createRow(r++);
+			createMergedTextLeftIrr(sh, sectionRow, 1, 12, sectionKey, sectionRedBold);
+
+			Map<String, List<SinchanKshamataEntity>> projectGroups = sectionRows.stream().collect(Collectors.groupingBy(
+					e -> e.getSectionData().path("projectName").asText(), LinkedHashMap::new, Collectors.toList()));
+
+			for (Map.Entry<String, List<SinchanKshamataEntity>> proj : projectGroups.entrySet()) {
+				List<SinchanKshamataEntity> projectRows = proj.getValue();
+				boolean multiDistrict = projectRows.size() > 1;
+
+				double sumIP = 0, sumICA = 0, sumRabbiSam = 0;
+				double sumKharip = 0, sumRabi = 0, sumUnhali = 0, sumDurgami = 0, sumVarshik = 0;
+
+				int startRow = r;
+				int currentSr = sr;
+				for (SinchanKshamataEntity e : projectRows) {
+					JsonNode d = e.getSectionData();
+					Row dr = sh.createRow(r++);
+					int c = 0;
+
+					// ✅ FIX 1 — use integer style (no decimal)
+					Cell srCell = dr.createCell(c++);
+					srCell.setCellValue(currentSr);
+					srCell.setCellStyle(intStyle);
+
+					createTextIrr(dr, c++, d.path("projectName").asText(""), textStyle);
+					createTextIrr(dr, c++, d.path("labharthiDistrict").asText(""), textStyle);
+					createNumIrr(dr, c++, d.path("ekunNishchit").path("IP").asDouble(0), numStyle);
+
+					JsonNode j = d.path("sinchanKshamata30June");
+					double kharip = j.path("kharip").asDouble(0);
+					double rabi = j.path("rabi").asDouble(0);
+					double unhali = j.path("unhali").asDouble(0);
+					double durgami = j.path("durgami").asDouble(0);
+					double varshik = j.path("varshik").asDouble(0);
+
+					createNumIrr(dr, c++, kharip, numStyle);
+					createNumIrr(dr, c++, rabi, numStyle);
+					createNumIrr(dr, c++, unhali, numStyle);
+					createNumIrr(dr, c++, durgami, numStyle);
+					createNumIrr(dr, c++, varshik, numStyle);
+
+					double ip = d.path("ekunNishchit").path("IP").asDouble(0);
+					double ica = d.path("ekunNishchit").path("ICA").asDouble(0);
+					double rabbiSam = d.path("rabbiSamtulyaKshtra").asDouble(0);
+
+					createNumIrr(dr, c++, ip, numStyle);
+					createNumIrr(dr, c++, ica, numStyle);
+					createNumIrr(dr, c++, rabbiSam, numStyle);
+
+					sumIP += ip;
+					sumICA += ica;
+					sumRabbiSam += rabbiSam;
+					sumKharip += kharip;
+					sumRabi += rabi;
+					sumUnhali += unhali;
+					sumDurgami += durgami;
+					sumVarshik += varshik;
+				}
+				sr++;
+
+				if (multiDistrict) {
+					Row totalRow = sh.createRow(r++);
+					createTextIrr(totalRow, 2, "एकूण", boldLeftStyle);
+					int c = 3;
+					createNumIrr(totalRow, c++, sumIP, numStyle);
+					createNumIrr(totalRow, c++, sumKharip, numStyle);
+					createNumIrr(totalRow, c++, sumRabi, numStyle);
+					createNumIrr(totalRow, c++, sumUnhali, numStyle);
+					createNumIrr(totalRow, c++, sumDurgami, numStyle);
+					createNumIrr(totalRow, c++, sumVarshik, numStyle);
+					createNumIrr(totalRow, c++, sumIP, numStyle);
+					createNumIrr(totalRow, c++, sumICA, numStyle);
+					createNumIrr(totalRow, c++, sumRabbiSam, numStyle);
+
+					CellRangeAddress projectNameMerge = new CellRangeAddress(startRow, r - 1, 1, 1);
+					CellRangeAddress srNoMerge = new CellRangeAddress(startRow, r - 1, 0, 0);
+					sh.addMergedRegion(projectNameMerge);
+					sh.addMergedRegion(srNoMerge);
+
+					// ✅ Apply bold borders to merged cells
+					applyBorderToMergedRegionIrr(sh, projectNameMerge, wb);
+					applyBorderToMergedRegionIrr(sh, srNoMerge, wb);
+				}
+
+				grandIP += sumIP;
+				grandICA += sumICA;
+				grandRabbiSam += sumRabbiSam;
+				grandKharip += sumKharip;
+				grandRabi += sumRabi;
+				grandUnhali += sumUnhali;
+				grandDurgami += sumDurgami;
+				grandVarshik += sumVarshik;
+			}
+		}
+
+		// ---------- Overall Total ----------
+
+		Row totalRow = sh.createRow(r++);
+		Cell puneCell = totalRow.createCell(0);
+		puneCell.setCellValue("पुणे पाटबंधारे प्रकल्प मंडळ, पुणे");
+		int c = 3;
+		CellStyle cellTxt = cellTextStyle(wb);
+		CellStyle centerTxt = wb.createCellStyle();
+		CellStyle totalStyle = totalRowStyle(wb);
+		centerTxt.cloneStyleFrom(cellTxt);
+		centerTxt.setAlignment(HorizontalAlignment.CENTER);
+		centerTxt.setVerticalAlignment(VerticalAlignment.CENTER);
+		puneCell.setCellStyle(centerTxt);
+		sh.addMergedRegion(new CellRangeAddress(totalRow.getRowNum(), totalRow.getRowNum(), 0, 1));
+		applyBorderToMergedRegion(sh, new CellRangeAddress(totalRow.getRowNum(), totalRow.getRowNum(), 0, 1), wb);
+
+		create(sh, totalRow, 2, "एकूण", totalStyle);
+		createNumIrr(totalRow, c++, grandIP, numStyle);
+		createNumIrr(totalRow, c++, grandKharip, numStyle);
+		createNumIrr(totalRow, c++, grandRabi, numStyle);
+		createNumIrr(totalRow, c++, grandUnhali, numStyle);
+		createNumIrr(totalRow, c++, grandDurgami, numStyle);
+		createNumIrr(totalRow, c++, grandVarshik, numStyle);
+		createNumIrr(totalRow, c++, grandIP, numStyle);
+		createNumIrr(totalRow, c++, grandICA, numStyle);
+		createNumIrr(totalRow, c++, grandRabbiSam, numStyle);
+		// ---------- Footer ----------
+		// Create a version of cellTxt without borders
+		CellStyle cellTxtNoBorder = wb.createCellStyle();
+		cellTxtNoBorder.cloneStyleFrom(cellTxtNoBorder);
+		cellTxtNoBorder.setBorderTop(BorderStyle.NONE);
+		cellTxtNoBorder.setBorderBottom(BorderStyle.NONE);
+		cellTxtNoBorder.setBorderLeft(BorderStyle.NONE);
+		cellTxtNoBorder.setBorderRight(BorderStyle.NONE);
+
+		// 🔹 जनाई शिरसाई उ.सिं. योजनेचे ... (Partial bold)
+		r++;
+		Row footer1 = sh.createRow(r++);
+		String line1 = "जनाई शिरसाई उ.सिं. योजनेचे सिंचन व्यवस्थापन हे पुणे पाटबंधारे मंडळांतर्गत कार्यकारी अभियंता, उपसा सिंचन व्यवस्थापन विभाग , पुणे यांचेमार्फत करण्यात येते.";
+		Cell f1Cell = footer1.createCell(0);
+
+		XSSFRichTextString rich1 = new XSSFRichTextString(line1);
+		int boldEnd1 = "जनाई शिरसाई उ.सिं. योजनेचे".length();
+
+		// Bold only prefix
+		Font boldFont1 = wb.createFont();
+		boldFont1.setBold(true);
+		Font normalFont1 = wb.createFont();
+		normalFont1.setBold(false);
+		rich1.applyFont(0, boldEnd1, boldFont1);
+		rich1.applyFont(boldEnd1, line1.length(), normalFont1);
+
+		f1Cell.setCellValue(rich1);
+		f1Cell.setCellStyle(cellTxtNoBorder);
+		sh.addMergedRegion(new CellRangeAddress(footer1.getRowNum(), footer1.getRowNum(), 0, 11));
+
+		// 🔹 बोपगाव ल.पा.प्रकल्प ... (Partial bold)
+		Row footer2 = sh.createRow(r++);
+		String line2 = "बोपगाव ल.पा.प्रकल्प - शासन पत्र संकिर्ण-2023/(114/2022)/लपा,दि. 08/08/2023 अन्वये ल.पा. प्रकल्प रद्द करणेस शासन मान्यता प्राप्त आहे.";
+		Cell f2Cell = footer2.createCell(0);
+
+		XSSFRichTextString rich2 = new XSSFRichTextString(line2);
+		int boldEnd2 = "बोपगाव ल.पा.प्रकल्प".length();
+
+		// Bold only the project name part
+		Font boldFont2 = wb.createFont();
+		boldFont2.setBold(true);
+		Font normalFont2 = wb.createFont();
+		normalFont2.setBold(false);
+		rich2.applyFont(0, boldEnd2, boldFont2);
+		rich2.applyFont(boldEnd2, line2.length(), normalFont2);
+
+		f2Cell.setCellValue(rich2);
+		f2Cell.setCellStyle(cellTxtNoBorder);
+		sh.addMergedRegion(new CellRangeAddress(footer2.getRowNum(), footer2.getRowNum(), 0, 11));
+
+		// ---------- Signature section ----------
+
+		// “स्थळ प्रतीवर...” – bold, italic, underline, starting from ‘रब्बी’ column (4)
+		r += 2;
+		Row sigRow1 = sh.createRow(r++);
+		Cell sig1Cell = sigRow1.createCell(4);
+		sig1Cell.setCellValue("स्थळ प्रतीवर मा. अ.अ. यांची सही असे.");
+
+		// Create style from scratch (not cloned!) to avoid inheriting borders
+		CellStyle italicBoldUnderline = wb.createCellStyle();
+
+		// 🖋 Font setup
+		Font italicBoldFont = wb.createFont();
+		italicBoldFont.setBold(true);
+		italicBoldFont.setItalic(true);
+		italicBoldFont.setUnderline(Font.U_SINGLE);
+		italicBoldFont.setFontHeightInPoints((short) 11);
+
+		// 🔧 Assign font & alignment
+		italicBoldUnderline.setFont(italicBoldFont);
+		italicBoldUnderline.setAlignment(HorizontalAlignment.LEFT);
+		italicBoldUnderline.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		// 🧹 Ensure no borders
+		italicBoldUnderline.setBorderTop(BorderStyle.NONE);
+		italicBoldUnderline.setBorderBottom(BorderStyle.NONE);
+		italicBoldUnderline.setBorderLeft(BorderStyle.NONE);
+		italicBoldUnderline.setBorderRight(BorderStyle.NONE);
+
+		sig1Cell.setCellStyle(italicBoldUnderline);
+
+		// Merge same as before
+		sh.addMergedRegion(new CellRangeAddress(sigRow1.getRowNum(), sigRow1.getRowNum(), 4, 7));
+
+		// ---------- Signature Name & Designation ----------
+
+		// ---------- Signature Block (with better height spacing) ----------
+		Row sigRow2 = sh.createRow(r++);
+		sigRow2.setHeightInPoints(20); // ✅ add this
+		create(sh, sigRow2, 8, "(नि‍किता लि. हेमने)", cellTxtNoBorder);
+		sh.addMergedRegion(new CellRangeAddress(sigRow2.getRowNum(), sigRow2.getRowNum(), 8, 10));
+
+		Row sigRow3 = sh.createRow(r++);
+		sigRow3.setHeightInPoints(20); // ✅ add this
+		create(sh, sigRow3, 8, "उपअधीक्षक अभियंता,", cellTxtNoBorder);
+		sh.addMergedRegion(new CellRangeAddress(sigRow3.getRowNum(), sigRow3.getRowNum(), 8, 10));
+
+		Row sigRow4 = sh.createRow(r++);
+		sigRow4.setHeightInPoints(20); // ✅ add this
+		create(sh, sigRow4, 8, "पुणे पाटबंधारे प्रकल्प मंडळ,", cellTxtNoBorder);
+		sh.addMergedRegion(new CellRangeAddress(sigRow4.getRowNum(), sigRow4.getRowNum(), 8, 10));
+
+		Row sigRow5 = sh.createRow(r++);
+		sigRow5.setHeightInPoints(20); // ✅ add this
+		create(sh, sigRow5, 8, "पुणे-01.", cellTxtNoBorder);
+		sh.addMergedRegion(new CellRangeAddress(sigRow5.getRowNum(), sigRow5.getRowNum(), 8, 10));
+
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		String safeFileName = URLEncoder.encode("Sinchan_Kshamata_" + period + "_" + date + ".xlsx",
+				StandardCharsets.UTF_8);
+		HttpHeaders headers = new HttpHeaders();
+		headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + safeFileName);
+
+		return ResponseEntity.ok().headers(headers)
+				.contentType(
+						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	private void applyBorderToMergedRegionIrr(Sheet sheet, CellRangeAddress range, XSSFWorkbook wb) {
+		RegionUtil.setBorderTop(BorderStyle.MEDIUM, range, sheet);
+		RegionUtil.setBorderBottom(BorderStyle.MEDIUM, range, sheet);
+		RegionUtil.setBorderLeft(BorderStyle.MEDIUM, range, sheet);
+		RegionUtil.setBorderRight(BorderStyle.MEDIUM, range, sheet);
 	}
 
 }

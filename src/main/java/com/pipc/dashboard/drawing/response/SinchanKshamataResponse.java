@@ -1,5 +1,6 @@
 package com.pipc.dashboard.drawing.response;
 
+import java.util.List;
 import java.util.Map;
 
 import com.pipc.dashboard.utility.BaseResponse;
@@ -13,5 +14,5 @@ public class SinchanKshamataResponse extends BaseResponse {
 	private String period;
 	private String title;
 	private String date;
-	private Map<String, Object> data;
+	private List<Map<String, Object>> data;
 }
