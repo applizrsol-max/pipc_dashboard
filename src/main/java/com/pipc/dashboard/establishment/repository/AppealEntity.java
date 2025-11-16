@@ -24,6 +24,8 @@ public class AppealEntity {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
+	private Long deleteId;
+	private String date;
 	private Long rowId;
 	private String year;
 	private String flag;

@@ -11,24 +11,27 @@ import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Entity
 @Table(name = "medical_bill_kharcha_tapsil")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString(exclude = "medicalBill")
+
 public class KharchaTapsilEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    private Long subId;
-    private Integer akr;
-    private String tapsil;
-    private Double rakkam;
+	private Long subId;
+	private Integer akr;
+	private String tapsil;
+	private Double rakkam;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "medical_bill_id")
-    private MedicalBillMasterEntity medicalBill;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "medical_bill_id")
+	private MedicalBillMasterEntity medicalBill;
 }

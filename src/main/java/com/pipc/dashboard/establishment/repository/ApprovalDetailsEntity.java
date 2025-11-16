@@ -11,12 +11,15 @@ import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Entity
 @Table(name = "medical_bill_approval_details")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString(exclude = "medicalBill")
+
 public class ApprovalDetailsEntity {
 
 	@Id

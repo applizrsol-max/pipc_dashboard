@@ -1,5 +1,8 @@
 package com.pipc.dashboard.serviceimpl;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -9,13 +12,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +67,7 @@ import com.pipc.dashboard.establishment.repository.VaidyakTapshilRepository;
 import com.pipc.dashboard.establishment.repository.VastavyaDetailsEntity;
 import com.pipc.dashboard.establishment.repository.VastavyaDetailsRepository;
 import com.pipc.dashboard.establishment.request.AppealRequest;
+import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
@@ -590,129 +608,149 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		return response;
 	}
 
-	public AppealResponse saveOrUpdateAppeal(AppealRequest dto) {
+	@Transactional
+	public AppealResponse saveOrUpdateAppeal(AppealWrapper wrapper) {
+
 		AppealResponse response = new AppealResponse();
 		ApplicationError error = new ApplicationError();
-
 		response.setData(new ArrayList<>());
 
 		try {
+
 			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-			String flag = Optional.ofNullable(dto.getFlag()).map(String::toUpperCase).orElse(null);
-
-			Optional<AppealEntity> existingOpt = Optional.empty();
-			if (dto.getRowId() != null)
-				existingOpt = appealRepository.findByRowId(dto.getRowId());
-
-			// 🗑️ DELETE
-			if ("D".equals(flag)) {
-				if (existingOpt.isPresent()) {
-					appealRepository.delete(existingOpt.get());
-					response.setMessage("Record deleted successfully.");
-					error.setErrorCode("200");
-					error.setErrorDescription("Success");
-				} else {
-					response.setMessage("No record found for deletion.");
-					error.setErrorCode("404");
-					error.setErrorDescription("Not Found");
-				}
-				response.setErrorDetails(error);
-				return response;
-			}
-
-			// 🆕 or 🔁 CREATE / UPDATE
-			AppealEntity entity = existingOpt.orElse(new AppealEntity());
-
-			// decide flag automatically
-			String resolvedFlag = existingOpt.isPresent() ? "U" : "C";
-
-			entity.setRowId(dto.getRowId());
-			entity.setYear(dto.getYear());
-			entity.setFlag(resolvedFlag);
-			entity.setApeelArjachaNondaniKramank(dto.getApeelArjachaNondaniKramank());
-			entity.setApeelkaracheNav(dto.getApeelkaracheNav());
-			entity.setApeelArjKonakadeKelaAahe(dto.getApeelArjKonakadeKelaAahe());
-			entity.setApeelArjPraptJhalyachaDinank(dto.getApeelArjPraptJhalyachaDinank());
-			entity.setPratidariYancheNavPatta(dto.getPratidariYancheNavPatta());
-			entity.setApeelarthiDurustReneSathiKaam(dto.getApeelarthiDurustReneSathiKaam());
-			entity.setApeelchaThodkyaTathya(dto.getApeelchaThodkyaTathya());
-			entity.setApeelArjacheShulk(dto.getApeelArjacheShulk());
-			entity.setKonakadeApeelSwikarBharle(dto.getKonakadeApeelSwikarBharle());
-			entity.setApeelArjachiVidhikShulkBharalDinank(dto.getApeelArjachiVidhikShulkBharalDinank());
-			entity.setKonalyaJanmahitiAdhikariYanchikadeApeelKeleTathyaTapshil(
-					dto.getKonalyaJanmahitiAdhikariYanchikadeApeelKeleTathyaTapshil());
-			entity.setApeelvarNirnayDilyachaDinank(dto.getApeelvarNirnayDilyachaDinank());
-			entity.setShera(dto.getShera());
-			entity.setDynamicColumns(dto.getDynamicColumns());
-
 			LocalDateTime now = LocalDateTime.now();
 
-			if (entity.getId() == null) {
-				// new record
-				entity.setCreatedBy(username);
-				entity.setCreatedDate(now);
-				entity.setUpdatedBy(username);
-				entity.setUpdatedDate(now);
-			} else {
-				// update
-				entity.setUpdatedBy(username);
-				entity.setUpdatedDate(now);
-				if (entity.getCreatedBy() == null)
+			for (AppealRequest dto : wrapper.getAppealData()) {
+
+				// -----------------------------
+				// FIND RECORD USING deleteId + year/date
+				// -----------------------------
+				Optional<AppealEntity> existingOpt = Optional.empty();
+
+				if (dto.getDeleteId() != null && dto.getDate() != null) {
+					existingOpt = appealRepository.findByDeleteIdAndDate(dto.getDeleteId(), dto.getDate());
+				}
+
+				String flag = Optional.ofNullable(dto.getFlag()).orElse("C").toUpperCase();
+
+				// -----------------------------
+				// DELETE LOGIC BY deleteId + date/year
+				// -----------------------------
+				if (flag.equals("D")) {
+
+					if (existingOpt.isPresent()) {
+						appealRepository.delete(existingOpt.get());
+
+						Map<String, Object> delMap = new LinkedHashMap<>();
+						delMap.put("deleteId", dto.getDeleteId());
+						delMap.put("date", dto.getDate());
+						delMap.put("status", "DELETED");
+						response.getData().add(delMap);
+					}
+					continue;
+				}
+
+				// -----------------------------
+				// CREATE / UPDATE LOGIC
+				// -----------------------------
+				// CREATE / UPDATE LOGIC
+				AppealEntity entity = existingOpt.orElse(new AppealEntity());
+				boolean isUpdate = existingOpt.isPresent();
+
+				entity.setDeleteId(dto.getDeleteId());
+				entity.setYear(dto.getYear());
+				entity.setRowId(dto.getRowId());
+				entity.setDate(dto.getDate());
+
+				if (isUpdate) {
+					entity.setFlag("U");
+					entity.setUpdatedBy(username);
+					entity.setUpdatedDate(now);
+				} else {
+					entity.setFlag("C");
 					entity.setCreatedBy(username);
-				if (entity.getCreatedDate() == null)
 					entity.setCreatedDate(now);
+					entity.setUpdatedBy(username);
+					entity.setUpdatedDate(now);
+				}
+
+				// SET ALL FIELDS
+				entity.setApeelArjachaNondaniKramank(dto.getApeelArjachaNondaniKramank());
+				entity.setApeelkaracheNav(dto.getApeelkaracheNav());
+				entity.setApeelArjKonakadeKelaAahe(dto.getApeelArjKonakadeKelaAahe());
+				entity.setApeelArjPraptJhalyachaDinank(dto.getApeelArjPraptJhalyachaDinank());
+				entity.setPratidariYancheNavPatta(dto.getPratidariYancheNavPatta());
+				entity.setApeelarthiDurustReneSathiKaam(dto.getApeelarthiDurustReneSathiKaam());
+				entity.setApeelchaThodkyaTathya(dto.getApeelchaThodkyaTathya());
+				entity.setApeelArjacheShulk(dto.getApeelArjacheShulk());
+				entity.setKonakadeApeelSwikarBharle(dto.getKonakadeApeelSwikarBharle());
+				entity.setApeelArjachiVidhikShulkBharalDinank(dto.getApeelArjachiVidhikShulkBharalDinank());
+				entity.setKonalyaJanmahitiAdhikariYanchikadeApeelKeleTathyaTapshil(
+						dto.getKonalyaJanmahitiAdhikariYanchikadeApeelKeleTathyaTapshil());
+				entity.setApeelvarNirnayDilyachaDinank(dto.getApeelvarNirnayDilyachaDinank());
+				entity.setShera(dto.getShera());
+
+				entity.setDynamicColumns(dto.getDynamicColumns());
+
+				AppealEntity saved = appealRepository.save(entity);
+
+				Map<String, Object> map = new LinkedHashMap<>();
+				map.put("deleteId", saved.getDeleteId());
+				map.put("year", saved.getYear());
+				map.put("flag", saved.getFlag());
+				map.put("status", isUpdate ? "UPDATED" : "CREATED");
+				response.getData().add(map);
 			}
 
-			AppealEntity saved = appealRepository.save(entity);
-
-			Map<String, Object> map = new LinkedHashMap<>();
-			map.put("rowId", saved.getRowId());
-			map.put("year", saved.getYear());
-			map.put("flag", saved.getFlag());
-			map.put("apeelkaracheNav", saved.getApeelkaracheNav());
-			map.put("status", "SUCCESS");
-			response.getData().add(map);
-
-			response.setMessage(
-					resolvedFlag.equals("U") ? "Record updated successfully." : "Record created successfully.");
 			error.setErrorCode("200");
 			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
 
 		} catch (Exception e) {
-			log.error("Error in saveOrUpdateAppeal: {}", e.getMessage(), e);
-			response.setMessage("Error while saving record.");
 			error.setErrorCode("500");
 			error.setErrorDescription(e.getMessage());
+			response.setErrorDetails(error);
 		}
 
-		response.setErrorDetails(error);
 		return response;
 	}
 
 	@Override
 	public AppealResponse getAppealData(String year, int page, int size) {
+
 		AppealResponse response = new AppealResponse();
 		ApplicationError error = new ApplicationError();
 		response.setData(new ArrayList<>());
 
 		try {
-			Pageable pageable = PageRequest.of(page, size, Sort.by("updatedDate").descending());
+
+			// Validate Page & Size
+			int pageNum = page >= 0 ? page : 0;
+			int pageSize = size > 0 ? size : 10;
+
+			Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by("updatedDate").descending());
+
 			Page<AppealEntity> appealPage;
 
-			// 🧭 Filter logic
-			if (year != null) {
+			// 🎯 Filter by year OR fetch all
+			if (year != null && !year.isBlank()) {
 				appealPage = appealRepository.findByYear(year, pageable);
 			} else {
 				appealPage = appealRepository.findAll(pageable);
 			}
 
+			// Build Response Data
 			for (AppealEntity e : appealPage.getContent()) {
+
 				Map<String, Object> map = new LinkedHashMap<>();
 
 				map.put("id", e.getId());
 				map.put("rowId", e.getRowId());
 				map.put("year", e.getYear());
+				map.put("date", e.getDate());
+				map.put("deleteId", e.getDeleteId());
 				map.put("flag", e.getFlag());
+
 				map.put("apeelArjachaNondaniKramank", e.getApeelArjachaNondaniKramank());
 				map.put("apeelkaracheNav", e.getApeelkaracheNav());
 				map.put("apeelArjKonakadeKelaAahe", e.getApeelArjKonakadeKelaAahe());
@@ -728,13 +766,15 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				map.put("apeelvarNirnayDilyachaDinank", e.getApeelvarNirnayDilyachaDinank());
 				map.put("shera", e.getShera());
 
-				// 🧩 Dynamic columns
+				// 🧩 Dynamic Columns (convert JsonNode → Map)
 				if (e.getDynamicColumns() != null && !e.getDynamicColumns().isEmpty()) {
-					Map<String, Object> dynamic = objectMapper.convertValue(e.getDynamicColumns(), Map.class);
-					map.put("dynamicColumns", dynamic);
+					Map<String, Object> dynMap = objectMapper.convertValue(e.getDynamicColumns(), Map.class);
+					map.put("dynamicColumns", dynMap);
+				} else {
+					map.put("dynamicColumns", new LinkedHashMap<>());
 				}
 
-				// Audit Info
+				// Audit Fields
 				map.put("createdBy", e.getCreatedBy());
 				map.put("createdDate", e.getCreatedDate());
 				map.put("updatedBy", e.getUpdatedBy());
@@ -751,12 +791,12 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 			meta.put("totalPages", appealPage.getTotalPages());
 			response.setMeta(meta);
 
+			// Success
 			response.setMessage("Appeal register data fetched successfully.");
 			error.setErrorCode("200");
 			error.setErrorDescription("Success");
 
 		} catch (Exception ex) {
-			log.error("Error fetching appeal data: {}", ex.getMessage(), ex);
 			response.setMessage("Error while fetching appeal data.");
 			error.setErrorCode("500");
 			error.setErrorDescription(ex.getMessage());
@@ -1220,4 +1260,438 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		}
 	}
 
+	@Override
+	public ResponseEntity<InputStreamResource> generateMedicalBillDoc(String employeeName, String date)
+			throws IOException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadAppealArj(String year) throws IOException {
+
+		List<AppealEntity> list = (year != null && !year.isBlank()) ? appealRepository.findByYear(year)
+				: appealRepository.findAll();
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sh = wb.createSheet("Appeal Register");
+
+		// ---------- COLUMN WIDTHS ----------
+		int[] colWidths = { 2000, 4500, 4500, 5500, 4500, 4500, 4500, 5500, 3000, 4500, 5500, 3500, 3000 };
+		for (int i = 0; i < colWidths.length; i++) {
+			sh.setColumnWidth(i, colWidths[i]);
+		}
+
+		// ---------- MARATHI FONT ----------
+		XSSFFont marathiFont = wb.createFont();
+		marathiFont.setFontName("Mangal");
+		marathiFont.setFontHeightInPoints((short) 12);
+
+		// ---------- BOLD HEADER FONT ----------
+		XSSFFont headerFont = wb.createFont();
+		headerFont.setFontName("Mangal");
+		headerFont.setFontHeightInPoints((short) 12);
+		headerFont.setBold(true);
+
+		// ---------- BASE BORDER STYLE ----------
+		CellStyle baseBorder = wb.createCellStyle();
+		baseBorder.setBorderBottom(BorderStyle.MEDIUM);
+		baseBorder.setBorderTop(BorderStyle.MEDIUM);
+		baseBorder.setBorderLeft(BorderStyle.MEDIUM);
+		baseBorder.setBorderRight(BorderStyle.MEDIUM);
+		baseBorder.setAlignment(HorizontalAlignment.CENTER);
+		baseBorder.setVerticalAlignment(VerticalAlignment.CENTER);
+		baseBorder.setWrapText(true);
+
+		// ---------- HEADER STYLE ----------
+		CellStyle headerStyle = wb.createCellStyle();
+		headerStyle.cloneStyleFrom(baseBorder);
+		headerStyle.setFont(headerFont);
+
+		// ---------- DATA STYLE ----------
+		CellStyle dataStyle = wb.createCellStyle();
+		dataStyle.cloneStyleFrom(baseBorder);
+		dataStyle.setFont(marathiFont);
+
+		// ---------- NUMBER STYLE ----------
+		CellStyle numberStyle = wb.createCellStyle();
+		numberStyle.cloneStyleFrom(baseBorder);
+		numberStyle.setFont(marathiFont);
+
+		// ---------- TITLE STYLE (NO BORDER) ----------
+		CellStyle titleStyle = wb.createCellStyle();
+		titleStyle.setFont(headerFont);
+		titleStyle.setAlignment(HorizontalAlignment.CENTER);
+		titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		titleStyle.setWrapText(true);
+		// NOTE: NO BORDERS (clean look)
+
+		// ---------- ROW 0 : EMPTY ----------
+		sh.createRow(0);
+
+		// ---------- ROW 1 : TITLE ----------
+		Row titleRow = sh.createRow(1);
+		Cell titleCell = titleRow.createCell(0);
+		titleCell.setCellValue("माहिती अधिकारांतर्गत खूड मंडळ कार्यालयास प्राप्त झालेले अपील अर्ज");
+		titleCell.setCellStyle(titleStyle);
+		sh.addMergedRegion(new CellRangeAddress(1, 1, 0, 12));
+
+		// ---------- HEADER TEXT ----------
+		String[] headers = { "अ.क्र.", "अपील अर्जाचा नोंदणी क्रमांक", "अपीलकाचे नाव", "अपील अर्ज कोणाकडे केला आहे",
+				"अपील अर्ज प्राप्त झाल्याचा दिनांक", "प्रतिवादी यांचे नाव व पत्ता", "अपीलार्थीदारिद्रय रेषेखालील आहे काय",
+				"अपीलाचा थोडक्यात तपशील", "अपील अर्जाचे शुल्क कोणत्या स्वरुपात भरले", "अपील अर्जाचे विहीत शुल्क भरल्याचा दिनांक",
+				"कोणत्या जनमाहिती अधिकारी यांचेविरुद्ध अपील केले त्याचा तपशील", "अपीलवर निर्णय दिल्याचा दिनांक", "शेरा" };
+
+		// ---------- ROW 2 : HEADER ----------
+		Row headerRow = sh.createRow(2);
+		headerRow.setHeightInPoints(40);
+
+		for (int i = 0; i < headers.length; i++) {
+			Cell cell = headerRow.createCell(i);
+			cell.setCellValue(headers[i]);
+			cell.setCellStyle(headerStyle);
+		}
+
+		// ---------- ROW 3 : COLUMN NUMBERS ----------
+		Row numberRow = sh.createRow(3);
+		numberRow.setHeightInPoints(22);
+
+		for (int i = 0; i < headers.length; i++) {
+			Cell numCell = numberRow.createCell(i);
+			numCell.setCellValue(i + 1);
+			numCell.setCellStyle(numberStyle);
+		}
+
+		// ---------- ROW 4 : DATA START ----------
+		int rowNum = 4;
+		int sr = 1;
+
+		for (AppealEntity e : list) {
+
+			Row row = sh.createRow(rowNum++);
+			row.setHeightInPoints(-1); // auto stretch
+
+			int c = 0;
+
+			addCell(row, c++, String.valueOf(sr++), dataStyle);
+			addCell(row, c++, nvl(e.getApeelArjachaNondaniKramank()), dataStyle);
+			addCell(row, c++, nvl(e.getApeelkaracheNav()), dataStyle);
+			addCell(row, c++, nvl(e.getApeelArjKonakadeKelaAahe()), dataStyle);
+			addCell(row, c++, nvl(e.getApeelArjPraptJhalyachaDinank()), dataStyle);
+			addCell(row, c++, nvl(e.getPratidariYancheNavPatta()), dataStyle);
+			addCell(row, c++, nvl(e.getApeelarthiDurustReneSathiKaam()), dataStyle);
+			addCell(row, c++, nvl(e.getApeelchaThodkyaTathya()), dataStyle);
+			addCell(row, c++, nvl(e.getApeelArjacheShulk()), dataStyle);
+			addCell(row, c++, nvl(e.getApeelArjachiVidhikShulkBharalDinank()), dataStyle);
+			addCell(row, c++, nvl(e.getKonalyaJanmahitiAdhikariYanchikadeApeelKeleTathyaTapshil()), dataStyle);
+			addCell(row, c++, nvl(e.getApeelvarNirnayDilyachaDinank()), dataStyle);
+			addCell(row, c++, nvl(e.getShera()), dataStyle);
+		}
+
+		// ---------- WRITE OUTPUT ----------
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		HttpHeaders headersHttp = new HttpHeaders();
+		headersHttp.add("Content-Disposition", "attachment; filename=Appeal_Register.xlsx");
+
+		return ResponseEntity.ok().headers(headersHttp)
+				.contentType(
+						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	private void addCell(Row row, int col, String val, CellStyle style) {
+		Cell cell = row.createCell(col);
+		cell.setCellValue(val);
+		cell.setCellStyle(style);
+	}
+
+	private String nvl(String v) {
+		return v == null ? "" : v;
+	}
+
+	// @Transactional
+	// main method called by controller
+	// public byte[] generateDocxFor(String employeeName, String billDate) throws
+	// Exception {
+
+//		Optional<MedicalBillMasterEntity> opt = repo.findByEmployeeDetailsEmployeeNameAndBillDate(employeeName,
+//				billDate);
+//
+//		if (opt.isEmpty()) {
+//			throw new IllegalArgumentException(
+//					"No medical bill found for employee: " + employeeName + " and date: " + billDate);
+//		}
+//
+//		MedicalBillMasterEntity m = opt.get();
+//
+//		WordprocessingMLPackage wp = WordprocessingMLPackage.createPackage();
+//		ObjectFactory factory = new ObjectFactory();
+//
+//		// ---------- Styles / fonts ----------
+//		// You can further customize run fonts (for Marathi we keep default and rely on
+//		// system fonts)
+//		// Add title centered
+//		wp.getMainDocumentPart().addParagraphOfText("");
+//		wp.getMainDocumentPart().addParagraphOfText("");
+//
+//		P titleP = factory.createP();
+//		R titleR = factory.createR();
+//		Text titleT = factory.createText();
+//		titleT.setValue(m.getTitle() != null ? m.getTitle() : ""); // "कार्यालयीन आदेश..."
+//		titleR.getContent().add(factory.createText(titleT.getValue()));
+//		// bold + center
+//		RPr rpr = factory.createRPr();
+//		BooleanDefaultTrue b = new BooleanDefaultTrue();
+//		b.setVal(true);
+//		rpr.setB(b);
+//		// set font size 24 (12pt*2)
+//		HpsMeasure size = new HpsMeasure();
+//		size.setVal(new BigInteger("28")); // approx 14pt; adjust as needed
+//		rpr.setSz(size);
+//		titleR.setRPr(rpr);
+//		titleP.getContent().add(titleR);
+//		// center
+//		PPr ppr = factory.createPPr();
+//		Jc jc = factory.createJc();
+//		jc.setVal(JcEnumeration.CENTER);
+//		ppr.setJc(jc);
+//		titleP.setPPr(ppr);
+//		wp.getMainDocumentPart().addObject(titleP);
+//
+//		// Add a small blank paragraph
+//		wp.getMainDocumentPart().addParagraphOfText("");
+//
+//		// ---------- Make the main table (rough replication of screenshots)
+//		// We'll create a table with two columns for the header info and then the long
+//		// detailed table etc.
+//		// Header table (simple): left: reference list; right: approving authority block
+//		Tbl hdr = createHeaderTable(factory, m);
+//		wp.getMainDocumentPart().addObject(hdr);
+//
+//		// Add a page break to start main content on new page? In screenshots content is
+//		// in same page.
+//		// Next: main "vaidyak kharcha pariganana" table + tapsil.
+//		wp.getMainDocumentPart().addParagraphOfText("");
+//		// create main content table based on your entity structure
+//		Tbl mainTable = createMainDocumentTable(factory, m);
+//		wp.getMainDocumentPart().addObject(mainTable);
+//
+//		// Add detailed "vaidyak" section if present
+//		if (m.getVaidyakKharchaPariganana() != null) {
+//			wp.getMainDocumentPart().addParagraphOfText("");
+//			Tbl vaidyakTable = createVaidyakTable(factory, m);
+//			wp.getMainDocumentPart().addObject(vaidyakTable);
+//		}
+//
+//		// Signature block at the bottom right
+//		wp.getMainDocumentPart().addParagraphOfText("");
+//		P sig = factory.createP();
+//		R r1 = factory.createR();
+//		Text t1 = factory.createText();
+//		t1.setValue("\n(क.ह. पाटील)\nअधीक्षक अभियंता,\nपुणे पाटबंधारे प्रकल्प मंडळ,\nपुणे-01.");
+//		r1.getContent().add(factory.createText(t1.getValue()));
+//		// align right
+//		PPr sigPpr = factory.createPPr();
+//		Jc sigJc = factory.createJc();
+//		sigJc.setVal(JcEnumeration.RIGHT);
+//		sigPpr.setJc(sigJc);
+//		sig.setPPr(sigPpr);
+//		sig.getContent().add(r1);
+//		wp.getMainDocumentPart().addObject(sig);
+//
+//		// Write to byte[]
+//		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+//		wp.save(baos);
+//		byte[] bytes = baos.toByteArray();
+//		IOUtils.closeQuietly(baos);
+//		return bytes;
+//	}
+//
+//	// ---------- Helpers to build tables ----------
+//
+//	private Tbl createHeaderTable(ObjectFactory factory, MedicalBillMasterEntity m) {
+//		// two-column table: left column has reference list and title fields, right
+//		// column has approving authority block
+//		Tbl tbl = factory.createTbl();
+//		// table properties (borderless)
+//		TblPr tblPr = factory.createTblPr();
+//		tbl.setTblPr(tblPr);
+//
+//		// Row 1 (title centered across both cols) - we can append separately; leave
+//		// empty row now
+//		// Row 2: left big cell (references) and right box (approving authority)
+//		Tr tr = factory.createTr();
+//
+//		// Left cell
+//		Tc tcLeft = factory.createTc();
+//		P pLeft = factory.createP();
+//		R rLeft = factory.createR();
+//		Text tLeft = factory.createText();
+//		// Build references text
+//		StringBuilder leftText = new StringBuilder();
+//		leftText.append("Reference:\n");
+//		if (m.getReferences() != null && !m.getReferences().isEmpty()) {
+//			m.getReferences().forEach(ref -> leftText.append(" - ").append(ref.getReference()).append("\n"));
+//		}
+//		// employee details
+//		if (m.getEmployeeDetails() != null) {
+//			leftText.append("\nEmployee: ").append(m.getEmployeeDetails().getEmployeeName()).append("\n");
+//			leftText.append("Designation: ").append(m.getEmployeeDetails().getDesignation()).append("\n");
+//			leftText.append("Department: ").append(m.getEmployeeDetails().getDepartment()).append("\n");
+//			leftText.append("Patient: ").append(m.getEmployeeDetails().getPatientName()).append("\n");
+//			leftText.append("Hospital: ").append(m.getEmployeeDetails().getHospitalName()).append("\n");
+//			leftText.append("Treatment: ").append(m.getEmployeeDetails().getFromDate()).append(" to ")
+//					.append(m.getEmployeeDetails().getToDate()).append("\n");
+//		}
+//		rLeft.getContent().add(factory.createText(leftText.toString()));
+//		pLeft.getContent().add(rLeft);
+//		tcLeft.getContent().add(pLeft);
+//		tr.getContent().add(tcLeft);
+//
+//		// Right cell
+//		Tc tcRight = factory.createTc();
+//		P pRight = factory.createP();
+//		R rRight = factory.createR();
+//		StringBuilder rightText = new StringBuilder();
+//		if (m.getApprovalDetails() != null) {
+//			rightText.append(m.getApprovalDetails().getApprovingAuthority()).append("\n");
+//			rightText.append("Approval Date: ").append(m.getApprovalDetails().getApprovalDate()).append("\n");
+//			rightText.append("Amount: ").append(m.getApprovalDetails().getApprovalAmount()).append("\n");
+//			rightText.append("Approved By: ").append(m.getApprovalDetails().getApprovedBy()).append("\n");
+//		}
+//		rRight.getContent().add(factory.createText(rightText.toString()));
+//		pRight.getContent().add(rRight);
+//		tcRight.getContent().add(pRight);
+//		tr.getContent().add(tcRight);
+//
+//		tbl.getContent().add(tr);
+//		return tbl;
+//	}
+//
+//	private Tbl createMainDocumentTable(ObjectFactory factory, MedicalBillMasterEntity m) {
+//		Tbl tbl = factory.createTbl();
+//
+//		// We'll create a header row and then rows for kharcha tapsil
+//		// HEADER ROW
+//		Tr header = factory.createTr();
+//		header.getContent().add(createCell(factory, "अ. क्र.", true));
+//		header.getContent().add(createCell(factory, "तपशील", true));
+//		header.getContent().add(createCell(factory, "रक्कम (₹)", true));
+//		tbl.getContent().add(header);
+//
+//		// Add tapsil rows
+//		if (m.getKharchaTapsil() != null) {
+//			for (KharchaTapsilEntity k : m.getKharchaTapsil()) {
+//				Tr tr = factory.createTr();
+//				tr.getContent().add(createCell(factory, String.valueOf(k.getAkr()), false));
+//				tr.getContent().add(createCell(factory, k.getTapsil(), false));
+//				tr.getContent().add(createCell(factory, formatDouble(k.getRakkam()), false));
+//				tbl.getContent().add(tr);
+//			}
+//		}
+//
+//		return tbl;
+//	}
+//
+//	private Tbl createVaidyakTable(ObjectFactory factory, MedicalBillMasterEntity m) {
+//		Tbl tbl = factory.createTbl();
+//
+//		// Heading "वैद्यकीय खर्चा परिगणना"
+//		Tr head = factory.createTr();
+//		head.getContent().add(createCell(factory, "वैद्यकीय खर्चा परिगणना", true, 3));
+//		tbl.getContent().add(head);
+//
+//		// Basic fields from vaidyak
+//		VaidyakKharchaParigananaEntity v = m.getVaidyakKharchaPariganana();
+//		if (v != null) {
+//			// tapshil list
+//			if (v.getTapshilList() != null && !v.getTapshilList().isEmpty()) {
+//				Tr subHead = factory.createTr();
+//				subHead.getContent().add(createCell(factory, "अ. क्र.", true));
+//				subHead.getContent().add(createCell(factory, "तपशील", true));
+//				subHead.getContent().add(createCell(factory, "रक्कम", true));
+//				tbl.getContent().add(subHead);
+//
+//				for (VaidyakTapshilEntity t : v.getTapshilList()) {
+//					Tr tr = factory.createTr();
+//					tr.getContent().add(createCell(factory, String.valueOf(t.getAkr()), false));
+//					tr.getContent().add(createCell(factory, t.getTapsil(), false));
+//					tr.getContent().add(createCell(factory, formatDouble(t.getEkunKharch()), false));
+//					tbl.getContent().add(tr);
+//				}
+//			}
+//
+//			// vastavya details
+//			if (v.getVastavyaDetailsList() != null && !v.getVastavyaDetailsList().isEmpty()) {
+//				Tr vh = factory.createTr();
+//				vh.getContent().add(createCell(factory, "वास्तव्या तपशील", true, 3));
+//				tbl.getContent().add(vh);
+//
+//				for (VastavyaDetailsEntity vd : v.getVastavyaDetailsList()) {
+//					Tr tr = factory.createTr();
+//					tr.getContent().add(createCell(factory, String.valueOf(vd.getSubId()), false));
+//					tr.getContent().add(createCell(factory, vd.getVastavyaPrakar(), false));
+//					tr.getContent().add(createCell(factory, formatDouble(vd.getDeyaRakkam()), false));
+//					tbl.getContent().add(tr);
+//				}
+//			}
+//
+//			// excluded
+//			if (v.getExcludedDetails() != null && !v.getExcludedDetails().isEmpty()) {
+//				Tr exh = factory.createTr();
+//				exh.getContent().add(createCell(factory, "Excluded", true, 3));
+//				tbl.getContent().add(exh);
+//
+//				for (VaidyakExcludedDetailsEntity ed : v.getExcludedDetails()) {
+//					Tr tr = factory.createTr();
+//					tr.getContent().add(createCell(factory, String.valueOf(ed.getSubId()), false));
+//					tr.getContent().add(createCell(factory, ed.getDescription(), false));
+//					tr.getContent().add(createCell(factory, formatDouble(ed.getAmount()), false));
+//					tbl.getContent().add(tr);
+//				}
+//			}
+//		}
+//
+//		return tbl;
+//	}
+//
+//	private Tc createCell(ObjectFactory factory, String text, boolean bold) {
+//		return createCell(factory, text, bold, 1);
+//	}
+//
+//	private Tc createCell(ObjectFactory factory, String text, boolean bold, int colspan) {
+//		Tc tc = factory.createTc();
+//		P p = factory.createP();
+//		R r = factory.createR();
+//		Text t = factory.createText();
+//		t.setValue(text == null ? "" : text);
+//		r.getContent().add(factory.createText(t.getValue()));
+//		if (bold) {
+//			RPr rpr = factory.createRPr();
+//			BooleanDefaultTrue b = new BooleanDefaultTrue();
+//			b.setVal(true);
+//			rpr.setB(b);
+//			r.setRPr(rpr);
+//		}
+//		p.getContent().add(r);
+//		tc.getContent().add(p);
+//
+//		if (colspan > 1) {
+//			TcPr tcPr = factory.createTcPr();
+//			GridSpan gs = factory.createTcPrInnerGridSpan();
+//			gs.setVal(BigInteger.valueOf(colspan));
+//			tcPr.setGridSpan(gs);
+//			tc.setTcPr(tcPr);
+//		}
+//		return tc;
+//	}
+//
+//	private static String formatDouble(Double d) {
+//		if (d == null)
+//			return "0.000";
+//		return String.format(Locale.ENGLISH, "%.3f", d);
+//	}
 }

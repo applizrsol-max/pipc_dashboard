@@ -18,4 +18,8 @@ public interface AppealRepository extends JpaRepository<AppealEntity, Long> {
 
 	Page<AppealEntity> findByYear(String year, Pageable pageable);
 
+	Optional<AppealEntity> findByDeleteIdAndDate(Long deleteId, String date);
+
+	List<AppealEntity> findByYear(String year);
+
 }

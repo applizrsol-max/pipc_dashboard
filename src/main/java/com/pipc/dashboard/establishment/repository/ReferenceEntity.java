@@ -11,21 +11,24 @@ import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Entity
 @Table(name = "medical_bill_reference")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString(exclude = "medicalBill")
+
 public class ReferenceEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    private String reference;
+	private String reference;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "medical_bill_id")
-    private MedicalBillMasterEntity medicalBill;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "medical_bill_id")
+	private MedicalBillMasterEntity medicalBill;
 }

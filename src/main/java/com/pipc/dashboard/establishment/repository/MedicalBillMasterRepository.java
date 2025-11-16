@@ -1,6 +1,5 @@
 package com.pipc.dashboard.establishment.repository;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,5 +19,12 @@ public interface MedicalBillMasterRepository extends JpaRepository<MedicalBillMa
 	List<MedicalBillMasterEntity> findByFilters(@Param("employeeName") String employeeName,
 			@Param("month") String month, @Param("year") String year, @Param("period") String period,
 			@Param("billDate") String billDate);
+
+	@Query("""
+			SELECT m FROM MedicalBillMasterEntity m
+			WHERE m.employeeDetails.employeeName = :employee
+			AND m.billDate = :billDate
+			""")
+	Optional<MedicalBillMasterEntity> findBill(@Param("employee") String employee, @Param("billDate") String billDate);
 
 }

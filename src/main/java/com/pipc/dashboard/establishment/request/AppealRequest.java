@@ -9,7 +9,8 @@ public class AppealRequest {
 	private Long rowId;
 	private String year;
 	private String flag; // C, U, D
-
+	private String date;
+	private Long deleteId;
 	private String apeelArjachaNondaniKramank;
 	private String apeelkaracheNav;
 	private String apeelArjKonakadeKelaAahe;

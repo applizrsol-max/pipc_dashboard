@@ -1,9 +1,12 @@
 package com.pipc.dashboard.business;
 
-import org.springframework.data.domain.Page;
+import java.io.IOException;
 
-import com.pipc.dashboard.establishment.repository.IncomeTaxDeductionEntity;
-import com.pipc.dashboard.establishment.request.AppealRequest;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
+
+import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
@@ -26,7 +29,7 @@ public interface EstablishmentBusiness {
 
 	LeaveResponse getLeaveDetails(String employeeName, String year, String month, String date);
 
-	AppealResponse saveOrUpdateAppeal(AppealRequest request);
+	AppealResponse saveOrUpdateAppeal(AppealWrapper request);
 
 	AppealResponse getAppealData(String year, int page, int size);
 
@@ -41,5 +44,9 @@ public interface EstablishmentBusiness {
 	PassportNocResponse saveOrUpdatePassportNoc(PassportNocRequest request);
 
 	Page<PassportNocResponse> getPassportNocData(String year, String month, String employeeName, int page, int size);
+
+	ResponseEntity<InputStreamResource> generateMedicalBillDoc(String employeeName, String date) throws IOException;
+
+	ResponseEntity<InputStreamResource> downloadAppealArj(String year) throws IOException;
 
 }

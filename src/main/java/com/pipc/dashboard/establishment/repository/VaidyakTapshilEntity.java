@@ -11,12 +11,15 @@ import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Entity
 @Table(name = "medical_bill_vaidyak_tapshil")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString(exclude = "vaidyakKharchaPariganana")
+
 public class VaidyakTapshilEntity {
 
 	@Id
@@ -27,7 +30,6 @@ public class VaidyakTapshilEntity {
 	private Integer akr;
 	private String tapsil;
 	private Double ekunKharch;
-	
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "vaidyak_pariganana_id")

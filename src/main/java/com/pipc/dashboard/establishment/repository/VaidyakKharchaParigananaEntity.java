@@ -16,12 +16,15 @@ import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Entity
 @Table(name = "medical_bill_vaidyak_pariganana")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString(exclude = "medicalBill")
+
 public class VaidyakKharchaParigananaEntity {
 
 	@Id
@@ -42,14 +45,14 @@ public class VaidyakKharchaParigananaEntity {
 	private MedicalBillMasterEntity medicalBill;
 
 	// ✅ Child relation 1: Tapshil List
-	@OneToMany(mappedBy = "vaidyakKharchaPariganana", cascade = CascadeType.ALL, orphanRemoval = true)
+	@OneToMany(mappedBy = "vaidyakKharchaPariganana", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
 	private List<VaidyakTapshilEntity> tapshilList = new ArrayList<>();
 
 	// ✅ Child relation 2: Vastavya Details List
-	@OneToMany(mappedBy = "vaidyakKharchaPariganana", cascade = CascadeType.ALL, orphanRemoval = true)
+	@OneToMany(mappedBy = "vaidyakKharchaPariganana", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
 	private List<VastavyaDetailsEntity> vastavyaDetailsList = new ArrayList<>();
 
-	@OneToMany(mappedBy = "vaidyakKharchaPariganana", cascade = CascadeType.ALL, orphanRemoval = true)
+	@OneToMany(mappedBy = "vaidyakKharchaPariganana", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
 	private List<VaidyakExcludedDetailsEntity> excludedDetails;
 
 }

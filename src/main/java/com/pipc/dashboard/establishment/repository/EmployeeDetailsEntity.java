@@ -11,28 +11,31 @@ import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Entity
 @Table(name = "medical_bill_employee_details")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString(exclude = "medicalBill")
+
 public class EmployeeDetailsEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    private String employeeName;
-    private String designation;
-    private String department;
-    private String patientName;
-    private String hospitalName;
+	private String employeeName;
+	private String designation;
+	private String department;
+	private String patientName;
+	private String hospitalName;
 
-    private String fromDate;
-    private String toDate;
+	private String fromDate;
+	private String toDate;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "medical_bill_id")
-    private MedicalBillMasterEntity medicalBill;
+	@OneToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "medical_bill_id")
+	private MedicalBillMasterEntity medicalBill;
 }

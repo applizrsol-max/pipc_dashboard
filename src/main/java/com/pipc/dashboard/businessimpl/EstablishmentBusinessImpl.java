@@ -1,12 +1,15 @@
 package com.pipc.dashboard.businessimpl;
 
+import java.io.IOException;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import com.pipc.dashboard.business.EstablishmentBusiness;
-import com.pipc.dashboard.establishment.repository.IncomeTaxDeductionEntity;
-import com.pipc.dashboard.establishment.request.AppealRequest;
+import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
@@ -50,7 +53,7 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	}
 
 	@Override
-	public AppealResponse saveOrUpdateAppeal(AppealRequest request) {
+	public AppealResponse saveOrUpdateAppeal(AppealWrapper request) {
 
 		return establishmentService.saveOrUpdateAppeal(request);
 	}
@@ -90,6 +93,18 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	public Page<PassportNocResponse> getPassportNocData(String year, String month, String employeeName, int page,
 			int size) {
 		return establishmentService.getPassportNocData(year, month, employeeName, page, size);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> generateMedicalBillDoc(String employeeName, String date)
+			throws IOException {
+
+		return establishmentService.generateMedicalBillDoc(employeeName, date);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadAppealArj(String year) throws IOException {
+		return establishmentService.downloadAppealArj(year);
 	}
 
 }

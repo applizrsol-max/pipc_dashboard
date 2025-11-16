@@ -1,6 +1,9 @@
 package com.pipc.dashboard.controller;
 
+import java.io.IOException;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.pipc.dashboard.business.EstablishmentBusiness;
-import com.pipc.dashboard.establishment.request.AppealRequest;
+import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
@@ -59,7 +62,7 @@ public class EstablishmentController {
 	}
 
 	@PostMapping("/saveOrUpdateAppeal")
-	public AppealResponse saveOrUpdateAppeal(@RequestBody AppealRequest request) {
+	public AppealResponse saveOrUpdateAppeal(@RequestBody AppealWrapper request) {
 		return establishmentBusiness.saveOrUpdateAppeal(request);
 	}
 
@@ -113,6 +116,20 @@ public class EstablishmentController {
 			@RequestParam(required = false) String month, @RequestParam(required = false) String employeeName,
 			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
 		return establishmentBusiness.getPassportNocData(year, month, employeeName, page, size);
+	}
+
+	@GetMapping("/downloadMedicalBill")
+	public ResponseEntity<InputStreamResource> downloadMedicalBill(@RequestParam String employeeName,
+			@RequestParam String date) throws IOException {
+
+		return establishmentBusiness.generateMedicalBillDoc(employeeName, date);
+	}
+
+	@GetMapping("/downloadAppealArj")
+	public ResponseEntity<InputStreamResource> downloadAppealArj(@RequestParam(required = false) String year)
+			throws IOException {
+
+		return establishmentBusiness.downloadAppealArj(year);
 	}
 
 }

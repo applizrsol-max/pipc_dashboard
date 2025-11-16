@@ -2222,6 +2222,20 @@ public class DrawingServiceImpl implements DrawingService {
 		numStyle.setAlignment(HorizontalAlignment.RIGHT);
 		numStyle.setDataFormat(wb.createDataFormat().getFormat("0.000"));
 
+		// ✅ Bold numeric style for "एकूण" rows
+		CellStyle numStyleForEkun = wb.createCellStyle();
+		numStyleForEkun.cloneStyleFrom(textStyle);
+		numStyleForEkun.setAlignment(HorizontalAlignment.RIGHT);
+		numStyleForEkun.setDataFormat(wb.createDataFormat().getFormat("0.000"));
+
+		// 🔹 Create bold font
+		Font boldNumFont = wb.createFont();
+		boldNumFont.setBold(true);
+		boldNumFont.setFontHeightInPoints((short) 10);
+
+		// 🔹 Apply bold font
+		numStyleForEkun.setFont(boldNumFont);
+
 		CellStyle intStyle = wb.createCellStyle();
 		intStyle.cloneStyleFrom(textStyle);
 		intStyle.setAlignment(HorizontalAlignment.CENTER);
@@ -2385,15 +2399,15 @@ public class DrawingServiceImpl implements DrawingService {
 					Row totalRow = sh.createRow(r++);
 					createTextIrr(totalRow, 2, "एकूण", boldLeftStyle);
 					int c = 3;
-					createNumIrr(totalRow, c++, sumIP, numStyle);
-					createNumIrr(totalRow, c++, sumKharip, numStyle);
-					createNumIrr(totalRow, c++, sumRabi, numStyle);
-					createNumIrr(totalRow, c++, sumUnhali, numStyle);
-					createNumIrr(totalRow, c++, sumDurgami, numStyle);
-					createNumIrr(totalRow, c++, sumVarshik, numStyle);
-					createNumIrr(totalRow, c++, sumIP, numStyle);
-					createNumIrr(totalRow, c++, sumICA, numStyle);
-					createNumIrr(totalRow, c++, sumRabbiSam, numStyle);
+					createNumIrr(totalRow, c++, sumIP, numStyleForEkun);
+					createNumIrr(totalRow, c++, sumKharip, numStyleForEkun);
+					createNumIrr(totalRow, c++, sumRabi, numStyleForEkun);
+					createNumIrr(totalRow, c++, sumUnhali, numStyleForEkun);
+					createNumIrr(totalRow, c++, sumDurgami, numStyleForEkun);
+					createNumIrr(totalRow, c++, sumVarshik, numStyleForEkun);
+					createNumIrr(totalRow, c++, sumIP, numStyleForEkun);
+					createNumIrr(totalRow, c++, sumICA, numStyleForEkun);
+					createNumIrr(totalRow, c++, sumRabbiSam, numStyleForEkun);
 
 					CellRangeAddress projectNameMerge = new CellRangeAddress(startRow, r - 1, 1, 1);
 					CellRangeAddress srNoMerge = new CellRangeAddress(startRow, r - 1, 0, 0);
@@ -2433,15 +2447,15 @@ public class DrawingServiceImpl implements DrawingService {
 		applyBorderToMergedRegion(sh, new CellRangeAddress(totalRow.getRowNum(), totalRow.getRowNum(), 0, 1), wb);
 
 		create(sh, totalRow, 2, "एकूण", totalStyle);
-		createNumIrr(totalRow, c++, grandIP, numStyle);
-		createNumIrr(totalRow, c++, grandKharip, numStyle);
-		createNumIrr(totalRow, c++, grandRabi, numStyle);
-		createNumIrr(totalRow, c++, grandUnhali, numStyle);
-		createNumIrr(totalRow, c++, grandDurgami, numStyle);
-		createNumIrr(totalRow, c++, grandVarshik, numStyle);
-		createNumIrr(totalRow, c++, grandIP, numStyle);
-		createNumIrr(totalRow, c++, grandICA, numStyle);
-		createNumIrr(totalRow, c++, grandRabbiSam, numStyle);
+		createNumIrr(totalRow, c++, grandIP, numStyleForEkun);
+		createNumIrr(totalRow, c++, grandKharip, numStyleForEkun);
+		createNumIrr(totalRow, c++, grandRabi, numStyleForEkun);
+		createNumIrr(totalRow, c++, grandUnhali, numStyleForEkun);
+		createNumIrr(totalRow, c++, grandDurgami, numStyleForEkun);
+		createNumIrr(totalRow, c++, grandVarshik, numStyleForEkun);
+		createNumIrr(totalRow, c++, grandIP, numStyleForEkun);
+		createNumIrr(totalRow, c++, grandICA, numStyleForEkun);
+		createNumIrr(totalRow, c++, grandRabbiSam, numStyleForEkun);
 		// ---------- Footer ----------
 		// Create a version of cellTxt without borders
 		CellStyle cellTxtNoBorder = wb.createCellStyle();
