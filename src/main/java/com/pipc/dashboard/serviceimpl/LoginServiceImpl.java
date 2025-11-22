@@ -8,7 +8,6 @@ import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,6 +23,7 @@ import com.pipc.dashboard.login.request.RefreshTokenRequest;
 import com.pipc.dashboard.login.request.RegisterRequest;
 import com.pipc.dashboard.login.request.UpdateUserRolesRequest;
 import com.pipc.dashboard.login.response.LoginResponse;
+import com.pipc.dashboard.security.utility.EncryptionUtils;
 import com.pipc.dashboard.security.utility.JwtProvider;
 import com.pipc.dashboard.security.utility.RefreshTokenService;
 import com.pipc.dashboard.service.LoginService;
@@ -124,13 +124,35 @@ public class LoginServiceImpl implements LoginService {
 		ApplicationError error = new ApplicationError();
 
 		try {
-			// Authenticate user
-			Authentication authentication = authManager.authenticate(
-					new UsernamePasswordAuthenticationToken(loginRequest.getUserName(), loginRequest.getPassword()));
-
+			// 1. Fetch user from DB
 			User user = userRepo.findByUsername(loginRequest.getUserName())
 					.orElseThrow(() -> new IllegalStateException("User not found"));
 
+			// 2. Client sent hash
+			String clientHash = loginRequest.getPassword();
+
+			if (clientHash == null || clientHash.isEmpty()) {
+				error.setErrorCode("2");
+				error.setErrorDescription("Missing hash in request");
+				loginResponse.setErrorDetails(error);
+				return loginResponse;
+			}
+
+			// 3. Fetch stored actual password (from DB)
+			String storedPassword = user.getPassword(); // DB actual password
+
+			// 4. Generate server hash using stored password
+			String serverHash = EncryptionUtils.sha512(user.getUsername() + "|" + storedPassword);
+
+			// 5. Compare SHA-512 hashes
+			if (!serverHash.equalsIgnoreCase(clientHash)) {
+				error.setErrorCode("2");
+				error.setErrorDescription("Invalid username or password");
+				loginResponse.setErrorDetails(error);
+				return loginResponse;
+			}
+
+			// 6. If match → generate tokens
 			String accessToken = jwtProvider.generateAccessToken(user);
 			RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
 
@@ -146,9 +168,6 @@ public class LoginServiceImpl implements LoginService {
 				loginResponse.setUserName(user.getUsername());
 			}
 
-		} catch (org.springframework.security.authentication.BadCredentialsException ex) {
-			error.setErrorCode("2");
-			error.setErrorDescription("Invalid username or password");
 		} catch (Exception e) {
 			error.setErrorCode("3");
 			error.setErrorDescription("Authentication failed: " + e.getMessage());

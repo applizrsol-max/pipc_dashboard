@@ -120,9 +120,9 @@ public class EstablishmentController {
 
 	@GetMapping("/downloadMedicalBill")
 	public ResponseEntity<InputStreamResource> downloadMedicalBill(@RequestParam String employeeName,
-			@RequestParam String date) throws IOException {
+			@RequestParam String date) throws Exception {
 
-		return establishmentBusiness.generateMedicalBillDoc(employeeName, date);
+		return establishmentBusiness.downloadMedicalBill(employeeName, date);
 	}
 
 	@GetMapping("/downloadAppealArj")
@@ -130,6 +130,13 @@ public class EstablishmentController {
 			throws IOException {
 
 		return establishmentBusiness.downloadAppealArj(year);
+	}
+
+	@GetMapping("/downloadLeaveDetails")
+	public ResponseEntity<InputStreamResource> downloadLeaveDetails(@RequestParam String employeeName,
+			@RequestParam String date) throws Exception {
+
+		return establishmentBusiness.downloadLeaveDetails(employeeName, date);
 	}
 
 }

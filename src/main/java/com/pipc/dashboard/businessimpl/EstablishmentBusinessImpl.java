@@ -96,15 +96,19 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	}
 
 	@Override
-	public ResponseEntity<InputStreamResource> generateMedicalBillDoc(String employeeName, String date)
-			throws IOException {
-
-		return establishmentService.generateMedicalBillDoc(employeeName, date);
+	public ResponseEntity<InputStreamResource> downloadAppealArj(String year) throws IOException {
+		return establishmentService.downloadAppealArj(year);
 	}
 
 	@Override
-	public ResponseEntity<InputStreamResource> downloadAppealArj(String year) throws IOException {
-		return establishmentService.downloadAppealArj(year);
+	public ResponseEntity<InputStreamResource> downloadMedicalBill(String employeeName, String date) throws Exception {
+		return establishmentService.downloadMedicalBill(employeeName, date);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadLeaveDetails(String employeeName, String date)
+			throws Exception {
+		return establishmentService.downloadLeaveDetails(employeeName, date);
 	}
 
 }

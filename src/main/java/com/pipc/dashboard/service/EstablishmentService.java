@@ -45,8 +45,11 @@ public interface EstablishmentService {
 
 	Page<PassportNocResponse> getPassportNocData(String year, String month, String employeeName, int page, int size);
 
-	ResponseEntity<InputStreamResource> generateMedicalBillDoc(String employeeName, String date) throws IOException;
-
 	ResponseEntity<InputStreamResource> downloadAppealArj(String year) throws IOException;
+
+	ResponseEntity<InputStreamResource> downloadMedicalBill(String employeeName, String date)
+			throws IOException, Exception;
+
+	ResponseEntity<InputStreamResource> downloadLeaveDetails(String employeeName, String date) throws Exception;
 
 }

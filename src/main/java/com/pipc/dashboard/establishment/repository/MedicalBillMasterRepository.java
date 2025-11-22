@@ -20,11 +20,7 @@ public interface MedicalBillMasterRepository extends JpaRepository<MedicalBillMa
 			@Param("month") String month, @Param("year") String year, @Param("period") String period,
 			@Param("billDate") String billDate);
 
-	@Query("""
-			SELECT m FROM MedicalBillMasterEntity m
-			WHERE m.employeeDetails.employeeName = :employee
-			AND m.billDate = :billDate
-			""")
-	Optional<MedicalBillMasterEntity> findBill(@Param("employee") String employee, @Param("billDate") String billDate);
+	Optional<MedicalBillMasterEntity> findByEmployeeDetails_EmployeeNameAndBillDate(String employeeName,
+			String billDate);
 
 }

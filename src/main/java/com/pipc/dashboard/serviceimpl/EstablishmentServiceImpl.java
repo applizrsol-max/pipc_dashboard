@@ -3,15 +3,23 @@ package com.pipc.dashboard.serviceimpl;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigInteger;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -22,6 +30,17 @@ import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xwpf.usermodel.XWPFAbstractNum;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFNumbering;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFRun;
+import org.apache.poi.xwpf.usermodel.XWPFTable;
+import org.apache.poi.xwpf.usermodel.XWPFTableCell;
+import org.apache.poi.xwpf.usermodel.XWPFTableRow;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTAbstractNum;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTLvl;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STNumberFormat;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
@@ -82,6 +101,7 @@ import com.pipc.dashboard.establishment.response.MedicalBillResponse;
 import com.pipc.dashboard.establishment.response.PassportNocResponse;
 import com.pipc.dashboard.service.EstablishmentService;
 import com.pipc.dashboard.utility.ApplicationError;
+import com.pipc.dashboard.utility.PdfUtil;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -103,6 +123,8 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	private final EmployeePostingRepository employeePostingRepository;
 	private final IncomeTaxDeductionRepository incomeTaxDeductionRepository;
 	private final PassportNocRepository passportNocRepository;
+
+	private static final String TEMPLATE = "/templates/medical_bill_template.docx";
 
 	@Autowired
 	private ObjectMapper objectMapper;
@@ -1261,13 +1283,6 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	}
 
 	@Override
-	public ResponseEntity<InputStreamResource> generateMedicalBillDoc(String employeeName, String date)
-			throws IOException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
 	public ResponseEntity<InputStreamResource> downloadAppealArj(String year) throws IOException {
 
 		List<AppealEntity> list = (year != null && !year.isBlank()) ? appealRepository.findByYear(year)
@@ -1338,9 +1353,11 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 		// ---------- HEADER TEXT ----------
 		String[] headers = { "अ.क्र.", "अपील अर्जाचा नोंदणी क्रमांक", "अपीलकाचे नाव", "अपील अर्ज कोणाकडे केला आहे",
-				"अपील अर्ज प्राप्त झाल्याचा दिनांक", "प्रतिवादी यांचे नाव व पत्ता", "अपीलार्थीदारिद्रय रेषेखालील आहे काय",
-				"अपीलाचा थोडक्यात तपशील", "अपील अर्जाचे शुल्क कोणत्या स्वरुपात भरले", "अपील अर्जाचे विहीत शुल्क भरल्याचा दिनांक",
-				"कोणत्या जनमाहिती अधिकारी यांचेविरुद्ध अपील केले त्याचा तपशील", "अपीलवर निर्णय दिल्याचा दिनांक", "शेरा" };
+				"अपील अर्ज प्राप्त झाल्याचा दिनांक", "प्रतिवादी यांचे नाव व पत्ता",
+				"अपीलार्थीदारिद्रय रेषेखालील आहे काय", "अपीलाचा थोडक्यात तपशील",
+				"अपील अर्जाचे शुल्क कोणत्या स्वरुपात भरले", "अपील अर्जाचे विहीत शुल्क भरल्याचा दिनांक",
+				"कोणत्या जनमाहिती अधिकारी यांचेविरुद्ध अपील केले त्याचा तपशील", "अपीलवर निर्णय दिल्याचा दिनांक",
+				"शेरा" };
 
 		// ---------- ROW 2 : HEADER ----------
 		Row headerRow = sh.createRow(2);
@@ -1410,6 +1427,309 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 	private String nvl(String v) {
 		return v == null ? "" : v;
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadMedicalBill(String employeeName, String date) throws Exception {
+
+		MedicalBillMasterEntity entity = masterRepo.findByEmployeeDetails_EmployeeNameAndBillDate(employeeName, date)
+				.orElseThrow(() -> new RuntimeException("Record not found"));
+
+		// Load template
+		InputStream is = this.getClass().getResourceAsStream(TEMPLATE);
+		if (is == null) {
+			throw new RuntimeException("Template not found");
+		}
+
+		XWPFDocument doc = new XWPFDocument(is);
+
+		// -------------------- PLACEHOLDER MAP ---------------------
+		Map<String, String> map = new HashMap<>();
+		map.put("${title}", entity.getTitle());
+		map.put("${period}", entity.getPeriod());
+		map.put("${year}", entity.getYear());
+		map.put("${billDate}", entity.getBillDate());
+
+		if (entity.getEmployeeDetails() != null) {
+			var e = entity.getEmployeeDetails();
+			map.put("${employeeName}", nvl(e.getEmployeeName()));
+			map.put("${designation}", nvl(e.getDesignation()));
+			map.put("${department}", nvl(e.getDepartment()));
+			map.put("${patientName}", nvl(e.getPatientName()));
+			map.put("${hospitalName}", nvl(e.getHospitalName()));
+			map.put("${treatFrom}", nvl(e.getFromDate()));
+			map.put("${treatTo}", nvl(e.getToDate()));
+		}
+
+		if (entity.getApprovalDetails() != null) {
+			var a = entity.getApprovalDetails();
+			map.put("${approvalAuthority}", nvl(a.getApprovingAuthority()));
+			map.put("${approvalDate}", nvl(a.getApprovalDate()));
+			map.put("${approvalAmount}", String.valueOf(a.getApprovalAmount()));
+			map.put("${approvedBy}", nvl(a.getApprovedBy()));
+		}
+
+		// -------------------- REPLACE IN PARAGRAPHS --------------------
+		for (XWPFParagraph p : doc.getParagraphs()) {
+			replaceParagraph(p, map);
+		}
+
+		// -------------------- REPLACE IN TABLES ------------------------
+		for (XWPFTable tbl : doc.getTables()) {
+			for (XWPFTableRow row : tbl.getRows()) {
+				for (XWPFTableCell cell : row.getTableCells()) {
+					for (XWPFParagraph p : cell.getParagraphs()) {
+						replaceParagraph(p, map);
+					}
+				}
+			}
+		}
+
+		// -------------------- INSERT REFERENCE LIST ------------------
+		insertReferenceBulletList(doc, entity.getReferences());
+
+		// -------------------- INSERT KHARCHA TAPSHIL ROWS ------------
+		insertKharchaRows(doc, entity.getKharchaTapsil());
+
+		// -------------------- WRITE RESULT ------------------
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		doc.write(baos);
+		doc.close();
+
+		byte[] bytes = baos.toByteArray();
+
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(
+				MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+		headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Medical_Bill.docx\"");
+
+		return ResponseEntity.ok().headers(headers).body(new InputStreamResource(new ByteArrayInputStream(bytes)));
+	}
+
+	// --------------------------------------------------------------------
+	// HELPER → Replace tokens in paragraph
+	private void replaceParagraph(XWPFParagraph p, Map<String, String> map) {
+		List<XWPFRun> runs = p.getRuns();
+		if (runs == null || runs.isEmpty())
+			return;
+
+		String full = "";
+		for (XWPFRun r : runs)
+			full += (r.getText(0) == null ? "" : r.getText(0));
+
+		String replaced = full;
+		for (var e : map.entrySet()) {
+			String key = e.getKey();
+			String token = "${" + key + "}";
+			replaced = replaced.replace(token, e.getValue() == null ? "" : e.getValue());
+		}
+
+		if (!replaced.equals(full)) {
+			// remove all runs text
+			for (XWPFRun r : runs)
+				r.setText("", 0);
+			// put everything in first run
+			runs.get(0).setText(replaced, 0);
+		}
+	}
+
+	// HELPER → Replace tokens in table
+	private void replaceTable(XWPFTable table, Map<String, String> map) {
+		for (XWPFTableRow row : table.getRows())
+			for (XWPFTableCell cell : row.getTableCells())
+				for (XWPFParagraph p : cell.getParagraphs())
+					replaceParagraph(p, map);
+	}
+
+	// --------------------------------------------------------------------
+	// C : Insert Bullet Reference List
+	private void insertReferenceBulletList(XWPFDocument doc, List<ReferenceEntity> refs) throws Exception {
+
+		if (refs == null || refs.isEmpty())
+			return;
+
+		for (XWPFParagraph p : doc.getParagraphs()) {
+			if (p.getText().contains("${REFERENCE_LIST}")) {
+
+				p.removeRun(0);
+
+				for (ReferenceEntity r : refs) {
+					XWPFParagraph bullet = doc.insertNewParagraph(p.getCTP().newCursor());
+					bullet.setNumID(addBulletStyle(doc));
+
+					XWPFRun run = bullet.createRun();
+					run.setFontFamily("Mangal");
+					run.setFontSize(12);
+					run.setText(r.getReference());
+				}
+
+				return;
+			}
+		}
+	}
+
+	public BigInteger addBulletStyle(XWPFDocument doc) throws Exception {
+		XWPFNumbering numbering = doc.createNumbering();
+
+		CTAbstractNum ctAbstractNum = CTAbstractNum.Factory.newInstance();
+		ctAbstractNum.setAbstractNumId(BigInteger.valueOf(1));
+
+		CTLvl lvl = ctAbstractNum.addNewLvl();
+		lvl.setIlvl(BigInteger.ZERO);
+		lvl.addNewNumFmt().setVal(STNumberFormat.BULLET);
+		lvl.addNewLvlText().setVal("•");
+
+		XWPFAbstractNum abs = new XWPFAbstractNum(ctAbstractNum);
+
+		BigInteger abstractNumId = numbering.addAbstractNum(abs);
+		return numbering.addNum(abstractNumId);
+	}
+
+	// --------------------------------------------------------------------
+	// B : Expand Kharcha Table Rows
+	private void insertKharchaRows(XWPFDocument doc, List<KharchaTapsilEntity> list) {
+		if (list == null || list.isEmpty())
+			return;
+
+		for (XWPFTable tbl : doc.getTables()) {
+			if (tbl.getText().contains("${KHARCHA_TABLE}")) {
+
+				XWPFTableRow sampleRow = tbl.getRow(1); // 2nd row = template
+				tbl.removeRow(1);
+
+				for (KharchaTapsilEntity k : list) {
+					XWPFTableRow newRow = tbl.createRow();
+
+					copyRowStyle(sampleRow, newRow);
+
+					newRow.getCell(0).setText(String.valueOf(k.getAkr()));
+					newRow.getCell(1).setText(nvl(k.getTapsil()));
+					newRow.getCell(2).setText(String.valueOf(k.getRakkam()));
+				}
+
+				return;
+			}
+		}
+	}
+
+	private void copyRowStyle(XWPFTableRow src, XWPFTableRow dest) {
+		for (int i = 0; i < src.getTableCells().size(); i++) {
+			XWPFTableCell cSrc = src.getCell(i);
+			XWPFTableCell cDest = dest.getCell(i);
+
+			if (cSrc == null || cDest == null)
+				continue;
+
+			cDest.getCTTc().setTcPr(cSrc.getCTTc().getTcPr());
+			cDest.setColor(cSrc.getColor());
+		}
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadLeaveDetails(String employeeName, String date) throws Exception {
+
+		// 🔥 1) DB FETCH based on employeeName + date
+		LeaveEntity entity = leaveRepository.findByEmployeeNameAndDate(employeeName, date)
+				.orElseThrow(() -> new RuntimeException("Data not found"));
+
+		// 🔥 2) JSON column ko Map me convert karo
+		Map<String, Object> data = objectMapper.convertValue(entity.getData(), Map.class);
+
+		// 🔥 3) PDF START
+		PDDocument pdf = new PDDocument();
+		PDPage page = new PDPage(PDRectangle.A4);
+		pdf.addPage(page);
+
+		PDPageContentStream cs = new PDPageContentStream(pdf, page);
+
+		PDType0Font font = PdfUtil.loadFont(pdf);
+
+		float y = 790;
+
+		// ---------- TITLE ----------
+		PdfUtil.drawText(cs, "कार्यालयीन आदेश क्रमांक", 210, y, font, 16, true);
+		y -= 25;
+
+		PdfUtil.drawText(cs, "सन " + data.get("year").toString(), 260, y, font, 16, true);
+		y -= 40;
+
+		// ---------- SUBJECT ----------
+		PdfUtil.drawText(cs, "संदर्भ :- " + data.get("subjectReference"), 50, y, font, 12, true);
+		y -= 30;
+
+		// ---------- MAIN BODY ----------
+		Map<String, Object> applicant = (Map) data.get("applicantDetails");
+		Map<String, Object> leaveDetails = (Map) data.get("leaveDetails");
+
+		String p1 = "महाराष्ट्र नागरी सेवा (रजा) नियम 1981 मधील " + leaveDetails.get("ruleReference") + " अनुसार "
+				+ applicant.get("employeeName") + ", " + applicant.get("designation") + " यांना "
+				+ leaveDetails.get("reason") + " कारणासाठी " + leaveDetails.get("fromDate") + " ते "
+				+ leaveDetails.get("toDate") + " या कालावधीतील " + leaveDetails.get("totalDays")
+				+ " दिवसांची रजा मंजूर करण्यात येत आहे.";
+
+		y = drawParagraph(cs, font, p1, 12, 50, y - 10, 520);
+
+		// ---------- REJOIN ----------
+		Map<String, Object> rejoin = (Map) data.get("rejoiningDetails");
+		y = drawParagraph(cs, font, rejoin.get("remark").toString(), 12, 50, y - 15, 520);
+
+		// ---------- HOLIDAY ----------
+		Map<String, Object> holiday = (Map) data.get("holidayJoinApproval");
+		y = drawParagraph(cs, font, holiday.get("remark").toString(), 12, 50, y - 10, 520);
+
+		// ---------- CERTIFICATION ----------
+		Map<String, Object> cert = (Map) data.get("certification");
+
+		y = drawParagraph(cs, font, cert.get("employmentContinuation").toString(), 12, 50, y - 10, 520);
+
+		y = drawParagraph(cs, font, "रजा शिल्लक : " + cert.get("leaveBalanceBefore") + " → "
+				+ cert.get("leaveBalanceAfter") + " (दि. " + cert.get("asOnDate") + " रोजी)", 12, 50, y - 5, 520);
+
+		cs.close();
+
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		pdf.save(baos);
+		pdf.close();
+
+		HttpHeaders headers = new HttpHeaders();
+		headers.add("Content-Disposition", "attachment; filename=Leave_Order.pdf");
+
+		return ResponseEntity.ok().headers(headers).contentType(MediaType.APPLICATION_PDF)
+				.body(new InputStreamResource(new ByteArrayInputStream(baos.toByteArray())));
+	}
+
+	private float drawParagraph(PDPageContentStream cs, PDType0Font font, String text, int fontSize, float x, float y,
+			float width) throws IOException {
+
+		List<String> lines = splitText(text, font, fontSize, width);
+
+		for (String line : lines) {
+			PdfUtil.drawText(cs, line, x, y, font, fontSize, false);
+			y -= (fontSize + 5);
+		}
+		return y;
+	}
+
+	private List<String> splitText(String text, PDType0Font font, int fontSize, float width) throws IOException {
+
+		List<String> lines = new ArrayList<>();
+		String[] words = text.split(" ");
+
+		StringBuilder line = new StringBuilder();
+
+		for (String w : words) {
+			String tmp = line + " " + w;
+			float size = font.getStringWidth(tmp) / 1000 * fontSize;
+
+			if (size > width) {
+				lines.add(line.toString());
+				line = new StringBuilder(w);
+			} else {
+				line.append(" ").append(w);
+			}
+		}
+		lines.add(line.toString());
+		return lines;
 	}
 
 	// @Transactional

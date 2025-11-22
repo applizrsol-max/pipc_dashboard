@@ -24,4 +24,6 @@ public interface LeaveRepository extends JpaRepository<LeaveEntity, Long> {
 	List<LeaveEntity> findByFilters(@Param("employeeName") String employeeName, @Param("year") String year,
 			@Param("month") String month, @Param("date") String date);
 
+	Optional<LeaveEntity> findByEmployeeNameAndDate(String employeeName, String date);
+
 }
