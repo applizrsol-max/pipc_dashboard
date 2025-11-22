@@ -72,13 +72,15 @@ public class LoginServiceImpl implements LoginService {
 
 		User user = new User();
 		user.setUsername(registerRequest.getUsername());
-		user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
 
-		// ✅ Fetch roles dynamically from request
+		// 🔥 Store SHA-512 hashed password (matching Angular)
+		String hashedPassword = EncryptionUtils.sha512(registerRequest.getPassword());
+		user.setPassword(hashedPassword);
+
+		// 🔥 Assign roles
 		Set<Role> assignedRoles = new HashSet<>();
 
 		if (registerRequest.getRoles() == null || registerRequest.getRoles().isEmpty()) {
-			// Default role if none provided
 			Role userRole = roleRepo.findByName("ROLE_USER")
 					.orElseGet(() -> roleRepo.save(new Role(null, "ROLE_USER")));
 			assignedRoles.add(userRole);
@@ -95,20 +97,24 @@ public class LoginServiceImpl implements LoginService {
 			User savedUser = userRepo.save(user);
 
 			if (savedUser.getId() != null) {
-				// ✅ Generate tokens on successful registration
+
+				// 🔥 Generate tokens for newly registered user
 				String accessToken = jwtProvider.generateAccessToken(savedUser);
 				RefreshToken refreshToken = refreshTokenService.createRefreshToken(savedUser);
 
 				error.setErrorCode("0");
-				error.setErrorDescription("User registered successfully!!");
+				error.setErrorDescription("User registered successfully!");
+
 				loginResponse.setUserName(registerRequest.getUsername());
 				loginResponse.setAccessToken(accessToken);
 				loginResponse.setRefreshToken(refreshToken.getToken());
 				loginResponse.setGrantedAuthorities(assignedRoles);
+
 			} else {
 				error.setErrorCode("1");
-				error.setErrorDescription("User registration failed!!");
+				error.setErrorDescription("User registration failed!");
 			}
+
 		} catch (Exception e) {
 			error.setErrorCode("1");
 			error.setErrorDescription("Error during registration: " + e.getMessage());
@@ -141,11 +147,8 @@ public class LoginServiceImpl implements LoginService {
 			// 3. Fetch stored actual password (from DB)
 			String storedPassword = user.getPassword(); // DB actual password
 
-			// 4. Generate server hash using stored password
-			String serverHash = EncryptionUtils.sha512(user.getUsername() + "|" + storedPassword);
-
 			// 5. Compare SHA-512 hashes
-			if (!serverHash.equalsIgnoreCase(clientHash)) {
+			if (!loginRequest.getPassword().equalsIgnoreCase(storedPassword)) {
 				error.setErrorCode("2");
 				error.setErrorDescription("Invalid username or password");
 				loginResponse.setErrorDetails(error);
