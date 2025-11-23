@@ -1290,6 +1290,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 		List<AppealEntity> list = (year != null && !year.isBlank()) ? appealRepository.findByYear(year)
 				: appealRepository.findAll();
+		list.sort(Comparator.comparing(AppealEntity::getRowId));
 
 		XSSFWorkbook wb = new XSSFWorkbook();
 		XSSFSheet sh = wb.createSheet("Appeal Register");
