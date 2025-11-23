@@ -1,6 +1,7 @@
 package com.pipc.dashboard.serviceimpl;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -30,6 +31,7 @@ import com.pipc.dashboard.service.LoginService;
 import com.pipc.dashboard.token.entity.RefreshToken;
 import com.pipc.dashboard.utility.ApplicationError;
 import com.pipc.dashboard.utility.BaseResponse;
+import com.pipc.dashboard.utility.EmailService;
 
 import jakarta.transaction.Transactional;
 
@@ -43,11 +45,12 @@ public class LoginServiceImpl implements LoginService {
 	private final JwtProvider jwtProvider;
 	private final RefreshTokenService refreshTokenService;
 	private final RefreshTokenRepository refreshTokenRepository;
+	private final EmailService emailService;
 
 	@Autowired
 	public LoginServiceImpl(UserRepository userRepo, RoleRepository roleRepo, PasswordEncoder passwordEncoder,
 			AuthenticationManager authManager, JwtProvider jwtProvider, RefreshTokenService refreshTokenService,
-			RefreshTokenRepository refreshTokenRepository) {
+			RefreshTokenRepository refreshTokenRepository, EmailService emailService) {
 		this.userRepo = userRepo;
 		this.roleRepo = roleRepo;
 		this.passwordEncoder = passwordEncoder;
@@ -55,6 +58,7 @@ public class LoginServiceImpl implements LoginService {
 		this.jwtProvider = jwtProvider;
 		this.refreshTokenService = refreshTokenService;
 		this.refreshTokenRepository = refreshTokenRepository;
+		this.emailService = emailService;
 
 	}
 
@@ -330,6 +334,102 @@ public class LoginServiceImpl implements LoginService {
 		response.setErrorDetails(error);
 
 		return response;
+	}
+
+	@Override
+	public boolean otpPwdReset(String emailId, String userName) {
+
+		// Validate user by username
+		Optional<User> userOpt = userRepo.findByUsername(userName);
+		if (!userOpt.isPresent()) {
+			System.out.println("User not found for username: " + userName);
+			return false;
+		}
+
+		User user = userOpt.get();
+
+		// Generate 6-digit OTP
+		String otp = String.valueOf((int) (Math.random() * 900000) + 100000);
+
+		// Store OTP in DB
+		user.setOtp(otp);
+		user.setOtpExpiry(LocalDateTime.now().plusMinutes(10));
+		userRepo.save(user);
+
+		// Email subject
+		String subject = "Password Reset OTP - PIPC (Pune Irrigation Project Circle)";
+
+		// Email body (Professional English)
+		String body = "Hello " + user.getUsername() + ",\n\n"
+				+ "You have requested to reset your account password. Please use the below One-Time Password (OTP) to proceed:\n\n"
+				+ "Your OTP: " + otp + "\n\n"
+				+ "This OTP is valid for 10 minutes only. Do not share it with anyone.\n\n"
+				+ "If you did not initiate this request, please ignore this email or contact support immediately.\n\n"
+				+ "Regards,\n" + "PIPC — Pune Irrigation Project Circle\n" + "Support: support@pipc.example.com";
+
+		// Send Email
+		emailService.sendEmail(emailId, subject, body);
+
+		return true;
+	}
+
+	@Override
+	public boolean verifyOtp(String emailId, String userName, String otp) {
+		// 1. Check if user exists
+		Optional<User> userOpt = userRepo.findByUsername(userName);
+		if (!userOpt.isPresent()) {
+			System.out.println("User not found.");
+			return false;
+		}
+
+		User user = userOpt.get();
+
+		// 3. Check OTP exists
+		if (user.getOtp() == null || user.getOtp().isEmpty()) {
+			System.out.println("No OTP found for user.");
+			return false;
+		}
+
+		// 4. Check OTP value
+		if (!otp.equals(user.getOtp())) {
+			System.out.println("Invalid OTP.");
+			return false;
+		}
+
+		// 5. Check expiration
+		if (user.getOtpExpiry() == null || user.getOtpExpiry().isBefore(LocalDateTime.now())) {
+			System.out.println("OTP expired.");
+			return false;
+		}
+
+		// 6. OTP is correct → clear OTP after successful verification
+		user.setOtp(null);
+		user.setOtpExpiry(null);
+		userRepo.save(user);
+
+		System.out.println("OTP verified successfully!");
+		return true;
+	}
+
+	@Override
+	public boolean resetPassword(String userName, String newPwd) {
+
+		Optional<User> userOpt = userRepo.findByUsername(userName);
+		if (!userOpt.isPresent()) {
+			return false; // user not found
+		}
+
+		User user = userOpt.get();
+
+		String encodedPassword = EncryptionUtils.sha512(newPwd);
+		user.setPassword(encodedPassword);
+
+		// Clear OTP fields (already verified)
+		user.setOtp(null);
+		user.setOtpExpiry(null);
+
+		userRepo.save(user);
+		return true;
 	}
 
 }

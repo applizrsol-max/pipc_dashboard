@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,9 +18,12 @@ import com.pipc.dashboard.business.LoginBussiness;
 import com.pipc.dashboard.login.entities.Role;
 import com.pipc.dashboard.login.entities.UserResponse;
 import com.pipc.dashboard.login.request.LoginRequest;
+import com.pipc.dashboard.login.request.OtpRequest;
 import com.pipc.dashboard.login.request.RefreshTokenRequest;
 import com.pipc.dashboard.login.request.RegisterRequest;
+import com.pipc.dashboard.login.request.ResetPasswordRequest;
 import com.pipc.dashboard.login.request.UpdateUserRolesRequest;
+import com.pipc.dashboard.login.request.VerifyOtpRequest;
 import com.pipc.dashboard.login.response.LoginResponse;
 import com.pipc.dashboard.utility.BaseResponse;
 
@@ -79,6 +83,39 @@ public class LoginController {
 	@PutMapping("/updateRole")
 	public BaseResponse updateUserRoles(@RequestBody UpdateUserRolesRequest request) {
 		return loginBusiness.updateUserRoles(request);
+	}
+
+	@PostMapping("/otpPwdReset")
+	public ResponseEntity<?> otpPwdReset(@RequestBody OtpRequest request) {
+
+		boolean sent = loginBusiness.otpPwdReset(request.getEmailId(), request.getUserName());
+
+		if (sent)
+			return ResponseEntity.ok("OTP sent successfully");
+		else
+			return ResponseEntity.status(404).body("Email not found!");
+	}
+
+	@PostMapping("/verifyOtpReset")
+	public ResponseEntity<?> verifyOtp(@RequestBody VerifyOtpRequest req) {
+
+		boolean isValid = loginBusiness.verifyOtp(req.getEmailId(), req.getUserName(), req.getOtp());
+
+		if (isValid)
+			return ResponseEntity.ok("OTP verified successfully");
+
+		return ResponseEntity.status(400).body("Invalid or expired OTP");
+	}
+
+	@PostMapping("/resetPassword")
+	public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest req) {
+
+		boolean updated = loginBusiness.resetPassword(req.getUserName(), req.getNewPwd());
+
+		if (updated)
+			return ResponseEntity.ok("Password updated successfully");
+		else
+			return ResponseEntity.status(400).body("Invalid OTP or OTP expired");
 	}
 
 }

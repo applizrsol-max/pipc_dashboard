@@ -68,4 +68,20 @@ public class LoginBussinessImpl implements LoginBussiness {
 	public BaseResponse updateUserRoles(UpdateUserRolesRequest request) {
 		return loginService.updateUserRoles(request);
 	}
+
+	@Override
+	public boolean otpPwdReset(String emailId, String userName) {
+
+		return loginService.otpPwdReset(emailId, userName);
+	}
+
+	@Override
+	public boolean verifyOtp(String emailId, String userName, String otp) {
+		return loginService.verifyOtp(emailId, userName,otp);
+	}
+
+	@Override
+	public boolean resetPassword(String userName, String newPwd) {
+		return loginService.resetPassword(userName,newPwd);
+	}
 }

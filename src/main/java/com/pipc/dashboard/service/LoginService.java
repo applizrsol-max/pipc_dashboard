@@ -25,4 +25,10 @@ public interface LoginService {
 	public List<User> getAllUser();
 
 	public BaseResponse updateUserRoles(UpdateUserRolesRequest request);
+
+	public boolean otpPwdReset(String emailId, String userName);
+
+	public boolean verifyOtp(String emailId, String userName, String otp);
+
+	public boolean resetPassword(String userName, String newPwd);
 }
