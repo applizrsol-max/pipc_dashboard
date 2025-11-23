@@ -1,15 +1,23 @@
 package com.pipc.dashboard.utility;
 
-import com.sendgrid.*;
+import java.io.IOException;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import com.sendgrid.Method;
+import com.sendgrid.Request;
+import com.sendgrid.Response;
+import com.sendgrid.SendGrid;
 import com.sendgrid.helpers.mail.Mail;
 import com.sendgrid.helpers.mail.objects.Content;
 import com.sendgrid.helpers.mail.objects.Email;
-import org.springframework.stereotype.Service;
-
-import java.io.IOException;
 
 @Service
 public class EmailService {
+
+	@Value("${SENDGRID_API_KEY}")
+	private String emailSec;
 
 	public void sendEmail(String toEmail, String subject, String body) {
 
@@ -19,7 +27,7 @@ public class EmailService {
 		Content content = new Content("text/plain", body);
 		Mail mail = new Mail(from, subject, to, content);
 
-		SendGrid sg = new SendGrid("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");
+		SendGrid sg = new SendGrid(emailSec);
 
 		Request request = new Request();
 		try {
