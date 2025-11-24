@@ -69,7 +69,8 @@ public class SecurityConfig {
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/pipc/dashboard/onboarding/register", "/pipc/dashboard/onboarding/login",
-								"/pipc/dashboard/onboarding/refresh-token", "/pipc/dashboard/onboarding/forgotPassword")
+								"/pipc/dashboard/onboarding/refresh-token", "/pipc/dashboard/onboarding/resetPassword",
+								"/pipc/dashboard/onboarding/otpPwdReset", "/pipc/dashboard/onboarding/verifyOtpReset")
 						.permitAll().requestMatchers(HttpMethod.DELETE, "/pipc/dashboard/onboarding/deleteUser/**")
 						.hasRole("ADMIN").anyRequest().authenticated())
 				.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
