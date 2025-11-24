@@ -24,7 +24,8 @@ public class RequestValidationInterceptor implements HandlerInterceptor {
 	// Excluded APIs (no token/correlation validation)
 	private static final List<String> EXCLUDED_PATHS = List.of("/pipc/dashboard/onboarding/login",
 			"/pipc/dashboard/onboarding/register", "/pipc/dashboard/onboarding/refresh-token",
-			"/pipc/dashboard/onboarding/forgotPassword");
+			"/pipc/dashboard/onboarding/resetPassword", "/pipc/dashboard/onboarding/otpPwdReset",
+			"/pipc/dashboard/onboarding/verifyOtpReset");
 
 	@Override
 	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
