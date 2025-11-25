@@ -38,4 +38,6 @@ public class User {
 	private String otp;
 	private LocalDateTime otpExpiry;
 
+	private Boolean otpVerified = false;
+
 }

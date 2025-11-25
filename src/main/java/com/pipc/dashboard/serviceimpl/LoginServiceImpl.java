@@ -375,39 +375,28 @@ public class LoginServiceImpl implements LoginService {
 
 	@Override
 	public boolean verifyOtp(String emailId, String userName, String otp) {
-		// 1. Check if user exists
+
 		Optional<User> userOpt = userRepo.findByUsername(userName);
-		if (!userOpt.isPresent()) {
-			System.out.println("User not found.");
+		if (!userOpt.isPresent())
 			return false;
-		}
 
 		User user = userOpt.get();
 
-		// 3. Check OTP exists
-		if (user.getOtp() == null || user.getOtp().isEmpty()) {
-			System.out.println("No OTP found for user.");
+		if (user.getOtp() == null || user.getOtp().isEmpty())
 			return false;
-		}
-
-		// 4. Check OTP value
-		if (!otp.equals(user.getOtp())) {
-			System.out.println("Invalid OTP.");
+		if (!otp.equals(user.getOtp()))
 			return false;
-		}
-
-		// 5. Check expiration
-		if (user.getOtpExpiry() == null || user.getOtpExpiry().isBefore(LocalDateTime.now())) {
-			System.out.println("OTP expired.");
+		if (user.getOtpExpiry() == null || user.getOtpExpiry().isBefore(LocalDateTime.now()))
 			return false;
-		}
 
-		// 6. OTP is correct → clear OTP after successful verification
+		// OTP verified → mark verified
+		user.setOtpVerified(true);
+
+		// Clear OTP values
 		user.setOtp(null);
 		user.setOtpExpiry(null);
-		userRepo.save(user);
 
-		System.out.println("OTP verified successfully!");
+		userRepo.save(user);
 		return true;
 	}
 
@@ -421,12 +410,16 @@ public class LoginServiceImpl implements LoginService {
 
 		User user = userOpt.get();
 
-		String encodedPassword = EncryptionUtils.sha512(newPwd);
-		user.setPassword(encodedPassword);
+		// ❗ IMPORTANT check — OTP must be verified before resetting password
+		if (user.getOtpVerified() == null || !user.getOtpVerified()) {
+			System.out.println("Password reset blocked — OTP not verified.");
+			return false;
+		}
 
-		// Clear OTP fields (already verified)
-		user.setOtp(null);
-		user.setOtpExpiry(null);
+		user.setPassword(newPwd);
+
+		// Reset OTP verification flag
+		user.setOtpVerified(false);
 
 		userRepo.save(user);
 		return true;
