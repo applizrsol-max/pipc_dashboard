@@ -14,12 +14,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.pipc.dashboard.business.EstablishmentBusiness;
+import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
 import com.pipc.dashboard.establishment.request.PassportNocRequest;
+import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
@@ -137,6 +139,24 @@ public class EstablishmentController {
 			@RequestParam String date) throws Exception {
 
 		return establishmentBusiness.downloadLeaveDetails(employeeName, date);
+	}
+
+	@PostMapping("/saveOrUpdateAgenda")
+	public AgendaResponse saveOrUpdateAgenda(@RequestBody AgendaRequest request) {
+		return establishmentBusiness.saveOrUpdateAgenda(request);
+	}
+
+	@GetMapping("/getAgendaByYearAndTargetDate")
+	public AgendaResponse getAgendaByYearAndTargetDate(@RequestParam String year, @RequestParam String targetDate) {
+
+		return establishmentBusiness.getAgendaByYearAndTargetDate(year, targetDate);
+	}
+
+	@GetMapping("/downloadAgendaExcel")
+	public ResponseEntity<InputStreamResource> downloadAgendaExcel(@RequestParam String year,
+			@RequestParam String targetDate) throws Exception {
+
+		return establishmentBusiness.downloadAgendaExcel(year, targetDate);
 	}
 
 }

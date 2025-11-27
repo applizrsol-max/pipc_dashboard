@@ -16,7 +16,7 @@ import com.sendgrid.helpers.mail.objects.Email;
 @Service
 public class EmailService {
 
-	@Value("${SENDGRID_API_KEY}")
+	// @Value("${SENDGRID_API_KEY}")
 	private String emailSec;
 
 	public void sendEmail(String toEmail, String subject, String body) {

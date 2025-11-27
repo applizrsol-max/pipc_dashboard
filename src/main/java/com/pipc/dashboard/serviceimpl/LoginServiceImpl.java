@@ -368,7 +368,7 @@ public class LoginServiceImpl implements LoginService {
 				+ "Regards,\n" + "PIPC — Pune Irrigation Project Circle\n" + "Support: support@pipc.example.com";
 
 		// Send Email
-		emailService.sendEmail(emailId, subject, body);
+		//emailService.sendEmail(emailId, subject, body);
 
 		return true;
 	}

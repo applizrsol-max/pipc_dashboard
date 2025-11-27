@@ -9,12 +9,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import com.pipc.dashboard.business.EstablishmentBusiness;
+import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
 import com.pipc.dashboard.establishment.request.PassportNocRequest;
+import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
@@ -106,9 +108,24 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	}
 
 	@Override
-	public ResponseEntity<InputStreamResource> downloadLeaveDetails(String employeeName, String date)
-			throws Exception {
+	public ResponseEntity<InputStreamResource> downloadLeaveDetails(String employeeName, String date) throws Exception {
 		return establishmentService.downloadLeaveDetails(employeeName, date);
+	}
+
+	@Override
+	public AgendaResponse saveOrUpdateAgenda(AgendaRequest request) {
+		return establishmentService.saveOrUpdateAgenda(request);
+	}
+
+	@Override
+	public AgendaResponse getAgendaByYearAndTargetDate(String year, String targetDate) {
+		return establishmentService.getAgendaByYearAndTargetDate(year, targetDate);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadAgendaExcel(String year, String targetDate) throws Exception {
+		return establishmentService.downloadAgendaExcel(year, targetDate);
+
 	}
 
 }

@@ -26,6 +26,7 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFFont;
@@ -59,6 +60,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.pipc.dashboard.establishment.repository.AgendaOfficerEntity;
+import com.pipc.dashboard.establishment.repository.AgendaOfficerRepository;
 import com.pipc.dashboard.establishment.repository.AppealEntity;
 import com.pipc.dashboard.establishment.repository.AppealRepository;
 import com.pipc.dashboard.establishment.repository.ApprovalDetailsEntity;
@@ -86,6 +89,8 @@ import com.pipc.dashboard.establishment.repository.VaidyakTapshilEntity;
 import com.pipc.dashboard.establishment.repository.VaidyakTapshilRepository;
 import com.pipc.dashboard.establishment.repository.VastavyaDetailsEntity;
 import com.pipc.dashboard.establishment.repository.VastavyaDetailsRepository;
+import com.pipc.dashboard.establishment.request.AgendaRequest;
+import com.pipc.dashboard.establishment.request.AgendaRow;
 import com.pipc.dashboard.establishment.request.AppealRequest;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
@@ -94,6 +99,7 @@ import com.pipc.dashboard.establishment.request.LeaveRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillData;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
 import com.pipc.dashboard.establishment.request.PassportNocRequest;
+import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
@@ -124,6 +130,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	private final EmployeePostingRepository employeePostingRepository;
 	private final IncomeTaxDeductionRepository incomeTaxDeductionRepository;
 	private final PassportNocRepository passportNocRepository;
+	private final AgendaOfficerRepository agendaOfficerRepository;
 
 	private static final String TEMPLATE = "/templates/medical_bill_template.docx";
 
@@ -136,7 +143,8 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 			VaidyakKharchaParigananaRepository vaidyaRepo, VaidyakTapshilRepository tapshilRepo,
 			VastavyaDetailsRepository vastavyaRepo, LeaveRepository leaveRepository, AppealRepository appealRepository,
 			EmployeePostingRepository employeePostingRepository,
-			IncomeTaxDeductionRepository incomeTaxDeductionRepository, PassportNocRepository passportNocRepository) {
+			IncomeTaxDeductionRepository incomeTaxDeductionRepository, PassportNocRepository passportNocRepository,
+			AgendaOfficerRepository agendaOfficerRepository) {
 		this.apprRepo = apprRepo;
 		this.empRepo = empRepo;
 		this.kharchaRepo = kharchaRepo;
@@ -150,6 +158,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		this.employeePostingRepository = employeePostingRepository;
 		this.incomeTaxDeductionRepository = incomeTaxDeductionRepository;
 		this.passportNocRepository = passportNocRepository;
+		this.agendaOfficerRepository = agendaOfficerRepository;
 	}
 
 	@Override
@@ -1736,286 +1745,326 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		return lines;
 	}
 
-	// @Transactional
-	// main method called by controller
-	// public byte[] generateDocxFor(String employeeName, String billDate) throws
-	// Exception {
+	@Override
+	@Transactional
+	public AgendaResponse saveOrUpdateAgenda(AgendaRequest dto) {
 
-//		Optional<MedicalBillMasterEntity> opt = repo.findByEmployeeDetailsEmployeeNameAndBillDate(employeeName,
-//				billDate);
-//
-//		if (opt.isEmpty()) {
-//			throw new IllegalArgumentException(
-//					"No medical bill found for employee: " + employeeName + " and date: " + billDate);
-//		}
-//
-//		MedicalBillMasterEntity m = opt.get();
-//
-//		WordprocessingMLPackage wp = WordprocessingMLPackage.createPackage();
-//		ObjectFactory factory = new ObjectFactory();
-//
-//		// ---------- Styles / fonts ----------
-//		// You can further customize run fonts (for Marathi we keep default and rely on
-//		// system fonts)
-//		// Add title centered
-//		wp.getMainDocumentPart().addParagraphOfText("");
-//		wp.getMainDocumentPart().addParagraphOfText("");
-//
-//		P titleP = factory.createP();
-//		R titleR = factory.createR();
-//		Text titleT = factory.createText();
-//		titleT.setValue(m.getTitle() != null ? m.getTitle() : ""); // "कार्यालयीन आदेश..."
-//		titleR.getContent().add(factory.createText(titleT.getValue()));
-//		// bold + center
-//		RPr rpr = factory.createRPr();
-//		BooleanDefaultTrue b = new BooleanDefaultTrue();
-//		b.setVal(true);
-//		rpr.setB(b);
-//		// set font size 24 (12pt*2)
-//		HpsMeasure size = new HpsMeasure();
-//		size.setVal(new BigInteger("28")); // approx 14pt; adjust as needed
-//		rpr.setSz(size);
-//		titleR.setRPr(rpr);
-//		titleP.getContent().add(titleR);
-//		// center
-//		PPr ppr = factory.createPPr();
-//		Jc jc = factory.createJc();
-//		jc.setVal(JcEnumeration.CENTER);
-//		ppr.setJc(jc);
-//		titleP.setPPr(ppr);
-//		wp.getMainDocumentPart().addObject(titleP);
-//
-//		// Add a small blank paragraph
-//		wp.getMainDocumentPart().addParagraphOfText("");
-//
-//		// ---------- Make the main table (rough replication of screenshots)
-//		// We'll create a table with two columns for the header info and then the long
-//		// detailed table etc.
-//		// Header table (simple): left: reference list; right: approving authority block
-//		Tbl hdr = createHeaderTable(factory, m);
-//		wp.getMainDocumentPart().addObject(hdr);
-//
-//		// Add a page break to start main content on new page? In screenshots content is
-//		// in same page.
-//		// Next: main "vaidyak kharcha pariganana" table + tapsil.
-//		wp.getMainDocumentPart().addParagraphOfText("");
-//		// create main content table based on your entity structure
-//		Tbl mainTable = createMainDocumentTable(factory, m);
-//		wp.getMainDocumentPart().addObject(mainTable);
-//
-//		// Add detailed "vaidyak" section if present
-//		if (m.getVaidyakKharchaPariganana() != null) {
-//			wp.getMainDocumentPart().addParagraphOfText("");
-//			Tbl vaidyakTable = createVaidyakTable(factory, m);
-//			wp.getMainDocumentPart().addObject(vaidyakTable);
-//		}
-//
-//		// Signature block at the bottom right
-//		wp.getMainDocumentPart().addParagraphOfText("");
-//		P sig = factory.createP();
-//		R r1 = factory.createR();
-//		Text t1 = factory.createText();
-//		t1.setValue("\n(क.ह. पाटील)\nअधीक्षक अभियंता,\nपुणे पाटबंधारे प्रकल्प मंडळ,\nपुणे-01.");
-//		r1.getContent().add(factory.createText(t1.getValue()));
-//		// align right
-//		PPr sigPpr = factory.createPPr();
-//		Jc sigJc = factory.createJc();
-//		sigJc.setVal(JcEnumeration.RIGHT);
-//		sigPpr.setJc(sigJc);
-//		sig.setPPr(sigPpr);
-//		sig.getContent().add(r1);
-//		wp.getMainDocumentPart().addObject(sig);
-//
-//		// Write to byte[]
-//		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-//		wp.save(baos);
-//		byte[] bytes = baos.toByteArray();
-//		IOUtils.closeQuietly(baos);
-//		return bytes;
-//	}
-//
-//	// ---------- Helpers to build tables ----------
-//
-//	private Tbl createHeaderTable(ObjectFactory factory, MedicalBillMasterEntity m) {
-//		// two-column table: left column has reference list and title fields, right
-//		// column has approving authority block
-//		Tbl tbl = factory.createTbl();
-//		// table properties (borderless)
-//		TblPr tblPr = factory.createTblPr();
-//		tbl.setTblPr(tblPr);
-//
-//		// Row 1 (title centered across both cols) - we can append separately; leave
-//		// empty row now
-//		// Row 2: left big cell (references) and right box (approving authority)
-//		Tr tr = factory.createTr();
-//
-//		// Left cell
-//		Tc tcLeft = factory.createTc();
-//		P pLeft = factory.createP();
-//		R rLeft = factory.createR();
-//		Text tLeft = factory.createText();
-//		// Build references text
-//		StringBuilder leftText = new StringBuilder();
-//		leftText.append("Reference:\n");
-//		if (m.getReferences() != null && !m.getReferences().isEmpty()) {
-//			m.getReferences().forEach(ref -> leftText.append(" - ").append(ref.getReference()).append("\n"));
-//		}
-//		// employee details
-//		if (m.getEmployeeDetails() != null) {
-//			leftText.append("\nEmployee: ").append(m.getEmployeeDetails().getEmployeeName()).append("\n");
-//			leftText.append("Designation: ").append(m.getEmployeeDetails().getDesignation()).append("\n");
-//			leftText.append("Department: ").append(m.getEmployeeDetails().getDepartment()).append("\n");
-//			leftText.append("Patient: ").append(m.getEmployeeDetails().getPatientName()).append("\n");
-//			leftText.append("Hospital: ").append(m.getEmployeeDetails().getHospitalName()).append("\n");
-//			leftText.append("Treatment: ").append(m.getEmployeeDetails().getFromDate()).append(" to ")
-//					.append(m.getEmployeeDetails().getToDate()).append("\n");
-//		}
-//		rLeft.getContent().add(factory.createText(leftText.toString()));
-//		pLeft.getContent().add(rLeft);
-//		tcLeft.getContent().add(pLeft);
-//		tr.getContent().add(tcLeft);
-//
-//		// Right cell
-//		Tc tcRight = factory.createTc();
-//		P pRight = factory.createP();
-//		R rRight = factory.createR();
-//		StringBuilder rightText = new StringBuilder();
-//		if (m.getApprovalDetails() != null) {
-//			rightText.append(m.getApprovalDetails().getApprovingAuthority()).append("\n");
-//			rightText.append("Approval Date: ").append(m.getApprovalDetails().getApprovalDate()).append("\n");
-//			rightText.append("Amount: ").append(m.getApprovalDetails().getApprovalAmount()).append("\n");
-//			rightText.append("Approved By: ").append(m.getApprovalDetails().getApprovedBy()).append("\n");
-//		}
-//		rRight.getContent().add(factory.createText(rightText.toString()));
-//		pRight.getContent().add(rRight);
-//		tcRight.getContent().add(pRight);
-//		tr.getContent().add(tcRight);
-//
-//		tbl.getContent().add(tr);
-//		return tbl;
-//	}
-//
-//	private Tbl createMainDocumentTable(ObjectFactory factory, MedicalBillMasterEntity m) {
-//		Tbl tbl = factory.createTbl();
-//
-//		// We'll create a header row and then rows for kharcha tapsil
-//		// HEADER ROW
-//		Tr header = factory.createTr();
-//		header.getContent().add(createCell(factory, "अ. क्र.", true));
-//		header.getContent().add(createCell(factory, "तपशील", true));
-//		header.getContent().add(createCell(factory, "रक्कम (₹)", true));
-//		tbl.getContent().add(header);
-//
-//		// Add tapsil rows
-//		if (m.getKharchaTapsil() != null) {
-//			for (KharchaTapsilEntity k : m.getKharchaTapsil()) {
-//				Tr tr = factory.createTr();
-//				tr.getContent().add(createCell(factory, String.valueOf(k.getAkr()), false));
-//				tr.getContent().add(createCell(factory, k.getTapsil(), false));
-//				tr.getContent().add(createCell(factory, formatDouble(k.getRakkam()), false));
-//				tbl.getContent().add(tr);
-//			}
-//		}
-//
-//		return tbl;
-//	}
-//
-//	private Tbl createVaidyakTable(ObjectFactory factory, MedicalBillMasterEntity m) {
-//		Tbl tbl = factory.createTbl();
-//
-//		// Heading "वैद्यकीय खर्चा परिगणना"
-//		Tr head = factory.createTr();
-//		head.getContent().add(createCell(factory, "वैद्यकीय खर्चा परिगणना", true, 3));
-//		tbl.getContent().add(head);
-//
-//		// Basic fields from vaidyak
-//		VaidyakKharchaParigananaEntity v = m.getVaidyakKharchaPariganana();
-//		if (v != null) {
-//			// tapshil list
-//			if (v.getTapshilList() != null && !v.getTapshilList().isEmpty()) {
-//				Tr subHead = factory.createTr();
-//				subHead.getContent().add(createCell(factory, "अ. क्र.", true));
-//				subHead.getContent().add(createCell(factory, "तपशील", true));
-//				subHead.getContent().add(createCell(factory, "रक्कम", true));
-//				tbl.getContent().add(subHead);
-//
-//				for (VaidyakTapshilEntity t : v.getTapshilList()) {
-//					Tr tr = factory.createTr();
-//					tr.getContent().add(createCell(factory, String.valueOf(t.getAkr()), false));
-//					tr.getContent().add(createCell(factory, t.getTapsil(), false));
-//					tr.getContent().add(createCell(factory, formatDouble(t.getEkunKharch()), false));
-//					tbl.getContent().add(tr);
-//				}
-//			}
-//
-//			// vastavya details
-//			if (v.getVastavyaDetailsList() != null && !v.getVastavyaDetailsList().isEmpty()) {
-//				Tr vh = factory.createTr();
-//				vh.getContent().add(createCell(factory, "वास्तव्या तपशील", true, 3));
-//				tbl.getContent().add(vh);
-//
-//				for (VastavyaDetailsEntity vd : v.getVastavyaDetailsList()) {
-//					Tr tr = factory.createTr();
-//					tr.getContent().add(createCell(factory, String.valueOf(vd.getSubId()), false));
-//					tr.getContent().add(createCell(factory, vd.getVastavyaPrakar(), false));
-//					tr.getContent().add(createCell(factory, formatDouble(vd.getDeyaRakkam()), false));
-//					tbl.getContent().add(tr);
-//				}
-//			}
-//
-//			// excluded
-//			if (v.getExcludedDetails() != null && !v.getExcludedDetails().isEmpty()) {
-//				Tr exh = factory.createTr();
-//				exh.getContent().add(createCell(factory, "Excluded", true, 3));
-//				tbl.getContent().add(exh);
-//
-//				for (VaidyakExcludedDetailsEntity ed : v.getExcludedDetails()) {
-//					Tr tr = factory.createTr();
-//					tr.getContent().add(createCell(factory, String.valueOf(ed.getSubId()), false));
-//					tr.getContent().add(createCell(factory, ed.getDescription(), false));
-//					tr.getContent().add(createCell(factory, formatDouble(ed.getAmount()), false));
-//					tbl.getContent().add(tr);
-//				}
-//			}
-//		}
-//
-//		return tbl;
-//	}
-//
-//	private Tc createCell(ObjectFactory factory, String text, boolean bold) {
-//		return createCell(factory, text, bold, 1);
-//	}
-//
-//	private Tc createCell(ObjectFactory factory, String text, boolean bold, int colspan) {
-//		Tc tc = factory.createTc();
-//		P p = factory.createP();
-//		R r = factory.createR();
-//		Text t = factory.createText();
-//		t.setValue(text == null ? "" : text);
-//		r.getContent().add(factory.createText(t.getValue()));
-//		if (bold) {
-//			RPr rpr = factory.createRPr();
-//			BooleanDefaultTrue b = new BooleanDefaultTrue();
-//			b.setVal(true);
-//			rpr.setB(b);
-//			r.setRPr(rpr);
-//		}
-//		p.getContent().add(r);
-//		tc.getContent().add(p);
-//
-//		if (colspan > 1) {
-//			TcPr tcPr = factory.createTcPr();
-//			GridSpan gs = factory.createTcPrInnerGridSpan();
-//			gs.setVal(BigInteger.valueOf(colspan));
-//			tcPr.setGridSpan(gs);
-//			tc.setTcPr(tcPr);
-//		}
-//		return tc;
-//	}
-//
-//	private static String formatDouble(Double d) {
-//		if (d == null)
-//			return "0.000";
-//		return String.format(Locale.ENGLISH, "%.3f", d);
-//	}
+		AgendaResponse response = new AgendaResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+
+			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+			String year = dto.getMeta().getYear();
+			String targetDate = dto.getMeta().getTargetDate();
+
+			for (AgendaRow row : dto.getRows()) {
+
+				long rowId = row.getRowId();
+				String deleteFlag = Optional.ofNullable(row.getDeleteFlag()).orElse("");
+
+				/*
+				 * ----------------------------------------- 🔥 HARD DELETE LOGIC
+				 * -----------------------------------------
+				 */
+				// HARD DELETE
+				if ("D".equalsIgnoreCase(deleteFlag)) {
+
+					Long deleteId = row.getDeleteId(); // now Long
+
+					if (deleteId != null && deleteId > 0) {
+
+						agendaOfficerRepository.findByDeleteIdAndYearAndTargetDate(deleteId, year, targetDate)
+								.ifPresent(agendaOfficerRepository::delete);
+						error.setErrorCode("200");
+						error.setErrorDescription("DeleteId " + deleteId + " deleted successfully.");
+
+					}
+
+					continue; // skip update/create
+				}
+
+				/*
+				 * ----------------------------------------- ✏️ CREATE OR UPDATE LOGIC
+				 * -----------------------------------------
+				 */
+				Optional<AgendaOfficerEntity> existingOpt = agendaOfficerRepository
+						.findByRowIdAndYearAndTargetDate(rowId, year, targetDate);
+
+				AgendaOfficerEntity entity = existingOpt.orElse(new AgendaOfficerEntity());
+				LocalDateTime now = LocalDateTime.now();
+
+				entity.setRowId(rowId);
+				entity.setYear(year);
+				entity.setTargetDate(targetDate);
+				entity.setColumnData(row.getColumnData());
+				entity.setDeleteId(row.getDeleteId()); // store deleteId always
+				entity.setUpAdhikshakAbhiyantaName(row.getUpAdhikshakAbhiyantaName());
+
+				if (entity.getId() == null) {
+					entity.setFlag("C");
+					entity.setCreatedBy(username);
+					entity.setCreatedAt(now);
+					error.setErrorCode("200");
+					error.setErrorDescription("Agenda saved successfully.");
+				} else {
+					entity.setFlag("U");
+					error.setErrorCode("200");
+					error.setErrorDescription("Agenda updated successfully.");
+				}
+
+				entity.setUpdatedBy(username);
+				entity.setUpdatedAt(now);
+
+				agendaOfficerRepository.save(entity);
+			}
+
+			response.setMessage("Success");
+
+		} catch (Exception e) {
+
+			error.setErrorCode("500");
+			error.setErrorDescription("Error while processing agenda: " + e.getMessage());
+			response.setMessage("Failed to process agenda.");
+		}
+
+		response.setErrorDetails(error);
+		return response;
+	}
+
+	@Override
+	public AgendaResponse getAgendaByYearAndTargetDate(String year, String targetDate) {
+
+		AgendaResponse response = new AgendaResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+			List<AgendaOfficerEntity> list = agendaOfficerRepository.findByYearAndTargetDate(year, targetDate);
+
+			response.setData(list);
+			response.setMessage("Success");
+
+			error.setErrorCode("200");
+			error.setErrorDescription("Agenda fetched successfully.");
+
+		} catch (Exception e) {
+			error.setErrorCode("500");
+			error.setErrorDescription("Error while fetching agenda: " + e.getMessage());
+			response.setMessage("Failed");
+		}
+
+		response.setErrorDetails(error);
+		return response;
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadAgendaExcel(String year, String targetDate) throws Exception {
+
+		List<AgendaOfficerEntity> list = agendaOfficerRepository.findByYearAndTargetDate(year, targetDate);
+
+		// ======= FOOTER NAME RESOLUTION ONLY FROM ENTITY =======
+		String footerName = "( नि.लि.हैमे )";
+
+		if (!list.isEmpty()) {
+
+			// 1) Try direct field in entity
+			String fromEntity = list.get(0).getUpAdhikshakAbhiyantaName();
+			if (fromEntity != null && !fromEntity.isBlank()) {
+				footerName = fromEntity;
+			}
+
+			// 2) Try inside columnData JSON
+			else {
+				JsonNode cd = list.get(0).getColumnData();
+				if (cd != null && cd.has("upAdhikshakAbhiyantaName")) {
+					String fromJson = cd.get("upAdhikshakAbhiyantaName").asText();
+					if (fromJson != null && !fromJson.isBlank()) {
+						footerName = fromJson;
+					}
+				}
+			}
+		}
+
+		// ---------- build workbook ----------
+		XSSFWorkbook workbook = new XSSFWorkbook();
+		XSSFSheet sheet = workbook.createSheet("Agenda Officers");
+
+		// ====== COMMON STYLES ======
+		CellStyle headerStyle = workbook.createCellStyle();
+		headerStyle.setAlignment(HorizontalAlignment.CENTER);
+		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		headerStyle.setWrapText(true);
+		headerStyle.setBorderBottom(BorderStyle.THIN);
+		headerStyle.setBorderTop(BorderStyle.THIN);
+		headerStyle.setBorderLeft(BorderStyle.THIN);
+		headerStyle.setBorderRight(BorderStyle.THIN);
+
+		CellStyle borderStyle = workbook.createCellStyle();
+		borderStyle.setBorderBottom(BorderStyle.THIN);
+		borderStyle.setBorderTop(BorderStyle.THIN);
+		borderStyle.setBorderLeft(BorderStyle.THIN);
+		borderStyle.setBorderRight(BorderStyle.THIN);
+		borderStyle.setWrapText(true);
+
+		int rowIdx = 0;
+
+		// ---------------------------------------------------
+		// 🟦 TITLE ROWS
+		// ---------------------------------------------------
+		Row t1 = sheet.createRow(rowIdx++);
+		t1.createCell(0).setCellValue("परिशिष्ट-ब");
+		sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 10));
+
+		Row t2 = sheet.createRow(rowIdx++);
+		t2.createCell(0).setCellValue("1 ऑगस्ट रोजी वयाची 49/ 54 वर्षे पूर्ण झालेल्या गट-अ मधील शासकीय अधिकारी");
+		sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 10));
+
+		Row t3 = sheet.createRow(rowIdx++);
+		t3.createCell(0).setCellValue("विभागाचे नाव- जलसंपदा विभाग.");
+		sheet.addMergedRegion(new CellRangeAddress(2, 2, 0, 10));
+
+		Row t4 = sheet.createRow(rowIdx++);
+		t4.createCell(0).setCellValue("मंडळ कार्यालयाचे नाव- अधीक्षक अभियंता, पुणे पाटबंधारे प्रकल्प मंडळ, पुणे");
+		sheet.addMergedRegion(new CellRangeAddress(3, 3, 0, 10));
+
+		Row t5 = sheet.createRow(rowIdx++);
+		t5.createCell(0).setCellValue("पदनाम- उपविभागीय अभियंता.");
+		sheet.addMergedRegion(new CellRangeAddress(4, 4, 0, 10));
+
+		rowIdx++;
+
+		// ---------------------------------------------------
+		// 🟦 MAIN TABLE HEADER (TWO ROWS)
+		// ---------------------------------------------------
+		Row hdr1 = sheet.createRow(rowIdx++);
+		Row hdr2 = sheet.createRow(rowIdx++);
+
+		String[] h1 = { "अ. क्र.", "अधिकारी नाव", "पदनाम", "जन्मतारखेचा वर्ष", "सेवेतिल प्रथम नियुक्ती दिनांक",
+				"झालेली एकुण सेवा", "विभागीय चौकशी सुरु / प्रस्तावित", "", "गोपनीय अहवालातील बाबी." };
+
+		String[] h2 = { "", "", "", "", "", "", "", "गोपनीय अहवाल वर्ष", "सचोटी", "प्रकृतीमान", "प्रतवारी" };
+
+		// merging
+		for (int c = 0; c <= 6; c++) {
+			sheet.addMergedRegion(new CellRangeAddress(hdr1.getRowNum(), hdr2.getRowNum(), c, c));
+		}
+		sheet.addMergedRegion(new CellRangeAddress(hdr1.getRowNum(), hdr1.getRowNum(), 7, 10));
+
+		// fill header row 1
+		for (int i = 0; i < h1.length; i++) {
+			Cell cell = hdr1.createCell(i);
+			cell.setCellValue(h1[i]);
+			cell.setCellStyle(headerStyle);
+		}
+
+		// fill header row 2
+		for (int i = 0; i < h2.length; i++) {
+			Cell cell = hdr2.createCell(i + 7);
+			cell.setCellValue(h2[i]);
+			cell.setCellStyle(headerStyle);
+		}
+
+		// ---------------------------------------------------
+		// 🟦 DATA ROWS
+		// ---------------------------------------------------
+		for (AgendaOfficerEntity entity : list) {
+
+			JsonNode data = entity.getColumnData();
+			JsonNode gList = (data != null && data.has("gopniyaAhawalList")) ? data.get("gopniyaAhawalList") : null;
+
+			int gSize = (gList != null && gList.isArray()) ? gList.size() : 1;
+
+			if (gSize > 1) {
+				for (int c = 0; c <= 6; c++) {
+					sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx + gSize - 1, c, c));
+				}
+			}
+
+			Row r = sheet.createRow(rowIdx);
+
+			r.createCell(0).setCellValue(data.get("kramank").asInt());
+			r.createCell(1).setCellValue(data.get("adhikariNav").asText());
+			r.createCell(2).setCellValue(data.get("padnaam").asText());
+			r.createCell(3).setCellValue(data.get("janmaTarikh").asText());
+			r.createCell(4).setCellValue(data.get("sevetIlPrathamNiyuktiDinank").asText());
+			r.createCell(5).setCellValue(data.get("jhaleliEkunaSeva").asText());
+			r.createCell(6).setCellValue(data.get("vibhagiyaChokashiStatus").asText());
+
+			if (gList != null && gList.size() > 0) {
+				JsonNode g0 = gList.get(0);
+				r.createCell(7).setCellValue(g0.get("varsh").asText());
+				r.createCell(8).setCellValue(g0.get("sachoti").asText());
+				r.createCell(9).setCellValue(g0.get("prakrutiman").asText());
+				r.createCell(10).setCellValue(g0.get("pratavaari").asText());
+			}
+
+			for (int i = 1; i < gSize; i++) {
+				JsonNode g = gList.get(i);
+				Row rr = sheet.createRow(rowIdx + i);
+
+				rr.createCell(7).setCellValue(g.get("varsh").asText());
+				rr.createCell(8).setCellValue(g.get("sachoti").asText());
+				rr.createCell(9).setCellValue(g.get("prakrutiman").asText());
+				rr.createCell(10).setCellValue(g.get("pratavaari").asText());
+			}
+
+			rowIdx += gSize;
+		}
+
+		// ---------------------------------------------------
+		// 🟦 FOOTER (uses value from AgendaOfficerEntity)
+		// ---------------------------------------------------
+		rowIdx += 2;
+
+		Row f1 = sheet.createRow(rowIdx++);
+		f1.createCell(0).setCellValue("सल्ला प्र.अ.अ.यांना माघ्य असे.");
+		sheet.addMergedRegion(new CellRangeAddress(f1.getRowNum(), f1.getRowNum(), 0, 10));
+
+		rowIdx++;
+
+		Row f2 = sheet.createRow(rowIdx++);
+		f2.createCell(0).setCellValue(footerName);
+		sheet.addMergedRegion(new CellRangeAddress(f2.getRowNum(), f2.getRowNum(), 0, 10));
+
+		Row f3 = sheet.createRow(rowIdx++);
+		f3.createCell(0).setCellValue("उप अधीक्षक अभियंता");
+		sheet.addMergedRegion(new CellRangeAddress(f3.getRowNum(), f3.getRowNum(), 0, 10));
+
+		Row f4 = sheet.createRow(rowIdx++);
+		f4.createCell(0).setCellValue("पुणे पाटबंधारे प्रकल्प मंडळ");
+		sheet.addMergedRegion(new CellRangeAddress(f4.getRowNum(), f4.getRowNum(), 0, 10));
+
+		Row f5 = sheet.createRow(rowIdx++);
+		f5.createCell(0).setCellValue("पुणे.");
+		sheet.addMergedRegion(new CellRangeAddress(f5.getRowNum(), f5.getRowNum(), 0, 10));
+
+		// Autosize columns
+		for (int i = 0; i <= 10; i++)
+			sheet.autoSizeColumn(i);
+
+		// Return file
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		workbook.write(out);
+		workbook.close();
+
+		ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+		HttpHeaders headers = new HttpHeaders();
+		headers.add("Content-Disposition", "attachment; filename=agenda.xlsx");
+
+		return ResponseEntity.ok().headers(headers).contentType(MediaType.parseMediaType("application/vnd.ms-excel"))
+				.body(new InputStreamResource(in));
+	}
+
+	// helper for merged row
+	private int createMergedRow(Sheet sheet, int rowIdx, String text, int lastCol) {
+		Row r = sheet.createRow(rowIdx);
+		r.createCell(0).setCellValue(text);
+		sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, lastCol));
+		return rowIdx + 1;
+	}
+
+	private String convertKey(String key) {
+		return Character.toUpperCase(key.charAt(0)) + key.substring(1).replaceAll("([a-z])([A-Z])", "$1 $2");
+	}
+
 }
