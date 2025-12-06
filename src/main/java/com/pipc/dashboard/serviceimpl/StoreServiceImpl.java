@@ -235,27 +235,33 @@ public class StoreServiceImpl implements StoreService {
 
 			// Step 2: For each department, apply pagination
 			for (String dept : departments) {
-				Page<StoreEntity> deptPage = storeRepository.findByDepartmentName(dept, PageRequest.of(page, size));
 
-				if (deptPage.isEmpty())
-					continue;
+			    Page<StoreEntity> deptPage = storeRepository.findByDepartmentName(
+			            dept, PageRequest.of(page, size));
 
-				// Map entity -> request-like response
-				List<VibhagRow> rows = new ArrayList<>();
-				for (StoreEntity entity : deptPage.getContent()) {
-					VibhagRow row = new ObjectMapper().convertValue(entity.getRowsData(), VibhagRow.class);
-					row.setRowId(entity.getRowId());
-					row.setDeleteId(entity.getDeleteId());
-					rows.add(row);
-				}
+			    if (deptPage.isEmpty())
+			        continue;
 
-				DepartmentSection section = new DepartmentSection();
-				section.setDepartmentName(dept);
-				section.setEkun(deptPage.getContent().get(0).getEkun());
-				section.setRows(rows);
+			    List<VibhagRow> rows = new ArrayList<>();
 
-				departmentSections.add(section);
+			    for (StoreEntity entity : deptPage.getContent()) {
+			        VibhagRow row = new ObjectMapper().convertValue(entity.getRowsData(), VibhagRow.class);
+			        row.setRowId(entity.getRowId());
+			        row.setDeleteId(entity.getDeleteId());
+			        rows.add(row);
+			    }
+
+			    // 🔥 Sort department-wise rows by rowId
+			    rows.sort(Comparator.comparingInt(VibhagRow::getRowId));
+
+			    DepartmentSection section = new DepartmentSection();
+			    section.setDepartmentName(dept);
+			    section.setEkun(deptPage.getContent().get(0).getEkun());
+			    section.setRows(rows);
+
+			    departmentSections.add(section);
 			}
+
 
 			// Step 3: build response similar to request
 			StoreRequest storeData = new StoreRequest();
