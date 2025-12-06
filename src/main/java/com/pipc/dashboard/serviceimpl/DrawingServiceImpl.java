@@ -288,6 +288,7 @@ public class DrawingServiceImpl implements DrawingService {
 					rowMap.put("month", entity.getMonth());
 					rowMap.put("data", entity.getData());
 					rowMap.put("flag", entity.getFlag());
+					rowMap.put("deleteId", entity.getDeleteId());
 					return rowMap;
 				}).collect(Collectors.toList());
 
