@@ -754,45 +754,54 @@ public class DrawingServiceImpl implements DrawingService {
 
 	@Override
 	public PralambitBhusampadanResponse getPralambitBhusampadan(String period, String star, int page, int size) {
-		PralambitBhusampadanResponse resp = new PralambitBhusampadanResponse();
-		ApplicationError err = new ApplicationError();
+	    PralambitBhusampadanResponse resp = new PralambitBhusampadanResponse();
+	    ApplicationError err = new ApplicationError();
 
-		try {
-			Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
-			Page<PralambitBhusampadanEntity> result = (star == null || star.isBlank())
-					? pralambitBhusampadanRepository.findByPeriod(period, pageable)
-					: pralambitBhusampadanRepository.findByPeriodAndStar(period, star, pageable);
+	    try {
+	        Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
+	        Page<PralambitBhusampadanEntity> result = 
+	                (star == null || star.isBlank())
+	                ? pralambitBhusampadanRepository.findByPeriod(period, pageable)
+	                : pralambitBhusampadanRepository.findByPeriodAndStar(period, star, pageable);
 
-			List<Map<String, Object>> out = new ArrayList<>();
-			for (PralambitBhusampadanEntity e : result.getContent()) {
-				Map<String, Object> m = new LinkedHashMap<>();
-				m.put("id", e.getId());
-				m.put("title", e.getTitle());
-				m.put("period", e.getPeriod());
-				m.put("kramank", e.getKramank());
-				m.put("subId", e.getSubId());
-				m.put("star", e.getStar());
-				m.put("data", objectMapper.convertValue(e.getData(), new TypeReference<Map<String, Object>>() {
-				}));
-				m.put("flag", e.getFlag());
-				m.put("createdAt", e.getCreatedAt());
-				out.add(m);
-			}
+	        List<Map<String, Object>> out = new ArrayList<>();
+	        for (PralambitBhusampadanEntity e : result.getContent()) {
+	            Map<String, Object> m = new LinkedHashMap<>();
+	            m.put("id", e.getId());
+	            m.put("title", e.getTitle());
+	            m.put("period", e.getPeriod());
+	            m.put("kramank", e.getKramank());
+	            m.put("subId", e.getSubId());
+	            m.put("star", e.getStar());
+	            m.put("data", objectMapper.convertValue(e.getData(), new TypeReference<Map<String, Object>>() {}));
+	            m.put("flag", e.getFlag());
+	            m.put("createdAt", e.getCreatedAt());
+	            out.add(m);
+	        }
 
-			resp.setData(out);
-			resp.setMessage("Data fetched successfully");
-			err.setErrorCode("BHUSAMPADAN_GET_OK");
-			err.setErrorDescription("Records retrieved");
-			resp.setErrorDetails(err);
-			return resp;
-		} catch (Exception e) {
-			err.setErrorCode("BHUSAMPADAN_GET_ERR");
-			err.setErrorDescription(e.getMessage());
-			resp.setErrorDetails(err);
-			resp.setMessage("Error fetching data");
-			return resp;
-		}
+	        // 🔥 Sort by kramank → subId
+	        out.sort(
+	        	    Comparator.comparingInt((Map<String, Object> m) -> Integer.parseInt(m.get("kramank").toString()))
+	        	              .thenComparingInt((Map<String, Object> m) -> Integer.parseInt(m.get("subId").toString()))
+	        	);
+
+
+	        resp.setData(out);
+	        resp.setMessage("Data fetched successfully");
+	        err.setErrorCode("BHUSAMPADAN_GET_OK");
+	        err.setErrorDescription("Records retrieved");
+	        resp.setErrorDetails(err);
+	        return resp;
+
+	    } catch (Exception e) {
+	        err.setErrorCode("BHUSAMPADAN_GET_ERR");
+	        err.setErrorDescription(e.getMessage());
+	        resp.setErrorDetails(err);
+	        resp.setMessage("Error fetching data");
+	        return resp;
+	    }
 	}
+
 
 	@Override
 	public ResponseEntity<InputStreamResource> downloadDamSafetyExcel(String period) throws IOException {
