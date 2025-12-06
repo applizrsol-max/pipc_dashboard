@@ -621,24 +621,31 @@ public class DrawingServiceImpl implements DrawingService {
 			List<Map<String, Object>> resultList = new ArrayList<>();
 
 			for (DamNalikaEntity entity : entityPage.getContent()) {
-				Map<String, Object> map = new LinkedHashMap<>();
-				map.put("id", entity.getId());
-				map.put("title", entity.getTitle());
-				map.put("period", entity.getPeriod());
-				map.put("departmentKey", entity.getDepartmentKey());
-				map.put("departmentName", entity.getDepartmentName());
-				map.put("rowId", entity.getRowId());
-				map.put("year", entity.getYear());
-				map.put("month", entity.getMonth());
-				map.put("data", entity.getData()); // full JSONB data
-				map.put("flag", entity.getFlag());
-				map.put("createdAt", entity.getCreatedAt());
-				map.put("updatedAt", entity.getUpdatedAt());
-				resultList.add(map);
+			    Map<String, Object> map = new LinkedHashMap<>();
+			    map.put("id", entity.getId());
+			    map.put("title", entity.getTitle());
+			    map.put("period", entity.getPeriod());
+			    map.put("departmentKey", entity.getDepartmentKey());
+			    map.put("departmentName", entity.getDepartmentName());
+			    map.put("rowId", entity.getRowId());
+			    map.put("year", entity.getYear());
+			    map.put("month", entity.getMonth());
+			    map.put("data", entity.getData());
+			    map.put("flag", entity.getFlag());
+			    map.put("createdAt", entity.getCreatedAt());
+			    map.put("updatedAt", entity.getUpdatedAt());
+			    resultList.add(map);
 			}
+
+			/* 🔥 Department-wise + RowId sorting */
+			resultList.sort(
+			    Comparator.comparing((Map<String, Object> m) -> m.get("departmentKey").toString())
+			              .thenComparingInt(m -> Integer.parseInt(m.get("rowId").toString()))
+			);
 
 			response.setMessage("Nalika data fetched successfully");
 			response.setData(resultList);
+
 
 			error.setErrorCode("NALIKA_GET_SUCCESS");
 			error.setErrorDescription("Data fetched successfully");
