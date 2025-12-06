@@ -445,6 +445,7 @@ public class DrawingServiceImpl implements DrawingService {
 				if (departments == null || departments.isEmpty()) {
 					response.setMessage("No departments found for given year and period.");
 					response.setData(Collections.emptyList());
+					
 					error.setErrorCode("NO_DEPARTMENT");
 					error.setErrorDescription("No department data found.");
 					response.setErrorDetails(error);
@@ -506,6 +507,7 @@ public class DrawingServiceImpl implements DrawingService {
 		record.put("month", entity.getMonth());
 		record.put("flag", entity.getFlag());
 		record.put("data", entity.getData());
+		record.put("deleteId", entity.getDeleteId());
 		record.put("createdBy", entity.getCreatedBy());
 		record.put("createdAt", entity.getCreatedAt());
 		record.put("updatedBy", entity.getUpdatedBy());
@@ -2072,6 +2074,7 @@ public class DrawingServiceImpl implements DrawingService {
 		res.setPeriod(period);
 		res.setDate(date);
 		res.setData(sectionList);
+		
 
 		err.setErrorCode("SINGET_OK");
 		err.setErrorDescription("Fetched successfully");
