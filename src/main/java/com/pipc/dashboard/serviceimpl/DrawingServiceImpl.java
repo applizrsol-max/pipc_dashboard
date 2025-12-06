@@ -174,13 +174,13 @@ public class DrawingServiceImpl implements DrawingService {
 
 				// ---------- DELETE ----------
 				if ("D".equalsIgnoreCase(row.getFlag())) {
-					damRepository.findByDeleteIdAndYearAndMonthAndProjectNameAndMetaId(row.getDeleteId(), row.getYear(),
-							row.getMonth(), projectName, savedMeta.getId()).ifPresent(entity -> {
+					damRepository.findByDeleteIdAndYearAndMonthAndProjectName(row.getDeleteId(), row.getYear(),
+							row.getMonth(), projectName).ifPresent(entity -> {
 								damRepository.delete(entity);
 							});
 					deleted++;
 					log.append("Deleted deleteId ").append(row.getDeleteId()).append(", project '").append(projectName)
-							.append("' for metaId ").append(savedMeta.getId()).append(". ");
+							.append(". ");
 					continue;
 				}
 
