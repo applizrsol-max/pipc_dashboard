@@ -6,6 +6,6 @@ import lombok.Data;
 
 @Data
 public class AgendaRequest {
-	private Meta meta;
-	private List<AgendaRow> rows;
+    private Meta meta;
+    private List<AgendaRow> rows;
 }

@@ -1750,149 +1750,114 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	@Transactional
 	public AgendaResponse saveOrUpdateAgenda(AgendaRequest dto) {
 
-		AgendaResponse response = new AgendaResponse();
-		ApplicationError error = new ApplicationError();
+	    AgendaResponse response = new AgendaResponse();
+	    ApplicationError error = new ApplicationError();
 
-		try {
+	    try {
 
-			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-			String year = dto.getMeta().getYear();
-			String targetDate = dto.getMeta().getTargetDate();
+	        String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+	        String year = dto.getMeta().getYear();
+	        String targetDate = dto.getMeta().getTargetDate();
 
-			for (AgendaRow row : dto.getRows()) {
+	        for (AgendaRow row : dto.getRows()) {
 
-				long rowId = row.getRowId();
-				String deleteFlag = Optional.ofNullable(row.getDeleteFlag()).orElse("");
+	            long rowId = row.getRowId();
+	            String deleteFlag = Optional.ofNullable(row.getDeleteFlag()).orElse("");
 
-				/*
-				 * ----------------------------------------- 🔥 HARD DELETE LOGIC
-				 * -----------------------------------------
-				 */
-				// HARD DELETE
-				if ("D".equalsIgnoreCase(deleteFlag)) {
+	            /*
+	             * -------------------- HARD DELETE --------------------
+	             */
+	            if ("D".equalsIgnoreCase(deleteFlag)) {
 
-					Long deleteId = row.getDeleteId(); // now Long
+	                Long deleteId = row.getDeleteId();
+	                if (deleteId != null && deleteId > 0) {
 
-					if (deleteId != null && deleteId > 0) {
+	                    agendaOfficerRepository
+	                        .findByDeleteIdAndYearAndTargetDate(deleteId, year, targetDate)
+	                        .ifPresent(agendaOfficerRepository::delete);
 
-						agendaOfficerRepository.findByDeleteIdAndYearAndTargetDate(deleteId, year, targetDate)
-								.ifPresent(agendaOfficerRepository::delete);
-						error.setErrorCode("200");
-						error.setErrorDescription("DeleteId " + deleteId + " deleted successfully.");
+	                    error.setErrorCode("200");
+	                    error.setErrorDescription("Deleted successfully.");
+	                }
 
-					}
+	                continue;
+	            }
 
-					continue; // skip update/create
-				}
+	            /*
+	             * -------------------- CREATE / UPDATE --------------------
+	             */
+	            Optional<AgendaOfficerEntity> existingOpt =
+	                    agendaOfficerRepository.findByRowIdAndYearAndTargetDate(rowId, year, targetDate);
 
-				/*
-				 * ----------------------------------------- ✏️ CREATE OR UPDATE LOGIC
-				 * -----------------------------------------
-				 */
-				Optional<AgendaOfficerEntity> existingOpt = agendaOfficerRepository
-						.findByRowIdAndYearAndTargetDate(rowId, year, targetDate);
+	            AgendaOfficerEntity entity = existingOpt.orElse(new AgendaOfficerEntity());
+	            LocalDateTime now = LocalDateTime.now();
 
-				AgendaOfficerEntity entity = existingOpt.orElse(new AgendaOfficerEntity());
-				LocalDateTime now = LocalDateTime.now();
+	            entity.setRowId(rowId);
+	            entity.setYear(year);
+	            entity.setTargetDate(targetDate);
+	            entity.setColumnData(row.getColumnData()); // DIRECT SAVE
+	            entity.setDeleteId(row.getDeleteId());
+	            entity.setUpAdhikshakAbhiyantaName(row.getUpAdhikshakAbhiyantaName());
 
-				entity.setRowId(rowId);
-				entity.setYear(year);
-				entity.setTargetDate(targetDate);
-				entity.setColumnData(row.getColumnData());
-				entity.setDeleteId(row.getDeleteId()); // store deleteId always
-				entity.setUpAdhikshakAbhiyantaName(row.getUpAdhikshakAbhiyantaName());
+	            if (entity.getId() == null) {
+	                entity.setFlag("C");
+	                entity.setCreatedBy(username);
+	                entity.setCreatedAt(now);
+	            } else {
+	                entity.setFlag("U");
+	            }
 
-				if (entity.getId() == null) {
-					entity.setFlag("C");
-					entity.setCreatedBy(username);
-					entity.setCreatedAt(now);
-					error.setErrorCode("200");
-					error.setErrorDescription("Agenda saved successfully.");
-				} else {
-					entity.setFlag("U");
-					error.setErrorCode("200");
-					error.setErrorDescription("Agenda updated successfully.");
-				}
+	            entity.setUpdatedBy(username);
+	            entity.setUpdatedAt(now);
 
-				entity.setUpdatedBy(username);
-				entity.setUpdatedAt(now);
+	            agendaOfficerRepository.save(entity);
+	        }
 
-				agendaOfficerRepository.save(entity);
-			}
+	        response.setMessage("Success");
 
-			response.setMessage("Success");
+	        error.setErrorCode("200");
+	        error.setErrorDescription("Agenda saved successfully.");
 
-		} catch (Exception e) {
+	    } catch (Exception e) {
+	        error.setErrorCode("500");
+	        error.setErrorDescription("Error: " + e.getMessage());
+	        response.setMessage("Failed");
+	    }
 
-			error.setErrorCode("500");
-			error.setErrorDescription("Error while processing agenda: " + e.getMessage());
-			response.setMessage("Failed to process agenda.");
-		}
-
-		response.setErrorDetails(error);
-		return response;
+	    response.setErrorDetails(error);
+	    return response;
 	}
+
 
 	@Override
 	public AgendaResponse getAgendaByYearAndTargetDate(String year, String targetDate) {
 
-		AgendaResponse response = new AgendaResponse();
-		ApplicationError error = new ApplicationError();
-		ObjectMapper mapper = new ObjectMapper();
+	    AgendaResponse response = new AgendaResponse();
+	    ApplicationError error = new ApplicationError();
 
-		try {
+	    try {
+	        // Direct fetch from DB
+	        List<AgendaOfficerEntity> list =
+	                agendaOfficerRepository.findByYearAndTargetDate(year, targetDate);
 
-			List<AgendaOfficerEntity> list = agendaOfficerRepository.findByYearAndTargetDate(year, targetDate);
+	        // No transformation – return exactly what was saved
+	        response.setData(list);
+	        response.setMessage("Success");
 
-			// ========== MAIN TRANSFORMATION ==========
-			list.forEach(entity -> {
+	        error.setErrorCode("200");
+	        error.setErrorDescription("Agenda fetched successfully.");
 
-				JsonNode columnData = entity.getColumnData();
-				ObjectNode columnObj = (ObjectNode) columnData;
+	    } catch (Exception e) {
 
-				if (columnObj.has("gopniyaAhawalList")) {
+	        response.setMessage("Failed");
+	        error.setErrorCode("500");
+	        error.setErrorDescription("Error: " + e.getMessage());
+	    }
 
-					ArrayNode ahawalList = (ArrayNode) columnObj.get("gopniyaAhawalList");
-
-					// This object will contain ALL merged fields
-					ObjectNode mergedObj = mapper.createObjectNode();
-
-					ahawalList.forEach(item -> {
-
-						String yearKey = item.get("varsh").asText();
-
-						mergedObj.put(yearKey + "_sachoti", item.get("sachoti").asText());
-						mergedObj.put(yearKey + "_pratavaari", item.get("pratavaari").asText());
-						mergedObj.put(yearKey + "_prakrutiman", item.get("prakrutiman").asText());
-					});
-
-					// Add merged object
-					columnObj.set("gopniyaAhawal", mergedObj);
-
-					// Remove original list
-					columnObj.remove("gopniyaAhawalList");
-
-					entity.setColumnData(columnObj);
-				}
-			});
-
-			// SUCCESS RESPONSE
-			response.setData(list);
-			response.setMessage("Success");
-
-			error.setErrorCode("200");
-			error.setErrorDescription("Agenda fetched successfully.");
-
-		} catch (Exception e) {
-
-			response.setMessage("Failed");
-			error.setErrorCode("500");
-			error.setErrorDescription("Error: " + e.getMessage());
-		}
-
-		response.setErrorDetails(error);
-		return response;
+	    response.setErrorDetails(error);
+	    return response;
 	}
+
 
 	@Override
 	public ResponseEntity<InputStreamResource> downloadAgendaExcel(String year, String targetDate) throws Exception {

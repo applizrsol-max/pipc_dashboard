@@ -6,9 +6,9 @@ import lombok.Data;
 
 @Data
 public class AgendaRow {
-	private long rowId; // For create/update
-	private String deleteFlag; // If D -> delete mode
-	private long deleteId; // Which rowId to delete
-	private JsonNode columnData; // Full dynamic JSON
-	private String upAdhikshakAbhiyantaName;
+    private Long rowId;
+    private Long deleteId;
+    private String deleteFlag;
+    private String upAdhikshakAbhiyantaName;
+    private JsonNode columnData;   // NEW merged JSON comes directly
 }
