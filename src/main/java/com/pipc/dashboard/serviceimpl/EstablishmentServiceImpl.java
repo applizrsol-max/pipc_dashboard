@@ -1836,11 +1836,14 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	    ApplicationError error = new ApplicationError();
 
 	    try {
-	        // Direct fetch from DB
+	        // Fetch data
 	        List<AgendaOfficerEntity> list =
 	                agendaOfficerRepository.findByYearAndTargetDate(year, targetDate);
 
-	        // No transformation – return exactly what was saved
+	        // ---------- SORT BY rowId (ASCENDING) ----------
+	        list.sort(Comparator.comparingLong(AgendaOfficerEntity::getRowId));
+
+	        // Return sorted list
 	        response.setData(list);
 	        response.setMessage("Success");
 
