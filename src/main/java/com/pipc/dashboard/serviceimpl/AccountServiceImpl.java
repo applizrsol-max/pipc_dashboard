@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -21,6 +22,8 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.MDC;
 import org.springframework.core.io.InputStreamResource;
@@ -34,12 +37,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pipc.dashboard.accounts.repository.AccountsEntity;
 import com.pipc.dashboard.accounts.repository.AccountsRepository;
+import com.pipc.dashboard.accounts.repository.PendingParaEntity;
+import com.pipc.dashboard.accounts.repository.PendingParaRepository;
 import com.pipc.dashboard.accounts.request.AccountsRequest;
+import com.pipc.dashboard.accounts.request.PendingParaRequest;
+import com.pipc.dashboard.accounts.request.PendingParaRow;
 import com.pipc.dashboard.accounts.response.AccountsResponse;
+import com.pipc.dashboard.accounts.response.PendingParaResponse;
 import com.pipc.dashboard.service.AcountService;
 import com.pipc.dashboard.utility.ApplicationError;
 import com.pipc.dashboard.utility.JsonUtils;
@@ -49,9 +58,11 @@ import com.pipc.dashboard.utility.JsonUtils;
 public class AccountServiceImpl implements AcountService {
 
 	private final AccountsRepository accountRepo;
+	private final PendingParaRepository pendingParaRepo;
 
-	public AccountServiceImpl(AccountsRepository accountRepo) {
+	public AccountServiceImpl(AccountsRepository accountRepo, PendingParaRepository pendingParaRepo) {
 		this.accountRepo = accountRepo;
+		this.pendingParaRepo = pendingParaRepo;
 	}
 
 	@Override
@@ -242,250 +253,430 @@ public class AccountServiceImpl implements AcountService {
 	@Transactional(readOnly = true)
 	public ResponseEntity<InputStreamResource> downloadAccountsReport(String year) throws IOException {
 
-	    // === FIXED CATEGORY ORDER ===
-	    List<String> CATEGORY_ORDER = Arrays.asList(
-	            "majorProjects",
-	            "expansionAndImprovement",
-	            "damSafety",
-	            "mediumProjects",
-	            "pmksy",
-	            "pmksyCADA"
-	    );
+		// === FIXED CATEGORY ORDER ===
+		List<String> CATEGORY_ORDER = Arrays.asList("majorProjects", "expansionAndImprovement", "damSafety",
+				"mediumProjects", "pmksy", "pmksyCADA");
 
-	    List<AccountsEntity> allForYear = accountRepo.findByProjectYear(year);
-	    if (allForYear == null || allForYear.isEmpty()) {
-	        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-	    }
+		List<AccountsEntity> allForYear = accountRepo.findByProjectYear(year);
+		if (allForYear == null || allForYear.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+		}
 
-	    List<AccountsEntity> regular = allForYear.stream()
-	            .filter(e -> "R".equalsIgnoreCase(e.getRecordType()))
-	            .collect(Collectors.toList());
+		List<AccountsEntity> regular = allForYear.stream().filter(e -> "R".equalsIgnoreCase(e.getRecordType()))
+				.collect(Collectors.toList());
 
-	    Map<String, List<AccountsEntity>> grouped =
-	            regular.stream().collect(Collectors.groupingBy(
-	                    AccountsEntity::getCategoryName,
-	                    LinkedHashMap::new,
-	                    Collectors.toList()
-	            ));
+		Map<String, List<AccountsEntity>> grouped = regular.stream().collect(
+				Collectors.groupingBy(AccountsEntity::getCategoryName, LinkedHashMap::new, Collectors.toList()));
 
-	    try (Workbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+		try (Workbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
-	        Sheet sheet = wb.createSheet("Accounts-" + year);
+			Sheet sheet = wb.createSheet("Accounts-" + year);
 
-	        Font titleFont = wb.createFont();
-	        titleFont.setFontName("Mangal");
-	        titleFont.setBold(true);
-	        titleFont.setFontHeightInPoints((short) 12);
+			Font titleFont = wb.createFont();
+			titleFont.setFontName("Mangal");
+			titleFont.setBold(true);
+			titleFont.setFontHeightInPoints((short) 12);
 
-	        Font boldFont = wb.createFont();
-	        boldFont.setFontName("Mangal");
-	        boldFont.setBold(true);
-	        boldFont.setFontHeightInPoints((short) 11);
+			Font boldFont = wb.createFont();
+			boldFont.setFontName("Mangal");
+			boldFont.setBold(true);
+			boldFont.setFontHeightInPoints((short) 11);
 
-	        Font normalFont = wb.createFont();
-	        normalFont.setFontName("Mangal");
-	        normalFont.setFontHeightInPoints((short) 10);
+			Font normalFont = wb.createFont();
+			normalFont.setFontName("Mangal");
+			normalFont.setFontHeightInPoints((short) 10);
 
-	        // === Styles ===
-	        CellStyle titleCenter = wb.createCellStyle();
-	        titleCenter.setFont(titleFont);
-	        titleCenter.setAlignment(HorizontalAlignment.CENTER);
-	        titleCenter.setVerticalAlignment(VerticalAlignment.CENTER);
+			// === Styles ===
+			CellStyle titleCenter = wb.createCellStyle();
+			titleCenter.setFont(titleFont);
+			titleCenter.setAlignment(HorizontalAlignment.CENTER);
+			titleCenter.setVerticalAlignment(VerticalAlignment.CENTER);
 
-	        CellStyle sectionHeader = wb.createCellStyle();
-	        sectionHeader.setFont(boldFont);
-	        sectionHeader.setAlignment(HorizontalAlignment.CENTER);
-	        sectionHeader.setVerticalAlignment(VerticalAlignment.CENTER);
+			CellStyle sectionHeader = wb.createCellStyle();
+			sectionHeader.setFont(boldFont);
+			sectionHeader.setAlignment(HorizontalAlignment.CENTER);
+			sectionHeader.setVerticalAlignment(VerticalAlignment.CENTER);
 
-	        CellStyle tableHeader = wb.createCellStyle();
-	        tableHeader.setFont(boldFont);
-	        tableHeader.setAlignment(HorizontalAlignment.CENTER);
-	        tableHeader.setVerticalAlignment(VerticalAlignment.CENTER);
-	        tableHeader.setWrapText(true);
-	        tableHeader.setBorderTop(BorderStyle.THIN);
-	        tableHeader.setBorderBottom(BorderStyle.THIN);
-	        tableHeader.setBorderLeft(BorderStyle.THIN);
-	        tableHeader.setBorderRight(BorderStyle.THIN);
+			CellStyle tableHeader = wb.createCellStyle();
+			tableHeader.setFont(boldFont);
+			tableHeader.setAlignment(HorizontalAlignment.CENTER);
+			tableHeader.setVerticalAlignment(VerticalAlignment.CENTER);
+			tableHeader.setWrapText(true);
+			tableHeader.setBorderTop(BorderStyle.THIN);
+			tableHeader.setBorderBottom(BorderStyle.THIN);
+			tableHeader.setBorderLeft(BorderStyle.THIN);
+			tableHeader.setBorderRight(BorderStyle.THIN);
 
-	        CellStyle dataCell = wb.createCellStyle();
-	        dataCell.setFont(normalFont);
-	        dataCell.setVerticalAlignment(VerticalAlignment.CENTER);
-	        dataCell.setBorderTop(BorderStyle.THIN);
-	        dataCell.setBorderBottom(BorderStyle.THIN);
-	        dataCell.setBorderLeft(BorderStyle.THIN);
-	        dataCell.setBorderRight(BorderStyle.THIN);
+			CellStyle dataCell = wb.createCellStyle();
+			dataCell.setFont(normalFont);
+			dataCell.setVerticalAlignment(VerticalAlignment.CENTER);
+			dataCell.setBorderTop(BorderStyle.THIN);
+			dataCell.setBorderBottom(BorderStyle.THIN);
+			dataCell.setBorderLeft(BorderStyle.THIN);
+			dataCell.setBorderRight(BorderStyle.THIN);
 
-	        CellStyle sumRowStyle = wb.createCellStyle();
-	        sumRowStyle.cloneStyleFrom(dataCell);
-	        sumRowStyle.setFont(boldFont);
-	        sumRowStyle.setAlignment(HorizontalAlignment.RIGHT);
+			CellStyle sumRowStyle = wb.createCellStyle();
+			sumRowStyle.cloneStyleFrom(dataCell);
+			sumRowStyle.setFont(boldFont);
+			sumRowStyle.setAlignment(HorizontalAlignment.RIGHT);
 
-	        int rowNum = 0;
+			int rowNum = 0;
 
-	        // === Title ===
-	        Row titleRow = sheet.createRow(rowNum++);
-	        Cell titleCell = titleRow.createCell(0);
-	        titleCell.setCellValue("महाराष्ट्र कृष्णा खोरे विकास महामंडळ, पुणे");
-	        titleCell.setCellStyle(titleCenter);
-	        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 11));
+			// === Title ===
+			Row titleRow = sheet.createRow(rowNum++);
+			Cell titleCell = titleRow.createCell(0);
+			titleCell.setCellValue("महाराष्ट्र कृष्णा खोरे विकास महामंडळ, पुणे");
+			titleCell.setCellStyle(titleCenter);
+			sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 11));
 
-	        Row sub = sheet.createRow(rowNum++);
-	        Cell c1 = sub.createCell(0);
-	        c1.setCellValue("सन " + year + " आर्थिक वर्षामधील प्रकल्पनिहाय तरतूद माहिती. (रु.कोटी)");
-	        c1.setCellStyle(titleCenter);
-	        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 11));
+			Row sub = sheet.createRow(rowNum++);
+			Cell c1 = sub.createCell(0);
+			c1.setCellValue("सन " + year + " आर्थिक वर्षामधील प्रकल्पनिहाय तरतूद माहिती. (रु.कोटी)");
+			c1.setCellStyle(titleCenter);
+			sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 11));
 
-	        rowNum++;
+			rowNum++;
 
-	        // === Table Header ===
-	        String[] tableCols = {
-	                "अ.क्र.", "प्रकल्पाचे नांव", "जिल्हा", "प्रकल्पाची मंजूर प्रमा/सुप्रमा किंमत",
-	                "प्रकल्पावर झालेला अद्यावत खर्च", "प्रकल्पाची उर्वरित किंमत",
-	                "सन " + year + " ची अर्थसंकल्पीत तरतूद",
-	                "सन " + year + " चे तरतूदीमधून प्राप्त निधी",
-	                "सन " + year + " च्या प्राप्त निधीमधून झालेला खर्च",
-	                "सन " + year + " मधील प्राप्त निधीमधून शिल्लक",
-	                "सन " + year + " मधील शिल्लक निधी/तरतूद",
-	                "शेरा"
-	        };
+			// === Table Header ===
+			String[] tableCols = { "अ.क्र.", "प्रकल्पाचे नांव", "जिल्हा", "प्रकल्पाची मंजूर प्रमा/सुप्रमा किंमत",
+					"प्रकल्पावर झालेला अद्यावत खर्च", "प्रकल्पाची उर्वरित किंमत",
+					"सन " + year + " ची अर्थसंकल्पीत तरतूद", "सन " + year + " चे तरतूदीमधून प्राप्त निधी",
+					"सन " + year + " च्या प्राप्त निधीमधून झालेला खर्च", "सन " + year + " मधील प्राप्त निधीमधून शिल्लक",
+					"सन " + year + " मधील शिल्लक निधी/तरतूद", "शेरा" };
 
-	        Row headerRow = sheet.createRow(rowNum++);
-	        for (int i = 0; i < tableCols.length; i++) {
-	            Cell h = headerRow.createCell(i);
-	            h.setCellValue(tableCols[i]);
-	            h.setCellStyle(tableHeader);
-	            sheet.setColumnWidth(i, 4500);
-	        }
+			Row headerRow = sheet.createRow(rowNum++);
+			for (int i = 0; i < tableCols.length; i++) {
+				Cell h = headerRow.createCell(i);
+				h.setCellValue(tableCols[i]);
+				h.setCellStyle(tableHeader);
+				sheet.setColumnWidth(i, 4500);
+			}
 
-	        Row numberRow = sheet.createRow(rowNum++);
-	        for (int i = 0; i < tableCols.length; i++) {
-	            Cell numCell = numberRow.createCell(i);
-	            numCell.setCellValue(i + 1);
-	            numCell.setCellStyle(tableHeader);
-	        }
+			Row numberRow = sheet.createRow(rowNum++);
+			for (int i = 0; i < tableCols.length; i++) {
+				Cell numCell = numberRow.createCell(i);
+				numCell.setCellValue(i + 1);
+				numCell.setCellStyle(tableHeader);
+			}
 
-	        int serial = 1;
-	        double[] overallTotals = new double[8];
+			int serial = 1;
+			double[] overallTotals = new double[8];
 
-	        // === CATEGORY LOOP USING FIXED ORDER ===
-	        for (String categoryKey : CATEGORY_ORDER) {
+			// === CATEGORY LOOP USING FIXED ORDER ===
+			for (String categoryKey : CATEGORY_ORDER) {
 
-	            if (!grouped.containsKey(categoryKey)) continue;
+				if (!grouped.containsKey(categoryKey))
+					continue;
 
-	            List<AccountsEntity> list = grouped.get(categoryKey);
+				List<AccountsEntity> list = grouped.get(categoryKey);
 
-	            Row catRow = sheet.createRow(rowNum++);
-	            Cell catCell = catRow.createCell(0);
-	            catCell.setCellValue(CATEGORY_DISPLAY.getOrDefault(categoryKey, categoryKey));
-	            catCell.setCellStyle(sectionHeader);
-	            sheet.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 11));
+				Row catRow = sheet.createRow(rowNum++);
+				Cell catCell = catRow.createCell(0);
+				catCell.setCellValue(CATEGORY_DISPLAY.getOrDefault(categoryKey, categoryKey));
+				catCell.setCellStyle(sectionHeader);
+				sheet.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 11));
 
-	            double[] categorySum = new double[8];
+				double[] categorySum = new double[8];
 
-	            for (AccountsEntity e : list) {
-	                JsonNode d = e.getAccountsData();
-	                Row r = sheet.createRow(rowNum++);
-	                int c = 0;
+				for (AccountsEntity e : list) {
+					JsonNode d = e.getAccountsData();
+					Row r = sheet.createRow(rowNum++);
+					int c = 0;
 
-	                r.createCell(c).setCellValue(serial++);
-	                r.getCell(c++).setCellStyle(dataCell);
+					r.createCell(c).setCellValue(serial++);
+					r.getCell(c++).setCellStyle(dataCell);
 
-	                r.createCell(c).setCellValue(d.path("projectName").asText(""));
-	                r.getCell(c++).setCellStyle(dataCell);
+					r.createCell(c).setCellValue(d.path("projectName").asText(""));
+					r.getCell(c++).setCellStyle(dataCell);
 
-	                r.createCell(c).setCellValue(d.path("district").asText(""));
-	                r.getCell(c++).setCellStyle(dataCell);
+					r.createCell(c).setCellValue(d.path("district").asText(""));
+					r.getCell(c++).setCellStyle(dataCell);
 
-	                double[] vals = {
-	                        d.path("sanctionedCost").asDouble(0),
-	                        d.path("expenditureTillNow").asDouble(0),
-	                        d.path("remainingCost").asDouble(0),
-	                        d.path("budget2025_26").asDouble(0),
-	                        d.path("fundReceived2025_26").asDouble(0),
-	                        d.path("expenditure2025_26").asDouble(0),
-	                        d.path("balanceFund2025_26").asDouble(0),
-	                        d.path("balanceProvision2025_26").asDouble(0)
-	                };
+					double[] vals = { d.path("sanctionedCost").asDouble(0), d.path("expenditureTillNow").asDouble(0),
+							d.path("remainingCost").asDouble(0), d.path("budget2025_26").asDouble(0),
+							d.path("fundReceived2025_26").asDouble(0), d.path("expenditure2025_26").asDouble(0),
+							d.path("balanceFund2025_26").asDouble(0), d.path("balanceProvision2025_26").asDouble(0) };
 
-	                for (int i = 0; i < vals.length; i++) {
-	                    categorySum[i] += vals[i];
-	                    overallTotals[i] += vals[i];
-	                    Cell cell = r.createCell(c++);
-	                    cell.setCellValue(vals[i]);
-	                    cell.setCellStyle(dataCell);
-	                }
+					for (int i = 0; i < vals.length; i++) {
+						categorySum[i] += vals[i];
+						overallTotals[i] += vals[i];
+						Cell cell = r.createCell(c++);
+						cell.setCellValue(vals[i]);
+						cell.setCellStyle(dataCell);
+					}
 
-	                r.createCell(c).setCellValue(d.path("remarks").asText(""));
-	                r.getCell(c).setCellStyle(dataCell);
-	            }
+					r.createCell(c).setCellValue(d.path("remarks").asText(""));
+					r.getCell(c).setCellStyle(dataCell);
+				}
 
-	            // === Category Total Row ===
-	            Row sumRow = sheet.createRow(rowNum++);
-	            Cell label = sumRow.createCell(0);
-	            label.setCellValue("एकूण " +
-	                    CATEGORY_TOTAL_NAMES.getOrDefault(categoryKey, ""));
-	            label.setCellStyle(sumRowStyle);
-	            sheet.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 2));
+				// === Category Total Row ===
+				Row sumRow = sheet.createRow(rowNum++);
+				Cell label = sumRow.createCell(0);
+				label.setCellValue("एकूण " + CATEGORY_TOTAL_NAMES.getOrDefault(categoryKey, ""));
+				label.setCellStyle(sumRowStyle);
+				sheet.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 2));
 
-	            int c2 = 3;
-	            for (double v : categorySum) {
-	                Cell cell = sumRow.createCell(c2++);
-	                cell.setCellValue(v);
-	                cell.setCellStyle(sumRowStyle);
-	            }
+				int c2 = 3;
+				for (double v : categorySum) {
+					Cell cell = sumRow.createCell(c2++);
+					cell.setCellValue(v);
+					cell.setCellStyle(sumRowStyle);
+				}
 
-	            rowNum++;
-	        }
+				rowNum++;
+			}
 
-	        // === Overall Total Row ===
-	        Row totalRow = sheet.createRow(rowNum++);
-	        Cell tLabel = totalRow.createCell(0);
-	        tLabel.setCellValue("एकूण एकंदर");
-	        tLabel.setCellStyle(sumRowStyle);
-	        sheet.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 2));
+			// === Overall Total Row ===
+			Row totalRow = sheet.createRow(rowNum++);
+			Cell tLabel = totalRow.createCell(0);
+			tLabel.setCellValue("एकूण एकंदर");
+			tLabel.setCellStyle(sumRowStyle);
+			sheet.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 2));
 
-	        int c = 3;
-	        for (double v : overallTotals) {
-	            Cell cell = totalRow.createCell(c++);
-	            cell.setCellValue(v);
-	            cell.setCellStyle(sumRowStyle);
-	        }
+			int c = 3;
+			for (double v : overallTotals) {
+				Cell cell = totalRow.createCell(c++);
+				cell.setCellValue(v);
+				cell.setCellStyle(sumRowStyle);
+			}
 
-	        wb.write(out);
-	        ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
-	        String filename = "Accounts-PIPC-" + year + ".xlsx";
+			wb.write(out);
+			ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+			String filename = "Accounts-PIPC-" + year + ".xlsx";
 
-	        return ResponseEntity.ok()
-	                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
-	                .contentType(MediaType.parseMediaType(
-	                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-	                .body(new InputStreamResource(in));
-	    }
+			return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
+					.contentType(MediaType
+							.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+					.body(new InputStreamResource(in));
+		}
 	}
 
+	private static final Map<String, String> CATEGORY_DISPLAY = Map.of("majorProjects",
+			"मोठे प्रकल्प - लेखाशिर्ष 4700 0096", "expansionAndImprovement", "विस्तार व सुधारणा - लेखाशिर्ष 4700 0238",
+			"damSafety", "धरण सुरक्षितता - लेखाशिर्ष 2700 0154", "mediumProjects",
+			"मध्यम प्रकल्प - लेखाशिर्ष 4701 H629", "pmksy", "प्रधानमंत्री कृषि सिंचाई योजना (PMKSY)", "pmksyCADA",
+			"प्रधानमंत्री कृषि सिंचाई योजना (PMKSY)(CADA)");
 
-	private static final Map<String, String> CATEGORY_DISPLAY = Map.of(
-	        "majorProjects", "मोठे प्रकल्प - लेखाशिर्ष 4700 0096",
-	        "expansionAndImprovement", "विस्तार व सुधारणा - लेखाशिर्ष 4700 0238",
-	        "damSafety", "धरण सुरक्षितता - लेखाशिर्ष 2700 0154",
-	        "mediumProjects", "मध्यम प्रकल्प - लेखाशिर्ष 4701 H629",
-	        "pmksy", "प्रधानमंत्री कृषि सिंचाई योजना (PMKSY)",
-	        "pmksyCADA", "प्रधानमंत्री कृषि सिंचाई योजना (PMKSY)(CADA)"
-	);
-
-	private static final Map<String, String> CATEGORY_TOTAL_NAMES = Map.of(
-	        "majorProjects", "मोठे प्रकल्प",
-	        "expansionAndImprovement", "विस्तार व सुधारणा",
-	        "damSafety", "धरण सुरक्षितता",
-	        "mediumProjects", "मध्यम प्रकल्प",
-	        "pmksy", "प्रधानमंत्री कृषि सिंचाई योजना (PMKSY)",
-	        "pmksyCADA", "प्रधानमंत्री कृषि सिंचाई योजना (PMKSY)(CADA)"
-	);
+	private static final Map<String, String> CATEGORY_TOTAL_NAMES = Map.of("majorProjects", "मोठे प्रकल्प",
+			"expansionAndImprovement", "विस्तार व सुधारणा", "damSafety", "धरण सुरक्षितता", "mediumProjects",
+			"मध्यम प्रकल्प", "pmksy", "प्रधानमंत्री कृषि सिंचाई योजना (PMKSY)", "pmksyCADA",
+			"प्रधानमंत्री कृषि सिंचाई योजना (PMKSY)(CADA)");
 
 	@Override
 	public Map<String, Object> getAllAccountsByYear(String year) {
 		// TODO Auto-generated method stub
 		return null;
 	}
+
+	@Override
+	public PendingParaResponse savePendingPara(PendingParaRequest request) {
+
+		PendingParaResponse response = new PendingParaResponse();
+		ApplicationError error = new ApplicationError();
+		String userFromMDC = MDC.get("user");
+		final String currentUser = (userFromMDC != null) ? userFromMDC : "SYSTEM";
+		ObjectMapper mapper = new ObjectMapper();
+
+		try {
+
+			for (PendingParaRow row : request.getRows()) {
+
+				Optional<PendingParaEntity> dbRecord = pendingParaRepo.findByRowIdAndYear(row.getRowId(),
+						request.getYear());
+
+				// Convert MAP → JsonNode
+				JsonNode newJsonNode = mapper.valueToTree(row.getData());
+
+				// ---------------------- DELETE ----------------------
+				if ("D".equalsIgnoreCase(row.getFlag()) && row.getDeleteId() != null) {
+					pendingParaRepo.deleteByDeleteIdAndYear(row.getDeleteId(), request.getYear());
+					continue;
+				}
+
+				// ---------------------- CREATE ----------------------
+				if (dbRecord.isEmpty()) {
+
+					PendingParaEntity newRecord = new PendingParaEntity();
+					newRecord.setRowId(row.getRowId());
+					newRecord.setDeleteId(row.getDeleteId());
+					newRecord.setYear(request.getYear());
+					newRecord.setFlag("C");
+					newRecord.setData(newJsonNode);
+					newRecord.setUpdatedAt(LocalDateTime.now());
+					newRecord.setUpdatedBy(currentUser);
+					newRecord.setCreatedAt(LocalDateTime.now());
+					newRecord.setCreatedBy(currentUser);
+
+					pendingParaRepo.save(newRecord);
+					continue;
+				}
+
+				// ---------------------- UPDATE ----------------------
+				PendingParaEntity existing = dbRecord.get();
+				JsonNode oldJsonNode = existing.getData();
+
+				// Compare JSON nodes
+				if (!oldJsonNode.equals(newJsonNode)) {
+					existing.setData(newJsonNode); // ✔ JsonNode updated
+					existing.setFlag("U");
+					existing.setUpdatedBy(currentUser);
+					existing.setUpdatedAt(LocalDateTime.now());
+
+					pendingParaRepo.save(existing);
+				}
+			}
+			error.setErrorCode("200");
+			error.setErrorDescription("Processed Successfully");
+			response.setErrorDetails(error);
+
+		} catch (Exception e) {
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+			response.setErrorDetails(error);
+		}
+
+		return response;
+	}
+
+	@Override
+	public PendingParaResponse getAllPendingPara(Integer year) {
+		PendingParaResponse res = new PendingParaResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+			List<PendingParaEntity> list = pendingParaRepo.findAllByYear(year);
+			res.setData(list);
+			error.setErrorCode("200");
+			error.setErrorDescription("Fetched Successfully");
+		} catch (Exception e) {
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+		}
+		res.setErrorDetails(error);
+		return res;
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadPendingPara(Integer year) throws IOException {
+
+	    List<PendingParaEntity> list = pendingParaRepo.findAllByYear(year);
+
+	    XSSFWorkbook workbook = new XSSFWorkbook();
+	    XSSFSheet sheet = workbook.createSheet("Pending Paras");
+
+	    // ---------------- TITLE STYLE ----------------
+	    CellStyle titleStyle = workbook.createCellStyle();
+	    XSSFFont titleFont = workbook.createFont();
+	    titleFont.setFontHeight(16);
+	    titleFont.setBold(true);
+	    titleStyle.setFont(titleFont);
+	    titleStyle.setAlignment(HorizontalAlignment.CENTER);
+	    titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+	    // ---------------- HEADER STYLE ----------------
+	    CellStyle headerStyle = workbook.createCellStyle();
+	    XSSFFont headerFont = workbook.createFont();
+	    headerFont.setBold(true);
+	    headerStyle.setFont(headerFont);
+	    headerStyle.setAlignment(HorizontalAlignment.CENTER);
+	    headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+	    headerStyle.setBorderBottom(BorderStyle.THIN);
+	    headerStyle.setBorderTop(BorderStyle.THIN);
+	    headerStyle.setBorderLeft(BorderStyle.THIN);
+	    headerStyle.setBorderRight(BorderStyle.THIN);
+
+	    // ---------------- ROW STYLE ----------------
+	    CellStyle rowStyle = workbook.createCellStyle();
+	    rowStyle.setBorderBottom(BorderStyle.THIN);
+	    rowStyle.setBorderTop(BorderStyle.THIN);
+	    rowStyle.setBorderLeft(BorderStyle.THIN);
+	    rowStyle.setBorderRight(BorderStyle.THIN);
+	    rowStyle.setAlignment(HorizontalAlignment.LEFT);
+
+	    // ---------------- COLUMN HEADER TITLES ----------------
+	    String[] columns = {
+	            "Sr. No.", "Para No/Year", "Division/Project", "Para In Brief",
+	            "EE", "SE", "CE", "ED", "Reference of Report Sent", "Pending With"
+	    };
+
+	    int totalColumns = columns.length;
+
+	    // ---------------- TITLE ROW (MERGED + STYLED) ----------------
+	    Row titleRow = sheet.createRow(0);
+	    Cell titleCell = titleRow.createCell(0);
+	    titleCell.setCellValue("Abstract of Pending Paras");
+	    titleCell.setCellStyle(titleStyle);
+
+	    // Merge across all columns
+	    sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, totalColumns - 1));
+
+	    // Adjust height
+	    titleRow.setHeight((short) 500);
+
+	    // ---------------- HEADER ROW ----------------
+	    Row headerRow = sheet.createRow(1);
+
+	    for (int i = 0; i < totalColumns; i++) {
+	        Cell cell = headerRow.createCell(i);
+	        cell.setCellValue(columns[i]);
+	        cell.setCellStyle(headerStyle);
+	    }
+
+	    // ---------------- INSERT DATA ROWS ----------------
+	    int rowIndex = 2;
+
+	    for (PendingParaEntity entity : list) {
+
+	        JsonNode data = entity.getData();
+	        Row row = sheet.createRow(rowIndex++);
+
+	        writeCell(row, 0, data.get("srNo").asInt(), rowStyle);
+	        writeCell(row, 1, data.get("paraNoYear").asText(), rowStyle);
+	        writeCell(row, 2, data.get("divisionProject").asText(), rowStyle);
+	        writeCell(row, 3, data.get("paraInBrief").asText(), rowStyle);
+	        writeCell(row, 4, data.get("ee").asText(), rowStyle);
+	        writeCell(row, 5, data.get("se").asText(), rowStyle);
+	        writeCell(row, 6, data.get("ce").asText(), rowStyle);
+	        writeCell(row, 7, data.get("ed").asText(), rowStyle);
+	        writeCell(row, 8, data.get("referenceReportSent").asText(), rowStyle);
+	        writeCell(row, 9, data.get("pendingWith").asText(), rowStyle);
+	    }
+
+	    // ---------------- AUTO SIZE ----------------
+	    for (int i = 0; i < totalColumns; i++) {
+	        sheet.autoSizeColumn(i);
+	    }
+
+	    // ---------------- WRITE STREAM ----------------
+	    ByteArrayOutputStream out = new ByteArrayOutputStream();
+	    workbook.write(out);
+	    workbook.close();
+
+	    ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+
+	    // ---------------- SEND RESPONSE FROM SERVICE ----------------
+	    HttpHeaders headers = new HttpHeaders();
+	    headers.add("Content-Disposition", "attachment; filename=pending_paras.xlsx");
+
+	    return ResponseEntity.ok()
+	            .headers(headers)
+	            .contentType(MediaType.parseMediaType(
+	                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+	            .body(new InputStreamResource(in));
+	}
+
+	// --- HELPER METHODS ---
+	private void writeCell(Row row, int col, String value, CellStyle style) {
+	    Cell cell = row.createCell(col);
+	    cell.setCellValue(value);
+	    cell.setCellStyle(style);
+	}
+
+	private void writeCell(Row row, int col, int value, CellStyle style) {
+	    Cell cell = row.createCell(col);
+	    cell.setCellValue(value);
+	    cell.setCellStyle(style);
+	}
+
 
 }

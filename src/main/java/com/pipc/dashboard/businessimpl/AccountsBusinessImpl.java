@@ -2,17 +2,16 @@ package com.pipc.dashboard.businessimpl;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 
 import org.springframework.core.io.InputStreamResource;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
-import com.pipc.dashboard.accounts.repository.AccountsEntity;
 import com.pipc.dashboard.accounts.request.AccountsRequest;
+import com.pipc.dashboard.accounts.request.PendingParaRequest;
 import com.pipc.dashboard.accounts.response.AccountsResponse;
+import com.pipc.dashboard.accounts.response.PendingParaResponse;
 import com.pipc.dashboard.business.AccountsBusiness;
 import com.pipc.dashboard.service.AcountService;
 
@@ -54,6 +53,21 @@ public class AccountsBusinessImpl implements AccountsBusiness {
 	@Override
 	public Map<String, Object> getAllAccountsByYear(int page, int size, String year) {
 		return accountService.getAllAccountsByYear(page, size, year);
+	}
+
+	@Override
+	public PendingParaResponse savePendingPara(PendingParaRequest request) {
+		return accountService.savePendingPara(request);
+	}
+
+	@Override
+	public PendingParaResponse getAllPendingPara(Integer year) {
+		return accountService.getAllPendingPara(year);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadPendingPara(Integer year)throws IOException {
+		return accountService.downloadPendingPara(year);
 	}
 
 }
