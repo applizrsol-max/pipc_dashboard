@@ -59,6 +59,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pipc.dashboard.establishment.repository.AgendaOfficerEntity;
 import com.pipc.dashboard.establishment.repository.AgendaOfficerRepository;
@@ -1837,10 +1838,45 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 		AgendaResponse response = new AgendaResponse();
 		ApplicationError error = new ApplicationError();
+		ObjectMapper mapper = new ObjectMapper();
 
 		try {
+
 			List<AgendaOfficerEntity> list = agendaOfficerRepository.findByYearAndTargetDate(year, targetDate);
 
+			// ========== MAIN TRANSFORMATION ==========
+			list.forEach(entity -> {
+
+				JsonNode columnData = entity.getColumnData();
+				ObjectNode columnObj = (ObjectNode) columnData;
+
+				if (columnObj.has("gopniyaAhawalList")) {
+
+					ArrayNode ahawalList = (ArrayNode) columnObj.get("gopniyaAhawalList");
+
+					// This object will contain ALL merged fields
+					ObjectNode mergedObj = mapper.createObjectNode();
+
+					ahawalList.forEach(item -> {
+
+						String yearKey = item.get("varsh").asText();
+
+						mergedObj.put(yearKey + "_sachoti", item.get("sachoti").asText());
+						mergedObj.put(yearKey + "_pratavaari", item.get("pratavaari").asText());
+						mergedObj.put(yearKey + "_prakrutiman", item.get("prakrutiman").asText());
+					});
+
+					// Add merged object
+					columnObj.set("gopniyaAhawal", mergedObj);
+
+					// Remove original list
+					columnObj.remove("gopniyaAhawalList");
+
+					entity.setColumnData(columnObj);
+				}
+			});
+
+			// SUCCESS RESPONSE
 			response.setData(list);
 			response.setMessage("Success");
 
@@ -1848,9 +1884,10 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 			error.setErrorDescription("Agenda fetched successfully.");
 
 		} catch (Exception e) {
-			error.setErrorCode("500");
-			error.setErrorDescription("Error while fetching agenda: " + e.getMessage());
+
 			response.setMessage("Failed");
+			error.setErrorCode("500");
+			error.setErrorDescription("Error: " + e.getMessage());
 		}
 
 		response.setErrorDetails(error);
