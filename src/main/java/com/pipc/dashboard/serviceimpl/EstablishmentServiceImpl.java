@@ -1862,6 +1862,9 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	public ResponseEntity<InputStreamResource> downloadAgendaExcel(String year, String targetDate) throws Exception {
 
 	    List<AgendaOfficerEntity> list = agendaOfficerRepository.findByYearAndTargetDate(year, targetDate);
+	 // ===== SORT BY ROW ID =====
+	    list.sort(Comparator.comparing(AgendaOfficerEntity::getRowId));
+
 
 	    // ===== FOOTER NAME =====
 	    String footerName = "( नि.लि.हैमे )";
