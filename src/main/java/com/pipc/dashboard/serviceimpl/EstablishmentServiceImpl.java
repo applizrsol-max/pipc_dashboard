@@ -24,6 +24,7 @@ import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -59,7 +60,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pipc.dashboard.establishment.repository.AgendaOfficerEntity;
 import com.pipc.dashboard.establishment.repository.AgendaOfficerRepository;
@@ -1750,304 +1750,305 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	@Transactional
 	public AgendaResponse saveOrUpdateAgenda(AgendaRequest dto) {
 
-	    AgendaResponse response = new AgendaResponse();
-	    ApplicationError error = new ApplicationError();
+		AgendaResponse response = new AgendaResponse();
+		ApplicationError error = new ApplicationError();
 
-	    try {
+		try {
 
-	        String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-	        String year = dto.getMeta().getYear();
-	        String targetDate = dto.getMeta().getTargetDate();
+			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+			String year = dto.getMeta().getYear();
+			String targetDate = dto.getMeta().getTargetDate();
 
-	        for (AgendaRow row : dto.getRows()) {
+			for (AgendaRow row : dto.getRows()) {
 
-	            long rowId = row.getRowId();
-	            String deleteFlag = Optional.ofNullable(row.getDeleteFlag()).orElse("");
+				long rowId = row.getRowId();
+				String deleteFlag = Optional.ofNullable(row.getDeleteFlag()).orElse("");
 
-	            /*
-	             * -------------------- HARD DELETE --------------------
-	             */
-	            if ("D".equalsIgnoreCase(deleteFlag)) {
+				/*
+				 * -------------------- HARD DELETE --------------------
+				 */
+				if ("D".equalsIgnoreCase(deleteFlag)) {
 
-	                Long deleteId = row.getDeleteId();
-	                if (deleteId != null && deleteId > 0) {
+					Long deleteId = row.getDeleteId();
+					if (deleteId != null && deleteId > 0) {
 
-	                    agendaOfficerRepository
-	                        .findByDeleteIdAndYearAndTargetDate(deleteId, year, targetDate)
-	                        .ifPresent(agendaOfficerRepository::delete);
+						agendaOfficerRepository.findByDeleteIdAndYearAndTargetDate(deleteId, year, targetDate)
+								.ifPresent(agendaOfficerRepository::delete);
 
-	                    error.setErrorCode("200");
-	                    error.setErrorDescription("Deleted successfully.");
-	                }
+						error.setErrorCode("200");
+						error.setErrorDescription("Deleted successfully.");
+					}
 
-	                continue;
-	            }
+					continue;
+				}
 
-	            /*
-	             * -------------------- CREATE / UPDATE --------------------
-	             */
-	            Optional<AgendaOfficerEntity> existingOpt =
-	                    agendaOfficerRepository.findByRowIdAndYearAndTargetDate(rowId, year, targetDate);
+				/*
+				 * -------------------- CREATE / UPDATE --------------------
+				 */
+				Optional<AgendaOfficerEntity> existingOpt = agendaOfficerRepository
+						.findByRowIdAndYearAndTargetDate(rowId, year, targetDate);
 
-	            AgendaOfficerEntity entity = existingOpt.orElse(new AgendaOfficerEntity());
-	            LocalDateTime now = LocalDateTime.now();
+				AgendaOfficerEntity entity = existingOpt.orElse(new AgendaOfficerEntity());
+				LocalDateTime now = LocalDateTime.now();
 
-	            entity.setRowId(rowId);
-	            entity.setYear(year);
-	            entity.setTargetDate(targetDate);
-	            entity.setColumnData(row.getColumnData()); // DIRECT SAVE
-	            entity.setDeleteId(row.getDeleteId());
-	            entity.setUpAdhikshakAbhiyantaName(row.getUpAdhikshakAbhiyantaName());
+				entity.setRowId(rowId);
+				entity.setYear(year);
+				entity.setTargetDate(targetDate);
+				entity.setColumnData(row.getColumnData()); // DIRECT SAVE
+				entity.setDeleteId(row.getDeleteId());
+				entity.setUpAdhikshakAbhiyantaName(row.getUpAdhikshakAbhiyantaName());
 
-	            if (entity.getId() == null) {
-	                entity.setFlag("C");
-	                entity.setCreatedBy(username);
-	                entity.setCreatedAt(now);
-	            } else {
-	                entity.setFlag("U");
-	            }
+				if (entity.getId() == null) {
+					entity.setFlag("C");
+					entity.setCreatedBy(username);
+					entity.setCreatedAt(now);
+				} else {
+					entity.setFlag("U");
+				}
 
-	            entity.setUpdatedBy(username);
-	            entity.setUpdatedAt(now);
+				entity.setUpdatedBy(username);
+				entity.setUpdatedAt(now);
 
-	            agendaOfficerRepository.save(entity);
-	        }
+				agendaOfficerRepository.save(entity);
+			}
 
-	        response.setMessage("Success");
+			response.setMessage("Success");
 
-	        error.setErrorCode("200");
-	        error.setErrorDescription("Agenda saved successfully.");
+			error.setErrorCode("200");
+			error.setErrorDescription("Agenda saved successfully.");
 
-	    } catch (Exception e) {
-	        error.setErrorCode("500");
-	        error.setErrorDescription("Error: " + e.getMessage());
-	        response.setMessage("Failed");
-	    }
+		} catch (Exception e) {
+			error.setErrorCode("500");
+			error.setErrorDescription("Error: " + e.getMessage());
+			response.setMessage("Failed");
+		}
 
-	    response.setErrorDetails(error);
-	    return response;
+		response.setErrorDetails(error);
+		return response;
 	}
-
 
 	@Override
 	public AgendaResponse getAgendaByYearAndTargetDate(String year, String targetDate) {
 
-	    AgendaResponse response = new AgendaResponse();
-	    ApplicationError error = new ApplicationError();
+		AgendaResponse response = new AgendaResponse();
+		ApplicationError error = new ApplicationError();
 
-	    try {
-	        // Fetch data
-	        List<AgendaOfficerEntity> list =
-	                agendaOfficerRepository.findByYearAndTargetDate(year, targetDate);
+		try {
+			// Direct fetch from DB
+			List<AgendaOfficerEntity> list = agendaOfficerRepository.findByYearAndTargetDate(year, targetDate);
 
-	        // ---------- SORT BY rowId (ASCENDING) ----------
-	        list.sort(Comparator.comparingLong(AgendaOfficerEntity::getRowId));
+			// No transformation – return exactly what was saved
+			response.setData(list);
+			response.setMessage("Success");
 
-	        // Return sorted list
-	        response.setData(list);
-	        response.setMessage("Success");
+			error.setErrorCode("200");
+			error.setErrorDescription("Agenda fetched successfully.");
 
-	        error.setErrorCode("200");
-	        error.setErrorDescription("Agenda fetched successfully.");
+		} catch (Exception e) {
 
-	    } catch (Exception e) {
+			response.setMessage("Failed");
+			error.setErrorCode("500");
+			error.setErrorDescription("Error: " + e.getMessage());
+		}
 
-	        response.setMessage("Failed");
-	        error.setErrorCode("500");
-	        error.setErrorDescription("Error: " + e.getMessage());
-	    }
-
-	    response.setErrorDetails(error);
-	    return response;
+		response.setErrorDetails(error);
+		return response;
 	}
-
 
 	@Override
 	public ResponseEntity<InputStreamResource> downloadAgendaExcel(String year, String targetDate) throws Exception {
 
 		List<AgendaOfficerEntity> list = agendaOfficerRepository.findByYearAndTargetDate(year, targetDate);
 
-		// ======= FOOTER NAME RESOLUTION ONLY FROM ENTITY =======
+		// ===== FOOTER NAME =====
 		String footerName = "( नि.लि.हैमे )";
+		if (!list.isEmpty() && list.get(0).getUpAdhikshakAbhiyantaName() != null)
+			footerName = list.get(0).getUpAdhikshakAbhiyantaName();
 
-		if (!list.isEmpty()) {
-
-			// 1) Try direct field in entity
-			String fromEntity = list.get(0).getUpAdhikshakAbhiyantaName();
-			if (fromEntity != null && !fromEntity.isBlank()) {
-				footerName = fromEntity;
-			}
-
-			// 2) Try inside columnData JSON
-			else {
-				JsonNode cd = list.get(0).getColumnData();
-				if (cd != null && cd.has("upAdhikshakAbhiyantaName")) {
-					String fromJson = cd.get("upAdhikshakAbhiyantaName").asText();
-					if (fromJson != null && !fromJson.isBlank()) {
-						footerName = fromJson;
-					}
-				}
-			}
-		}
-
-		// ---------- build workbook ----------
 		XSSFWorkbook workbook = new XSSFWorkbook();
-		XSSFSheet sheet = workbook.createSheet("Agenda Officers");
+		XSSFSheet sheet = workbook.createSheet("Agenda");
 
-		// ====== COMMON STYLES ======
-		CellStyle headerStyle = workbook.createCellStyle();
-		headerStyle.setAlignment(HorizontalAlignment.CENTER);
-		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-		headerStyle.setWrapText(true);
-		headerStyle.setBorderBottom(BorderStyle.THIN);
-		headerStyle.setBorderTop(BorderStyle.THIN);
-		headerStyle.setBorderLeft(BorderStyle.THIN);
-		headerStyle.setBorderRight(BorderStyle.THIN);
+		// ===== SMALL FONT (for all content) =====
+		Font smallFont = workbook.createFont();
+		smallFont.setFontHeightInPoints((short) 10);
 
-		CellStyle borderStyle = workbook.createCellStyle();
-		borderStyle.setBorderBottom(BorderStyle.THIN);
-		borderStyle.setBorderTop(BorderStyle.THIN);
-		borderStyle.setBorderLeft(BorderStyle.THIN);
-		borderStyle.setBorderRight(BorderStyle.THIN);
-		borderStyle.setWrapText(true);
+		// ===== TITLE NO-BORDER STYLE =====
+		CellStyle noBorder = workbook.createCellStyle();
+		noBorder.setAlignment(HorizontalAlignment.CENTER);
+		noBorder.setVerticalAlignment(VerticalAlignment.CENTER);
+		Font titleFont = workbook.createFont();
+		titleFont.setBold(true);
+		titleFont.setFontHeightInPoints((short) 14);
+		noBorder.setFont(titleFont);
+		noBorder.setWrapText(true);
+
+		// ===== CENTER BORDER STYLE =====
+		CellStyle center = workbook.createCellStyle();
+		center.setAlignment(HorizontalAlignment.CENTER);
+		center.setVerticalAlignment(VerticalAlignment.CENTER);
+		center.setBorderBottom(BorderStyle.THIN);
+		center.setBorderTop(BorderStyle.THIN);
+		center.setBorderLeft(BorderStyle.THIN);
+		center.setBorderRight(BorderStyle.THIN);
+		center.setWrapText(true);
+		center.setFont(smallFont);
+
+		// ===== FULL BORDER STYLE =====
+		CellStyle fullBorder = workbook.createCellStyle();
+		fullBorder.cloneStyleFrom(center);
+		fullBorder.setFont(smallFont);
+
+		// ===== BOLD HEADER BORDER STYLE =====
+		CellStyle boldHeader = workbook.createCellStyle();
+		boldHeader.cloneStyleFrom(center);
+		Font boldHeaderFont = workbook.createFont();
+		boldHeaderFont.setBold(true);
+		boldHeaderFont.setFontHeightInPoints((short) 11);
+		boldHeader.setFont(boldHeaderFont);
+
+		// ===== LEFT ALIGN =====
+		CellStyle leftAlign = workbook.createCellStyle();
+		leftAlign.setAlignment(HorizontalAlignment.LEFT);
+		leftAlign.setVerticalAlignment(VerticalAlignment.CENTER);
+		leftAlign.setWrapText(true);
+		leftAlign.setFont(smallFont);
+
+		// ===== RIGHT ALIGN =====
+		CellStyle rightAlign = workbook.createCellStyle();
+		rightAlign.setAlignment(HorizontalAlignment.RIGHT);
+		rightAlign.setVerticalAlignment(VerticalAlignment.CENTER);
+		rightAlign.setWrapText(true);
+		rightAlign.setFont(smallFont);
+
+		// ===== FOOTER BOLD RIGHT STYLE =====
+		CellStyle footerStyle = workbook.createCellStyle();
+		footerStyle.setAlignment(HorizontalAlignment.RIGHT);
+		footerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		footerStyle.setWrapText(true);
+		Font footFont = workbook.createFont();
+		footFont.setBold(true);
+		footFont.setFontHeightInPoints((short) 11);
+		footerStyle.setFont(footFont);
 
 		int rowIdx = 0;
 
-		// ---------------------------------------------------
-		// 🟦 TITLE ROWS
-		// ---------------------------------------------------
-		Row t1 = sheet.createRow(rowIdx++);
-		t1.createCell(0).setCellValue("परिशिष्ट-ब");
-		sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 10));
-
-		Row t2 = sheet.createRow(rowIdx++);
-		t2.createCell(0).setCellValue("1 ऑगस्ट रोजी वयाची 49/ 54 वर्षे पूर्ण झालेल्या गट-अ मधील शासकीय अधिकारी");
-		sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 10));
-
-		Row t3 = sheet.createRow(rowIdx++);
-		t3.createCell(0).setCellValue("विभागाचे नाव- जलसंपदा विभाग.");
-		sheet.addMergedRegion(new CellRangeAddress(2, 2, 0, 10));
-
-		Row t4 = sheet.createRow(rowIdx++);
-		t4.createCell(0).setCellValue("मंडळ कार्यालयाचे नाव- अधीक्षक अभियंता, पुणे पाटबंधारे प्रकल्प मंडळ, पुणे");
-		sheet.addMergedRegion(new CellRangeAddress(3, 3, 0, 10));
-
-		Row t5 = sheet.createRow(rowIdx++);
-		t5.createCell(0).setCellValue("पदनाम- उपविभागीय अभियंता.");
-		sheet.addMergedRegion(new CellRangeAddress(4, 4, 0, 10));
+		// =================== TITLE SECTION (NO BORDERS) ===================
+		rowIdx = merged(sheet, rowIdx, "परिशिष्ट-ब", noBorder, 10);
+		rowIdx = merged(sheet, rowIdx, "1 ऑगस्ट रोजी वयाची 49/ 54 वर्षे पूर्ण झालेले गट-अ मधील शासकीय अधिकारी",
+				noBorder, 10);
+		rowIdx = merged(sheet, rowIdx, "विभागाचे नाव- जलसंपदा विभाग.", noBorder, 10);
+		rowIdx = merged(sheet, rowIdx, "मंडळ कार्यालयाचे नाव- अधीक्षक अभियंता, पुणे पाटबंधारे प्रकल्प मंडळ,पुणे",
+				leftAlign, 10);
+		rowIdx = merged(sheet, rowIdx, "पदनाम- उपविभागीय अभियंता.", leftAlign, 10);
 
 		rowIdx++;
 
-		// ---------------------------------------------------
-		// 🟦 MAIN TABLE HEADER (TWO ROWS)
-		// ---------------------------------------------------
-		Row hdr1 = sheet.createRow(rowIdx++);
-		Row hdr2 = sheet.createRow(rowIdx++);
+		// =================== HEADER ROWS ===================
+		Row h1 = sheet.createRow(rowIdx++);
+		Row h2 = sheet.createRow(rowIdx++);
 
-		String[] h1 = { "अ. क्र.", "अधिकारी नाव", "पदनाम", "जन्मतारखेचा वर्ष", "सेवेतिल प्रथम नियुक्ती दिनांक",
-				"झालेली एकुण सेवा", "विभागीय चौकशी सुरु / प्रस्तावित", "", "गोपनीय अहवालातील बाबी." };
+		String[] mainHeaders = { "अ. क्र.", "अधिकारी नाव", "पदनाम", "जन्मतारीख व वय",
+				" सेवेतील प्रथम नियुक्तीचा दिनांक", "झालेली एकुण सेवा", "विभागीय चौकशी सुरू / प्रस्तावित",
+				"गोपनीय अहवालामधील बाबी." };
 
-		String[] h2 = { "", "", "", "", "", "", "", "गोपनीय अहवाल वर्ष", "सचोटी", "प्रकृतीमान", "प्रतवारी" };
+		String[] subHeaders = { "गोपनीय अहवाल वर्ष", "सचोटी", "प्रकृतीमान", "प्रतवारी" };
 
-		// merging
+		// Merge first 7 columns vertically
 		for (int c = 0; c <= 6; c++) {
-			sheet.addMergedRegion(new CellRangeAddress(hdr1.getRowNum(), hdr2.getRowNum(), c, c));
-		}
-		sheet.addMergedRegion(new CellRangeAddress(hdr1.getRowNum(), hdr1.getRowNum(), 7, 10));
-
-		// fill header row 1
-		for (int i = 0; i < h1.length; i++) {
-			Cell cell = hdr1.createCell(i);
-			cell.setCellValue(h1[i]);
-			cell.setCellStyle(headerStyle);
+			sheet.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c));
 		}
 
-		// fill header row 2
-		for (int i = 0; i < h2.length; i++) {
-			Cell cell = hdr2.createCell(i + 7);
-			cell.setCellValue(h2[i]);
-			cell.setCellStyle(headerStyle);
+		// Merge header group (7-10)
+		sheet.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h1.getRowNum(), 7, 10));
+
+		// Fill header row 1
+		for (int i = 0; i < mainHeaders.length; i++) {
+			Cell cell = h1.createCell(i);
+			cell.setCellValue(mainHeaders[i]);
+			cell.setCellStyle(boldHeader);
 		}
 
-		// ---------------------------------------------------
-		// 🟦 DATA ROWS
-		// ---------------------------------------------------
+		// Fill header row 2
+		for (int i = 0; i < subHeaders.length; i++) {
+			Cell cell = h2.createCell(i + 7);
+			cell.setCellValue(subHeaders[i]);
+			cell.setCellStyle(boldHeader);
+		}
+
+		// ===== Ensure merged header block has complete border =====
+		for (int c = 7; c <= 10; c++) {
+			Cell cell = h1.getCell(c);
+			if (cell == null)
+				cell = h1.createCell(c);
+			cell.setCellStyle(boldHeader);
+		}
+
+		// =================== DATA ROWS ===================
 		for (AgendaOfficerEntity entity : list) {
 
-			JsonNode data = entity.getColumnData();
-			JsonNode gList = (data != null && data.has("gopniyaAhawalList")) ? data.get("gopniyaAhawalList") : null;
+			JsonNode cd = entity.getColumnData();
+			JsonNode g = cd.get("gopniyaAhawal");
 
-			int gSize = (gList != null && gList.isArray()) ? gList.size() : 1;
+			String[] years = g.get("varsh").asText().split(",");
+			String[] sachoti = g.get("sachoti").asText().split(",");
+			String[] prakrutiman = g.get("prakrutiman").asText().split(",");
+			String[] pratavaari = g.get("pratavaari").asText().split(",");
 
-			if (gSize > 1) {
+			int n = years.length;
+
+			// Merge left fixed block
+			if (n > 1) {
 				for (int c = 0; c <= 6; c++) {
-					sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx + gSize - 1, c, c));
+					sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx + n - 1, c, c));
 				}
 			}
 
 			Row r = sheet.createRow(rowIdx);
 
-			r.createCell(0).setCellValue(data.get("kramank").asInt());
-			r.createCell(1).setCellValue(data.get("adhikariNav").asText());
-			r.createCell(2).setCellValue(data.get("padnaam").asText());
-			r.createCell(3).setCellValue(data.get("janmaTarikh").asText());
-			r.createCell(4).setCellValue(data.get("sevetIlPrathamNiyuktiDinank").asText());
-			r.createCell(5).setCellValue(data.get("jhaleliEkunaSeva").asText());
-			r.createCell(6).setCellValue(data.get("vibhagiyaChokashiStatus").asText());
+			r.createCell(0).setCellValue(cd.get("kramank").asInt());
+			r.createCell(1).setCellValue(cd.get("adhikariNav").asText());
+			r.createCell(2).setCellValue(cd.get("padnaam").asText());
+			r.createCell(3).setCellValue(cd.get("janmaTarikh").asText());
+			r.createCell(4).setCellValue(cd.get("sevetIlPrathamNiyuktiDinank").asText());
+			r.createCell(5).setCellValue(cd.get("jhaleliEkunaSeva").asText());
+			r.createCell(6).setCellValue(cd.get("vibhagiyaChokashiStatus").asText());
 
-			if (gList != null && gList.size() > 0) {
-				JsonNode g0 = gList.get(0);
-				r.createCell(7).setCellValue(g0.get("varsh").asText());
-				r.createCell(8).setCellValue(g0.get("sachoti").asText());
-				r.createCell(9).setCellValue(g0.get("prakrutiman").asText());
-				r.createCell(10).setCellValue(g0.get("pratavaari").asText());
-			}
+			r.createCell(7).setCellValue(years[0].trim());
+			r.createCell(8).setCellValue(sachoti[0].trim());
+			r.createCell(9).setCellValue(prakrutiman[0].trim());
+			r.createCell(10).setCellValue(pratavaari[0].trim());
 
-			for (int i = 1; i < gSize; i++) {
-				JsonNode g = gList.get(i);
+			apply(fullBorder, r, 11);
+
+			for (int i = 1; i < n; i++) {
+
 				Row rr = sheet.createRow(rowIdx + i);
 
-				rr.createCell(7).setCellValue(g.get("varsh").asText());
-				rr.createCell(8).setCellValue(g.get("sachoti").asText());
-				rr.createCell(9).setCellValue(g.get("prakrutiman").asText());
-				rr.createCell(10).setCellValue(g.get("pratavaari").asText());
+				rr.createCell(7).setCellValue(years[i].trim());
+				rr.createCell(8).setCellValue(sachoti[i].trim());
+				rr.createCell(9).setCellValue(prakrutiman[i].trim());
+				rr.createCell(10).setCellValue(pratavaari[i].trim());
+
+				apply(fullBorder, rr, 11);
 			}
 
-			rowIdx += gSize;
+			rowIdx += n;
 		}
 
-		// ---------------------------------------------------
-		// 🟦 FOOTER (uses value from AgendaOfficerEntity)
-		// ---------------------------------------------------
+		// =================== FOOTER ===================
 		rowIdx += 2;
 
-		Row f1 = sheet.createRow(rowIdx++);
-		f1.createCell(0).setCellValue("सल्ला प्र.अ.अ.यांना माघ्य असे.");
-		sheet.addMergedRegion(new CellRangeAddress(f1.getRowNum(), f1.getRowNum(), 0, 10));
-
+		footerName = "(" + footerName + ")";
+		rowIdx = merged(sheet, rowIdx, "स्थळ प्रत अ.अ.यांना मान्य असे.", leftAlign, 3);
 		rowIdx++;
+		rowIdx = merged(sheet, rowIdx, footerName, footerStyle, 10);
+		rowIdx = merged(sheet, rowIdx, "उप अधीक्षक अभियंता", footerStyle, 10);
+		rowIdx = merged(sheet, rowIdx, "पुणे पाटबंधारे प्रकल्प मंडळ", footerStyle, 10);
+		rowIdx = merged(sheet, rowIdx, "पुणे.", footerStyle, 10);
 
-		Row f2 = sheet.createRow(rowIdx++);
-		f2.createCell(0).setCellValue(footerName);
-		sheet.addMergedRegion(new CellRangeAddress(f2.getRowNum(), f2.getRowNum(), 0, 10));
-
-		Row f3 = sheet.createRow(rowIdx++);
-		f3.createCell(0).setCellValue("उप अधीक्षक अभियंता");
-		sheet.addMergedRegion(new CellRangeAddress(f3.getRowNum(), f3.getRowNum(), 0, 10));
-
-		Row f4 = sheet.createRow(rowIdx++);
-		f4.createCell(0).setCellValue("पुणे पाटबंधारे प्रकल्प मंडळ");
-		sheet.addMergedRegion(new CellRangeAddress(f4.getRowNum(), f4.getRowNum(), 0, 10));
-
-		Row f5 = sheet.createRow(rowIdx++);
-		f5.createCell(0).setCellValue("पुणे.");
-		sheet.addMergedRegion(new CellRangeAddress(f5.getRowNum(), f5.getRowNum(), 0, 10));
-
-		// Autosize columns
-		for (int i = 0; i <= 10; i++)
+		for (int i = 0; i <= 11; i++)
 			sheet.autoSizeColumn(i);
 
-		// Return file
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		workbook.write(out);
 		workbook.close();
@@ -2060,16 +2061,22 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				.body(new InputStreamResource(in));
 	}
 
-	// helper for merged row
-	private int createMergedRow(Sheet sheet, int rowIdx, String text, int lastCol) {
+	private int merged(Sheet sheet, int rowIdx, String text, CellStyle style, int lastCol) {
 		Row r = sheet.createRow(rowIdx);
-		r.createCell(0).setCellValue(text);
+		Cell c = r.createCell(0);
+		c.setCellValue(text);
+		c.setCellStyle(style);
 		sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, lastCol));
 		return rowIdx + 1;
 	}
 
-	private String convertKey(String key) {
-		return Character.toUpperCase(key.charAt(0)) + key.substring(1).replaceAll("([a-z])([A-Z])", "$1 $2");
+	private void apply(CellStyle st, Row r, int colCount) {
+		for (int c = 0; c < colCount; c++) {
+			Cell cl = r.getCell(c);
+			if (cl == null)
+				cl = r.createCell(c);
+			cl.setCellStyle(st);
+		}
 	}
 
 }
