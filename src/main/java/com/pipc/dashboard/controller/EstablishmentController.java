@@ -158,5 +158,10 @@ public class EstablishmentController {
 
 		return establishmentBusiness.downloadAgendaExcel(year, targetDate);
 	}
+	
+//	 @PostMapping("/saveOrUpdateAgendaSec")
+//	    public AgendaSecResponse save(@RequestBody AgendaSecRequest request) {
+//	        return service.saveOrUpdateAgendaSec(request);
+//	    }
 
 }
