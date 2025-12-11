@@ -14,6 +14,7 @@ import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
 import com.pipc.dashboard.establishment.request.PassportNocRequest;
+import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
@@ -22,6 +23,7 @@ import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
 import com.pipc.dashboard.establishment.response.LeaveResponse;
 import com.pipc.dashboard.establishment.response.MedicalBillResponse;
 import com.pipc.dashboard.establishment.response.PassportNocResponse;
+import com.pipc.dashboard.establishment.response.ThirteenResponse;
 
 public interface EstablishmentBusiness {
 
@@ -67,5 +69,11 @@ public interface EstablishmentBusiness {
 	AgendaSecResponse getAgendaSecByYearAndTargetDate(String year, String targetDate, String section);
 
 	ResponseEntity<InputStreamResource> downloadAgendaSecExcel(String year, String targetDate, String section) throws Exception;
+
+	ThirteenResponse saveOrUpdateAnukampa(ThirteenRequest req);
+
+	ThirteenResponse getAnukampaData(String year, String targetDate);
+
+	ResponseEntity<InputStreamResource> downloadAnukampaExcel(String year, String targetDate) throws Exception;
 
 }

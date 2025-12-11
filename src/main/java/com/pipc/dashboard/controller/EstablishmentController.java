@@ -22,6 +22,7 @@ import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
 import com.pipc.dashboard.establishment.request.PassportNocRequest;
+import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
@@ -30,6 +31,7 @@ import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
 import com.pipc.dashboard.establishment.response.LeaveResponse;
 import com.pipc.dashboard.establishment.response.MedicalBillResponse;
 import com.pipc.dashboard.establishment.response.PassportNocResponse;
+import com.pipc.dashboard.establishment.response.ThirteenResponse;
 
 @RestController
 @RequestMapping("/pipc/dashboard/establishment")
@@ -165,19 +167,36 @@ public class EstablishmentController {
 	public AgendaSecResponse save(@RequestBody AgendaSecRequest request) {
 		return establishmentBusiness.saveOrUpdateAgendaSec(request);
 	}
-	
-	 @GetMapping("/getAgendaSec")
-	    public AgendaSecResponse get(
-	            @RequestParam String year,
-	            @RequestParam String targetDate,@RequestParam String section) {
 
-	        return establishmentBusiness.getAgendaSecByYearAndTargetDate(year, targetDate,section);
-	    }
-	 @GetMapping("/downloadAgendaSecExcel")
-		public ResponseEntity<InputStreamResource> downloadAgendaSecExcel(@RequestParam String year,
-				@RequestParam String targetDate,@RequestParam String section) throws Exception {
+	@GetMapping("/getAgendaSec")
+	public AgendaSecResponse get(@RequestParam String year, @RequestParam String targetDate,
+			@RequestParam String section) {
 
-			return establishmentBusiness.downloadAgendaSecExcel(year, targetDate,section);
-		}
+		return establishmentBusiness.getAgendaSecByYearAndTargetDate(year, targetDate, section);
+	}
+
+	@GetMapping("/downloadAgendaSecExcel")
+	public ResponseEntity<InputStreamResource> downloadAgendaSecExcel(@RequestParam String year,
+			@RequestParam String targetDate, @RequestParam String section) throws Exception {
+
+		return establishmentBusiness.downloadAgendaSecExcel(year, targetDate, section);
+	}
+
+	@PostMapping("/saveOrUpdateAnukampa")
+	public ThirteenResponse saveOrUpdateAnukampa(@RequestBody ThirteenRequest req) {
+		return establishmentBusiness.saveOrUpdateAnukampa(req);
+	}
+
+	@GetMapping("/getAnukampaData")
+	public ThirteenResponse getAnukampaData(@RequestParam String year, @RequestParam String targetDate) {
+		return establishmentBusiness.getAnukampaData(year, targetDate);
+	}
+
+	@GetMapping("/downloadAnukampaExcel")
+	public ResponseEntity<InputStreamResource> downloadAnukampaExcel(@RequestParam String year,
+			@RequestParam String targetDate) throws Exception {
+
+		return establishmentBusiness.downloadAnukampaExcel(year, targetDate);
+	}
 
 }

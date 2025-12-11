@@ -1,10 +1,7 @@
 package com.pipc.dashboard.businessimpl;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
-import java.util.Optional;
 
-import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
@@ -12,16 +9,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import com.pipc.dashboard.business.EstablishmentBusiness;
-
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
-import com.pipc.dashboard.establishment.request.AgendaSecRow;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
 import com.pipc.dashboard.establishment.request.PassportNocRequest;
+import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
@@ -30,8 +26,8 @@ import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
 import com.pipc.dashboard.establishment.response.LeaveResponse;
 import com.pipc.dashboard.establishment.response.MedicalBillResponse;
 import com.pipc.dashboard.establishment.response.PassportNocResponse;
+import com.pipc.dashboard.establishment.response.ThirteenResponse;
 import com.pipc.dashboard.service.EstablishmentService;
-import com.pipc.dashboard.utility.ApplicationError;
 
 @Component
 public class EstablishmentBusinessImpl implements EstablishmentBusiness {
@@ -143,12 +139,28 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 
 	@Override
 	public AgendaSecResponse getAgendaSecByYearAndTargetDate(String year, String targetDate, String section) {
-		return establishmentService.getAgendaSecByYearAndTargetDate(year, targetDate,section);
+		return establishmentService.getAgendaSecByYearAndTargetDate(year, targetDate, section);
 	}
 
 	@Override
-	public ResponseEntity<InputStreamResource> downloadAgendaSecExcel(String year, String targetDate, String section) throws Exception{
-		return establishmentService.downloadAgendaSecExcel(year, targetDate,section);
+	public ResponseEntity<InputStreamResource> downloadAgendaSecExcel(String year, String targetDate, String section)
+			throws Exception {
+		return establishmentService.downloadAgendaSecExcel(year, targetDate, section);
 	}
-	
+
+	@Override
+	public ThirteenResponse saveOrUpdateAnukampa(ThirteenRequest req) {
+		return establishmentService.saveOrUpdateAnukampa(req);
+	}
+
+	@Override
+	public ThirteenResponse getAnukampaData(String year, String targetDate) {
+		return establishmentService.getAnukampaData(year, targetDate);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadAnukampaExcel(String year, String targetDate) throws Exception{
+		return establishmentService.downloadAnukampaExcel(year, targetDate);
+	}
+
 }

@@ -69,6 +69,8 @@ import com.pipc.dashboard.establishment.repository.AgendaSecBRepository;
 import com.pipc.dashboard.establishment.repository.AgendaSecDRepository;
 import com.pipc.dashboard.establishment.repository.AgendaSecEntityGATB;
 import com.pipc.dashboard.establishment.repository.AgendaSecEntityGATD;
+import com.pipc.dashboard.establishment.repository.AgendaThirteenEntity;
+import com.pipc.dashboard.establishment.repository.AgendaThirteenRepository;
 import com.pipc.dashboard.establishment.repository.AppealEntity;
 import com.pipc.dashboard.establishment.repository.AppealRepository;
 import com.pipc.dashboard.establishment.repository.ApprovalDetailsEntity;
@@ -108,6 +110,8 @@ import com.pipc.dashboard.establishment.request.LeaveRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillData;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
 import com.pipc.dashboard.establishment.request.PassportNocRequest;
+import com.pipc.dashboard.establishment.request.ThirteenRequest;
+import com.pipc.dashboard.establishment.request.ThirteenRow;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
@@ -116,6 +120,7 @@ import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
 import com.pipc.dashboard.establishment.response.LeaveResponse;
 import com.pipc.dashboard.establishment.response.MedicalBillResponse;
 import com.pipc.dashboard.establishment.response.PassportNocResponse;
+import com.pipc.dashboard.establishment.response.ThirteenResponse;
 import com.pipc.dashboard.service.EstablishmentService;
 import com.pipc.dashboard.utility.ApplicationError;
 import com.pipc.dashboard.utility.PdfUtil;
@@ -143,7 +148,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	private final AgendaOfficerRepository agendaOfficerRepository;
 	private final AgendaSecBRepository agendaSecBRepository;
 	private final AgendaSecDRepository agendaSecDRepository;
-
+	private final AgendaThirteenRepository agendaThirteenRepository;
 	private static final String TEMPLATE = "/templates/medical_bill_template.docx";
 
 	@Autowired
@@ -157,7 +162,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 			EmployeePostingRepository employeePostingRepository,
 			IncomeTaxDeductionRepository incomeTaxDeductionRepository, PassportNocRepository passportNocRepository,
 			AgendaOfficerRepository agendaOfficerRepository, AgendaSecBRepository agendaSecBRepository,
-			AgendaSecDRepository agendaSecDRepository) {
+			AgendaSecDRepository agendaSecDRepository, AgendaThirteenRepository agendaThirteenRepository) {
 		this.apprRepo = apprRepo;
 		this.empRepo = empRepo;
 		this.kharchaRepo = kharchaRepo;
@@ -174,6 +179,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		this.agendaOfficerRepository = agendaOfficerRepository;
 		this.agendaSecBRepository = agendaSecBRepository;
 		this.agendaSecDRepository = agendaSecDRepository;
+		this.agendaThirteenRepository = agendaThirteenRepository;
 	}
 
 	@Override
@@ -2293,443 +2299,718 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 	@Override
 	public ResponseEntity<InputStreamResource> downloadAgendaSecExcel(String year, String targetDate, String section)
-	        throws Exception {
+			throws Exception {
 
-	    if (section.equalsIgnoreCase("GATB")) {
+		if (section.equalsIgnoreCase("GATB")) {
 
-	    List<AgendaSecEntityGATB> list = agendaSecBRepository.findByYearAndTargetDate(year, targetDate);
+			List<AgendaSecEntityGATB> list = agendaSecBRepository.findByYearAndTargetDate(year, targetDate);
+
+			XSSFWorkbook workbook = new XSSFWorkbook();
+			XSSFSheet sheet = workbook.createSheet("AgendaSec");
+
+			// ==== FONTS ====
+			Font smallFont = workbook.createFont();
+			smallFont.setFontHeightInPoints((short) 10);
+
+			Font titleFont = workbook.createFont();
+			titleFont.setFontHeightInPoints((short) 11);
+			titleFont.setBold(true);
+
+			Font headerFont = workbook.createFont();
+			headerFont.setFontHeightInPoints((short) 10);
+			headerFont.setBold(true);
+
+			// ==== TITLE STYLE ====
+			CellStyle titleStyle = workbook.createCellStyle();
+			titleStyle.setAlignment(HorizontalAlignment.CENTER);
+			titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+			titleStyle.setFont(titleFont);
+			titleStyle.setWrapText(true);
+
+			// ==== CELL CENTER STYLE ====
+			CellStyle cellCenter = workbook.createCellStyle();
+			cellCenter.setAlignment(HorizontalAlignment.CENTER);
+			cellCenter.setVerticalAlignment(VerticalAlignment.CENTER);
+			cellCenter.setFont(smallFont);
+			cellCenter.setWrapText(true);
+			cellCenter.setBorderTop(BorderStyle.THIN);
+			cellCenter.setBorderBottom(BorderStyle.THIN);
+			cellCenter.setBorderLeft(BorderStyle.THIN);
+			cellCenter.setBorderRight(BorderStyle.THIN);
+
+			// ==== CELL LEFT STYLE ====
+			CellStyle cellLeft = workbook.createCellStyle();
+			cellLeft.cloneStyleFrom(cellCenter);
+			cellLeft.setAlignment(HorizontalAlignment.LEFT);
+
+			// ==== HEADER STYLE ====
+			CellStyle headerStyle = workbook.createCellStyle();
+			headerStyle.cloneStyleFrom(cellCenter);
+			headerStyle.setFont(headerFont);
+
+			// ==== FOOTER STYLE (NO BORDER) ====
+			CellStyle footerStyle = workbook.createCellStyle();
+			footerStyle.setAlignment(HorizontalAlignment.CENTER);
+			footerStyle.setVerticalAlignment(VerticalAlignment.TOP);
+			footerStyle.setBorderTop(BorderStyle.NONE);
+			footerStyle.setBorderBottom(BorderStyle.NONE);
+			footerStyle.setBorderLeft(BorderStyle.NONE);
+			footerStyle.setBorderRight(BorderStyle.NONE);
+			footerStyle.setWrapText(true);
+			footerStyle.setFont(headerFont);
+
+			final int LAST_COL = 9;
+			int rowIdx = 0;
+
+			// ================== TITLES ==================
+			rowIdx = mergedNoBorder(sheet, rowIdx, "परिशिष्ट-ब", titleStyle, LAST_COL);
+			rowIdx = mergedNoBorder(sheet, rowIdx,
+					"1 ऑगस्ट  रोजी वयाची 49/54 वर्षे पुर्ण झालेले गट-क मधील शासकीय अधिकारी/कर्मचारी", titleStyle,
+					LAST_COL);
+
+			rowIdx = mergedNoBorder(sheet, rowIdx,
+					"मंडळ कार्यालयाचे नाव- अधीक्षक अभियंता, पुणे पाटबंधारे प्रकल्प मंडळ,पुणे", titleStyle, LAST_COL);
+
+			rowIdx++;
+
+			// ================== HEADER ROWS ==================
+			Row h1 = sheet.createRow(rowIdx++);
+			Row h2 = sheet.createRow(rowIdx++);
+			int[] widths = { 1500, 3500, 3500, 3500, 4000, 4000, 4000, 4000, 4000, 5000 };
+
+			String[] headers = { "अ. क्र.", "शासकीय कर्मचाऱ्यांचे पुर्ण नांव व त्याने धारण केलेले पद", "जन्म दिनांक",
+					"सेवेतील ‍ नेमणुकीचा दिनांक",
+					"वयाची 35 वर्ष पुर्ण होण्यापुर्वी शासकीय सेवेत (भारतातील कुठलीही शासकीय सेवा धरुन) प्रवेश केला काय?",
+					"विभागीय  चौकशी / कार्यवाही चालु असल्यास त्या संबंधीचे आरोप व त्याची सद्य:स्थिती यांचा तपशील",
+					"मागासवर्गीय असल्यास कोणत्या वर्गात मोडतात",
+					"शारिरिक दृष्ट्या शासकीय सेवेत राहण्यास पात्र आहेत काय?", "इतर अभिप्राय असल्यास", "शेरा" };
+
+			for (int c = 0; c <= LAST_COL; c++) {
+
+				Cell ch = h1.createCell(c);
+				ch.setCellValue(headers[c]);
+				ch.setCellStyle(headerStyle);
+
+				Cell ch2 = h2.createCell(c);
+				ch2.setCellStyle(headerStyle);
+
+				sheet.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c));
+				RegionUtil.setBorderTop(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c),
+						sheet);
+				RegionUtil.setBorderBottom(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c),
+						sheet);
+				RegionUtil.setBorderLeft(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c),
+						sheet);
+				RegionUtil.setBorderRight(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c),
+						sheet);
+
+			}
+			float headerHeight = calculateDynamicHeight(h1, widths);
+			h1.setHeightInPoints(Math.max(headerHeight, 25));
+			h2.setHeightInPoints(5);
+
+			// ================== COLUMN NUMBER ROW ==================
+			Row colNumRow = sheet.createRow(rowIdx++);
+			for (int c = 0; c <= LAST_COL; c++) {
+				Cell cn = colNumRow.createCell(c);
+				cn.setCellValue(c + 1);
+				cn.setCellStyle(cellCenter);
+			}
+
+			// ================== FIXED COLUMN WIDTHS ==================
+
+			for (int c = 0; c <= LAST_COL; c++)
+				sheet.setColumnWidth(c, widths[c]);
+
+			// ================== DATA ROWS ==================
+			for (AgendaSecEntityGATB entity : list) {
+
+				JsonNode cd = entity.getColumnData();
+
+				Row r = sheet.createRow(rowIdx);
+
+				// PRE-CREATE CELLS WITH BORDER
+				for (int c = 0; c <= LAST_COL; c++) {
+					Cell cl = r.createCell(c);
+					cl.setCellStyle(cellCenter);
+				}
+
+				if (cd.has("kramank"))
+					r.getCell(0).setCellValue(cd.get("kramank").asText());
+				if (cd.has("purnNavPad"))
+					r.getCell(1).setCellValue(cd.get("purnNavPad").asText());
+				if (cd.has("janmaDinank"))
+					r.getCell(2).setCellValue(cd.get("janmaDinank").asText());
+				if (cd.has("seveNiyuktiDinank"))
+					r.getCell(3).setCellValue(cd.get("seveNiyuktiDinank").asText());
+				if (cd.has("vay35PurviPravesh"))
+					r.getCell(4).setCellValue(cd.get("vay35PurviPravesh").asText());
+				if (cd.has("vibhagiyaChaukashi"))
+					r.getCell(5).setCellValue(cd.get("vibhagiyaChaukashi").asText());
+				if (cd.has("magasVargiya"))
+					r.getCell(6).setCellValue(cd.get("magasVargiya").asText());
+				if (cd.has("shasakiyaHattavaAdhikar"))
+					r.getCell(7).setCellValue(cd.get("shasakiyaHattavaAdhikar").asText());
+				if (cd.has("itarAbhipray"))
+					r.getCell(8).setCellValue(cd.get("itarAbhipray").asText());
+				if (cd.has("shera"))
+					r.getCell(9).setCellValue(cd.get("shera").asText());
+
+				// DYNAMIC ROW HEIGHT FIX
+				float maxHeight = calculateDynamicHeight(r, widths);
+				r.setHeightInPoints(maxHeight);
+
+				rowIdx++;
+			}
+
+			// ================== FOOTER ==================
+			rowIdx += 2;
+
+			Row fr = sheet.createRow(rowIdx);
+			fr.setHeightInPoints(70);
+
+			String t1 = "सदस्य\nकार्यकारी अभियंता\nभामा आसखेड धरण विभाग,\nपुणे";
+			String t2 = "सदस्य\nकार्यकारी अभियंता\nपाटबंधारे प्रकल्प अन्वेषण विभाग,\n(भिमा उपखोरे) पुणे";
+			String t3 = "सदस्य सचिव\nअधीक्षक\nपुणे पाटबंधारे प्रकल्प मंडळ\nपुणे";
+			String t4 = "अध्यक्ष\nउपअधीक्षक अभियंता\nपुणे पाटबंधारे प्रकल्प मंडळ\nपुणे.";
+
+			sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, 2));
+			sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 3, 5));
+			sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 6, 7));
+			sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 8, 9));
+
+			Cell f1 = fr.createCell(0);
+			f1.setCellValue(t1);
+			f1.setCellStyle(footerStyle);
+			Cell f2 = fr.createCell(3);
+			f2.setCellValue(t2);
+			f2.setCellStyle(footerStyle);
+			Cell f3 = fr.createCell(6);
+			f3.setCellValue(t3);
+			f3.setCellStyle(footerStyle);
+			Cell f4 = fr.createCell(8);
+			f4.setCellValue(t4);
+			f4.setCellStyle(footerStyle);
+
+			clearMergedBorders(sheet, rowIdx, 0, 2);
+			clearMergedBorders(sheet, rowIdx, 3, 5);
+			clearMergedBorders(sheet, rowIdx, 6, 7);
+			clearMergedBorders(sheet, rowIdx, 8, 9);
+
+			// ================== SAVE FILE ==================
+			ByteArrayOutputStream out = new ByteArrayOutputStream();
+			workbook.write(out);
+			workbook.close();
+
+			ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+			HttpHeaders headers1 = new HttpHeaders();
+			headers1.add("Content-Disposition", "attachment; filename=agenda_sec.xlsx");
+
+			return ResponseEntity.ok().headers(headers1)
+					.contentType(MediaType
+							.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+					.body(new InputStreamResource(in));
+		} else {
+			List<AgendaSecEntityGATD> list = agendaSecDRepository.findByYearAndTargetDate(year, targetDate);
+
+			XSSFWorkbook workbook = new XSSFWorkbook();
+			XSSFSheet sheet = workbook.createSheet("AgendaSec");
+
+			// ==== FONTS ====
+			Font smallFont = workbook.createFont();
+			smallFont.setFontHeightInPoints((short) 10);
+
+			Font titleFont = workbook.createFont();
+			titleFont.setFontHeightInPoints((short) 11);
+			titleFont.setBold(true);
+
+			Font headerFont = workbook.createFont();
+			headerFont.setFontHeightInPoints((short) 10);
+			headerFont.setBold(true);
+
+			// ==== TITLE STYLE ====
+			CellStyle titleStyle = workbook.createCellStyle();
+			titleStyle.setAlignment(HorizontalAlignment.CENTER);
+			titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+			titleStyle.setFont(titleFont);
+			titleStyle.setWrapText(true);
+
+			// ==== CELL CENTER STYLE ====
+			CellStyle cellCenter = workbook.createCellStyle();
+			cellCenter.setAlignment(HorizontalAlignment.CENTER);
+			cellCenter.setVerticalAlignment(VerticalAlignment.CENTER);
+			cellCenter.setFont(smallFont);
+			cellCenter.setWrapText(true);
+			cellCenter.setBorderTop(BorderStyle.THIN);
+			cellCenter.setBorderBottom(BorderStyle.THIN);
+			cellCenter.setBorderLeft(BorderStyle.THIN);
+			cellCenter.setBorderRight(BorderStyle.THIN);
+
+			// ==== CELL LEFT STYLE ====
+			CellStyle cellLeft = workbook.createCellStyle();
+			cellLeft.cloneStyleFrom(cellCenter);
+			cellLeft.setAlignment(HorizontalAlignment.LEFT);
+
+			// ==== HEADER STYLE ====
+			CellStyle headerStyle = workbook.createCellStyle();
+			headerStyle.cloneStyleFrom(cellCenter);
+			headerStyle.setFont(headerFont);
+
+			// ==== FOOTER STYLE (NO BORDER) ====
+			CellStyle footerStyle = workbook.createCellStyle();
+			footerStyle.setAlignment(HorizontalAlignment.CENTER);
+			footerStyle.setVerticalAlignment(VerticalAlignment.TOP);
+			footerStyle.setBorderTop(BorderStyle.NONE);
+			footerStyle.setBorderBottom(BorderStyle.NONE);
+			footerStyle.setBorderLeft(BorderStyle.NONE);
+			footerStyle.setBorderRight(BorderStyle.NONE);
+			footerStyle.setWrapText(true);
+			footerStyle.setFont(headerFont);
+
+			final int LAST_COL = 9;
+			int rowIdx = 0;
+
+			// ================== TITLES ==================
+			rowIdx = mergedNoBorder(sheet, rowIdx, "परिशिष्ट-ब", titleStyle, LAST_COL);
+			rowIdx = mergedNoBorder(sheet, rowIdx,
+					"1 ऑगस्ट  रोजी वयाची 49/54 वर्षे पुर्ण झालेले गट-क मधील शासकीय अधिकारी/कर्मचारी", titleStyle,
+					LAST_COL);
+
+			rowIdx = mergedNoBorder(sheet, rowIdx,
+					"मंडळ कार्यालयाचे नाव- अधीक्षक अभियंता, पुणे पाटबंधारे प्रकल्प मंडळ,पुणे", titleStyle, LAST_COL);
+
+			rowIdx++;
+
+			// ================== HEADER ROWS ==================
+			Row h1 = sheet.createRow(rowIdx++);
+			Row h2 = sheet.createRow(rowIdx++);
+			int[] widths = { 1500, 3500, 3500, 3500, 4000, 4000, 4000, 4000, 4000, 5000 };
+
+			String[] headers = { "अ. क्र.", "शासकीय कर्मचाऱ्यांचे पुर्ण नांव व त्याने धारण केलेले पद", "जन्म दिनांक",
+					"सेवेतील ‍ नेमणुकीचा दिनांक",
+					"वयाची 35 वर्ष पुर्ण होण्यापुर्वी शासकीय सेवेत (भारतातील कुठलीही शासकीय सेवा धरुन) प्रवेश केला काय?",
+					"विभागीय  चौकशी / कार्यवाही चालु असल्यास त्या संबंधीचे आरोप व त्याची सद्य:स्थिती यांचा तपशील",
+					"मागासवर्गीय असल्यास कोणत्या वर्गात मोडतात",
+					"शारिरिक दृष्ट्या शासकीय सेवेत राहण्यास पात्र आहेत काय?", "इतर अभिप्राय असल्यास", "शेरा" };
+
+			for (int c = 0; c <= LAST_COL; c++) {
+
+				Cell ch = h1.createCell(c);
+				ch.setCellValue(headers[c]);
+				ch.setCellStyle(headerStyle);
+
+				Cell ch2 = h2.createCell(c);
+				ch2.setCellStyle(headerStyle);
+
+				sheet.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c));
+				RegionUtil.setBorderTop(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c),
+						sheet);
+				RegionUtil.setBorderBottom(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c),
+						sheet);
+				RegionUtil.setBorderLeft(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c),
+						sheet);
+				RegionUtil.setBorderRight(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c),
+						sheet);
+
+			}
+			float headerHeight = calculateDynamicHeight(h1, widths);
+			h1.setHeightInPoints(Math.max(headerHeight, 25));
+			h2.setHeightInPoints(5);
+
+			// ================== COLUMN NUMBER ROW ==================
+			Row colNumRow = sheet.createRow(rowIdx++);
+			for (int c = 0; c <= LAST_COL; c++) {
+				Cell cn = colNumRow.createCell(c);
+				cn.setCellValue(c + 1);
+				cn.setCellStyle(cellCenter);
+			}
+
+			// ================== FIXED COLUMN WIDTHS ==================
+
+			for (int c = 0; c <= LAST_COL; c++)
+				sheet.setColumnWidth(c, widths[c]);
+
+			// ================== DATA ROWS ==================
+			for (AgendaSecEntityGATD entity : list) {
+
+				JsonNode cd = entity.getColumnData();
+
+				Row r = sheet.createRow(rowIdx);
+
+				// PRE-CREATE CELLS WITH BORDER
+				for (int c = 0; c <= LAST_COL; c++) {
+					Cell cl = r.createCell(c);
+					cl.setCellStyle(cellCenter);
+				}
+
+				if (cd.has("kramank"))
+					r.getCell(0).setCellValue(cd.get("kramank").asText());
+				if (cd.has("purnNavPad"))
+					r.getCell(1).setCellValue(cd.get("purnNavPad").asText());
+				if (cd.has("janmaDinank"))
+					r.getCell(2).setCellValue(cd.get("janmaDinank").asText());
+				if (cd.has("seveNiyuktiDinank"))
+					r.getCell(3).setCellValue(cd.get("seveNiyuktiDinank").asText());
+				if (cd.has("vay35PurviPravesh"))
+					r.getCell(4).setCellValue(cd.get("vay35PurviPravesh").asText());
+				if (cd.has("vibhagiyaChaukashi"))
+					r.getCell(5).setCellValue(cd.get("vibhagiyaChaukashi").asText());
+				if (cd.has("magasVargiya"))
+					r.getCell(6).setCellValue(cd.get("magasVargiya").asText());
+				if (cd.has("shasakiyaHattavaAdhikar"))
+					r.getCell(7).setCellValue(cd.get("shasakiyaHattavaAdhikar").asText());
+				if (cd.has("itarAbhipray"))
+					r.getCell(8).setCellValue(cd.get("itarAbhipray").asText());
+				if (cd.has("shera"))
+					r.getCell(9).setCellValue(cd.get("shera").asText());
+
+				// DYNAMIC ROW HEIGHT FIX
+				float maxHeight = calculateDynamicHeight(r, widths);
+				r.setHeightInPoints(maxHeight);
+
+				rowIdx++;
+			}
+
+			// ================== FOOTER ==================
+			rowIdx += 2;
+
+			Row fr = sheet.createRow(rowIdx);
+			fr.setHeightInPoints(70);
+
+			String t1 = "सदस्य\nकार्यकारी अभियंता\nभामा आसखेड धरण विभाग,\nपुणे";
+			String t2 = "सदस्य\nकार्यकारी अभियंता\nपाटबंधारे प्रकल्प अन्वेषण विभाग,\n(भिमा उपखोरे) पुणे";
+			String t3 = "सदस्य सचिव\nअधीक्षक\nपुणे पाटबंधारे प्रकल्प मंडळ\nपुणे";
+			String t4 = "अध्यक्ष\nउपअधीक्षक अभियंता\nपुणे पाटबंधारे प्रकल्प मंडळ\nपुणे.";
+
+			sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, 2));
+			sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 3, 5));
+			sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 6, 7));
+			sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 8, 9));
+
+			Cell f1 = fr.createCell(0);
+			f1.setCellValue(t1);
+			f1.setCellStyle(footerStyle);
+			Cell f2 = fr.createCell(3);
+			f2.setCellValue(t2);
+			f2.setCellStyle(footerStyle);
+			Cell f3 = fr.createCell(6);
+			f3.setCellValue(t3);
+			f3.setCellStyle(footerStyle);
+			Cell f4 = fr.createCell(8);
+			f4.setCellValue(t4);
+			f4.setCellStyle(footerStyle);
+
+			clearMergedBorders(sheet, rowIdx, 0, 2);
+			clearMergedBorders(sheet, rowIdx, 3, 5);
+			clearMergedBorders(sheet, rowIdx, 6, 7);
+			clearMergedBorders(sheet, rowIdx, 8, 9);
+
+			// ================== SAVE FILE ==================
+			ByteArrayOutputStream out = new ByteArrayOutputStream();
+			workbook.write(out);
+			workbook.close();
+
+			ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+			HttpHeaders headers1 = new HttpHeaders();
+			headers1.add("Content-Disposition", "attachment; filename=agenda_sec.xlsx");
+
+			return ResponseEntity.ok().headers(headers1)
+					.contentType(MediaType
+							.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+					.body(new InputStreamResource(in));
+		}
+	}
+
+	// ---------------- HELPERS ----------------
+	private int mergedNoBorder(Sheet sheet, int rowIdx, String text, CellStyle style, int lastCol) {
+		Row r = sheet.createRow(rowIdx);
+		Cell c = r.createCell(0);
+		c.setCellValue(text);
+		c.setCellStyle(style);
+		sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, lastCol));
+		return rowIdx + 1;
+	}
+
+	private void clearMergedBorders(Sheet sheet, int row, int startCol, int endCol) {
+		CellRangeAddress range = new CellRangeAddress(row, row, startCol, endCol);
+		RegionUtil.setBorderTop(BorderStyle.NONE, range, sheet);
+		RegionUtil.setBorderBottom(BorderStyle.NONE, range, sheet);
+		RegionUtil.setBorderLeft(BorderStyle.NONE, range, sheet);
+		RegionUtil.setBorderRight(BorderStyle.NONE, range, sheet);
+	}
+
+	private float calculateDynamicHeight(Row row, int[] columnWidths) {
+		float maxHeight = 22f; // default
+
+		for (int c = 0; c < row.getLastCellNum(); c++) {
+			Cell cell = row.getCell(c);
+			if (cell == null || cell.getCellType() != CellType.STRING)
+				continue;
+
+			String text = cell.getStringCellValue();
+			int colWidthPx = columnWidths[c] / 40; // rough width
+
+			int approxCharsPerLine = Math.max(1, colWidthPx / 7);
+			int lines = (int) Math.ceil((double) text.length() / approxCharsPerLine);
+
+			float height = Math.max(22, lines * 15);
+			maxHeight = Math.max(maxHeight, height);
+		}
+		return maxHeight;
+	}
+
+	@Override
+	public ThirteenResponse saveOrUpdateAnukampa(ThirteenRequest dto) {
+		ThirteenResponse response = new ThirteenResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+			String year = dto.getMeta().getYear();
+			String targetDate = dto.getMeta().getTargetDate();
+
+			for (ThirteenRow row : dto.getRows()) {
+
+				long rowId = row.getRowId();
+				String deleteFlag = Optional.ofNullable(row.getDeleteFlag()).orElse("");
+
+				// -------------- HARD DELETE ---------------
+				if ("D".equalsIgnoreCase(deleteFlag)) {
+
+					if (row.getDeleteId() != null) {
+						agendaThirteenRepository.findByDeleteIdAndYearAndTargetDate(row.getDeleteId(), year, targetDate)
+								.ifPresent(agendaThirteenRepository::delete);
+					}
+
+					continue;
+				}
+
+				// -------------- CREATE / UPDATE -----------
+				Optional<AgendaThirteenEntity> existing = agendaThirteenRepository
+						.findByRowIdAndYearAndTargetDate(rowId, year, targetDate);
+
+				AgendaThirteenEntity entity = existing.orElse(new AgendaThirteenEntity());
+				LocalDateTime now = LocalDateTime.now();
+
+				entity.setRowId(rowId);
+				entity.setYear(year);
+				entity.setTargetDate(targetDate);
+				entity.setColumnData(row.getColumnData());
+				entity.setDeleteId(row.getDeleteId());
+
+				if (entity.getId() == null) {
+					entity.setFlag("C");
+					entity.setCreatedBy(username);
+					entity.setCreatedAt(now);
+				} else {
+					entity.setFlag("U");
+				}
+
+				entity.setUpdatedBy(username);
+				entity.setUpdatedAt(now);
+
+				agendaThirteenRepository.save(entity);
+			}
+
+			response.setMessage("Success");
+			error.setErrorCode("200");
+			error.setErrorDescription("Saved successfully");
+
+		} catch (Exception e) {
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+			response.setMessage("Failed");
+		}
+
+		response.setErrorDetails(error);
+		return response;
+
+	}
+
+	@Override
+	public ThirteenResponse getAnukampaData(String year, String targetDate) {
+		 ThirteenResponse res = new ThirteenResponse();
+		    ApplicationError err = new ApplicationError();
+
+		    try {
+		        List<AgendaThirteenEntity> list =
+		                agendaThirteenRepository.findByYearAndTargetDate(year, targetDate)
+		                        .stream()
+		                        .sorted(Comparator.comparingLong(AgendaThirteenEntity::getRowId))
+		                        .toList();
+
+		        res.setData(list);
+		        res.setMessage("Success");
+
+		        err.setErrorCode("200");
+		        err.setErrorDescription("Fetched successfully");
+
+		    } catch (Exception e) {
+		        err.setErrorCode("500");
+		        err.setErrorDescription(e.getMessage());
+		        res.setMessage("Failed");
+		    }
+
+		    res.setErrorDetails(err);
+		    return res;
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadAnukampaExcel(String year, String targetDate) throws Exception {
+
+	    // ===== Fetch from DB (as per your requirement) =====
+	    List<AgendaThirteenEntity> list =
+	            agendaThirteenRepository.findByYearAndTargetDate(year, targetDate);
 
 	    XSSFWorkbook workbook = new XSSFWorkbook();
-	    XSSFSheet sheet = workbook.createSheet("AgendaSec");
+	    XSSFSheet sheet = workbook.createSheet("अनुकंपा");
 
-	    // ==== FONTS ====
+	    // ---------- SMALL FONT ----------
 	    Font smallFont = workbook.createFont();
 	    smallFont.setFontHeightInPoints((short) 10);
 
+	    // ---------- HEADER STYLE ----------
+	    CellStyle header = workbook.createCellStyle();
+	    header.setAlignment(HorizontalAlignment.CENTER);
+	    header.setVerticalAlignment(VerticalAlignment.CENTER);
+	    header.setBorderBottom(BorderStyle.THIN);
+	    header.setBorderTop(BorderStyle.THIN);
+	    header.setBorderLeft(BorderStyle.THIN);
+	    header.setBorderRight(BorderStyle.THIN);
+	    header.setWrapText(true);
+
+	    Font hFont = workbook.createFont();
+	    hFont.setBold(true);
+	    hFont.setFontHeightInPoints((short) 10);
+	    header.setFont(hFont);
+
+	    // ---------- DATA STYLE ----------
+	    CellStyle cellStyle = workbook.createCellStyle();
+	    cellStyle.setAlignment(HorizontalAlignment.CENTER);
+	    cellStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+	    cellStyle.setBorderBottom(BorderStyle.THIN);
+	    cellStyle.setBorderTop(BorderStyle.THIN);
+	    cellStyle.setBorderLeft(BorderStyle.THIN);
+	    cellStyle.setBorderRight(BorderStyle.THIN);
+	    cellStyle.setWrapText(true);
+	    cellStyle.setFont(smallFont);
+
+	    // ---------- TITLE STYLE ----------
+	    CellStyle title = workbook.createCellStyle();
+	    title.setAlignment(HorizontalAlignment.CENTER);
+	    title.setVerticalAlignment(VerticalAlignment.CENTER);
 	    Font titleFont = workbook.createFont();
-	    titleFont.setFontHeightInPoints((short) 11);
 	    titleFont.setBold(true);
+	    titleFont.setFontHeightInPoints((short) 14);
+	    title.setFont(titleFont);
 
-	    Font headerFont = workbook.createFont();
-	    headerFont.setFontHeightInPoints((short) 10);
-	    headerFont.setBold(true);
-
-	    // ==== TITLE STYLE ====
-	    CellStyle titleStyle = workbook.createCellStyle();
-	    titleStyle.setAlignment(HorizontalAlignment.CENTER);
-	    titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-	    titleStyle.setFont(titleFont);
-	    titleStyle.setWrapText(true);
-
-	    // ==== CELL CENTER STYLE ====
-	    CellStyle cellCenter = workbook.createCellStyle();
-	    cellCenter.setAlignment(HorizontalAlignment.CENTER);
-	    cellCenter.setVerticalAlignment(VerticalAlignment.CENTER);
-	    cellCenter.setFont(smallFont);
-	    cellCenter.setWrapText(true);
-	    cellCenter.setBorderTop(BorderStyle.THIN);
-	    cellCenter.setBorderBottom(BorderStyle.THIN);
-	    cellCenter.setBorderLeft(BorderStyle.THIN);
-	    cellCenter.setBorderRight(BorderStyle.THIN);
-
-	    // ==== CELL LEFT STYLE ====
-	    CellStyle cellLeft = workbook.createCellStyle();
-	    cellLeft.cloneStyleFrom(cellCenter);
-	    cellLeft.setAlignment(HorizontalAlignment.LEFT);
-
-	    // ==== HEADER STYLE ====
-	    CellStyle headerStyle = workbook.createCellStyle();
-	    headerStyle.cloneStyleFrom(cellCenter);
-	    headerStyle.setFont(headerFont);
-
-	    // ==== FOOTER STYLE (NO BORDER) ====
-	    CellStyle footerStyle = workbook.createCellStyle();
-	    footerStyle.setAlignment(HorizontalAlignment.CENTER);
-	    footerStyle.setVerticalAlignment(VerticalAlignment.TOP);
-	    footerStyle.setBorderTop(BorderStyle.NONE);
-	    footerStyle.setBorderBottom(BorderStyle.NONE);
-	    footerStyle.setBorderLeft(BorderStyle.NONE);
-	    footerStyle.setBorderRight(BorderStyle.NONE);
-	    footerStyle.setWrapText(true);
-	    footerStyle.setFont(headerFont);
-
-	    final int LAST_COL = 9;
 	    int rowIdx = 0;
 
-	    // ================== TITLES ==================
-	    rowIdx = mergedNoBorder(sheet, rowIdx, "परिशिष्ट-ब", titleStyle, LAST_COL);
-	    rowIdx = mergedNoBorder(sheet, rowIdx,
-	            "1 ऑगस्ट  रोजी वयाची 49/54 वर्षे पुर्ण झालेले गट-क मधील शासकीय अधिकारी/कर्मचारी",
-	            titleStyle, LAST_COL);
-
-	    rowIdx = mergedNoBorder(sheet, rowIdx,
-	            "मंडळ कार्यालयाचे नाव- अधीक्षक अभियंता, पुणे पाटबंधारे प्रकल्प मंडळ,पुणे",
-	            titleStyle, LAST_COL);
+	    // =================== TITLE SECTION ===================
+	    rowIdx = merged(sheet, rowIdx, "परिशिष्ट-ब", title, 12);
+	    rowIdx = merged(sheet, rowIdx,
+	            "1 ऑगस्ट रोजी वयाची 49/54 वर्षे पूर्ण झालेले गट-क मधील शासकीय अधिकारी/कर्मचारी",
+	            title, 12);
+	    rowIdx = merged(sheet, rowIdx,
+	            "अधीक्षक अभियंता, पुणे पाटबंधारे प्रकल्प मंडळ, पुणे",
+	            title, 12);
 
 	    rowIdx++;
 
-	    // ================== HEADER ROWS ==================
+	    // =================== HEADER ROWS ===================
 	    Row h1 = sheet.createRow(rowIdx++);
 	    Row h2 = sheet.createRow(rowIdx++);
-	    int[] widths = {1500, 3500, 3500, 3500, 4000, 4000, 4000, 4000, 4000, 5000};
 
-	    String[] headers = {
-                "अ. क्र.", "शासकीय कर्मचाऱ्यांचे पुर्ण नांव व त्याने धारण केलेले पद", "जन्म दिनांक",
-                "सेवेतील ‍ नेमणुकीचा दिनांक", "वयाची 35 वर्ष पुर्ण होण्यापुर्वी शासकीय सेवेत (भारतातील कुठलीही शासकीय सेवा धरुन) प्रवेश केला काय?",
-                "विभागीय  चौकशी / कार्यवाही चालु असल्यास त्या संबंधीचे आरोप व त्याची सद्य:स्थिती यांचा तपशील", "मागासवर्गीय असल्यास कोणत्या वर्गात मोडतात",
-                "शारिरिक दृष्ट्या शासकीय सेवेत राहण्यास पात्र आहेत काय?", "इतर अभिप्राय असल्यास", "शेरा"
-        };
+	    String[] mainHeaders = {
+	            "अ.क्र.",
+	            "अनुकंपा सामाईक जेष्ठता क्रमांक",
+	            "कार्यालयाचे नाव",
+	            "दिवंगत कर्मचारीचे नाव",
+	            "दिवंगत झाल्याची दिनांक",
+	            "अनुकंपा नोकरीसाठी अर्ज केलेल्या नातेवाईकाचे नाव",
+	            "नोकर्‍यासाठी अर्ज केलेला दिनांक",
+	            "दिवंगत कर्मचारी योग्य नाते",
+	            "जन्मतारीख",
+	            "शैक्षणिक अर्हता",
+	            "जात प्रवर्ग",
+	            "शेरा"
+	    };
 
-	    for (int c = 0; c <= LAST_COL; c++) {
+	    String[] subHeaders = {"निर्णयासाठी दिलेला इतर शेरा", "निर्णयाचा आदेश दिनांक"};
 
-	        Cell ch = h1.createCell(c);
-	        ch.setCellValue(headers[c]);
-	        ch.setCellStyle(headerStyle);
-
-	        Cell ch2 = h2.createCell(c);
-	        ch2.setCellStyle(headerStyle);
-
+	    // Merge first 11 columns vertically
+	    for (int c = 0; c <= 10; c++)
 	        sheet.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c));
-	        RegionUtil.setBorderTop(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c), sheet);
-	        RegionUtil.setBorderBottom(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c), sheet);
-	        RegionUtil.setBorderLeft(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c), sheet);
-	        RegionUtil.setBorderRight(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c), sheet);
-	       
-	    }
-	    float headerHeight = calculateDynamicHeight(h1, widths);
-	    h1.setHeightInPoints(Math.max(headerHeight, 25));  
-	    h2.setHeightInPoints(5);
 
-	    // ================== COLUMN NUMBER ROW ==================
-	    Row colNumRow = sheet.createRow(rowIdx++);
-	    for (int c = 0; c <= LAST_COL; c++) {
-	        Cell cn = colNumRow.createCell(c);
-	        cn.setCellValue(c + 1);
-	        cn.setCellStyle(cellCenter);
+	    // Merge शेरा group
+	    sheet.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h1.getRowNum(), 11, 12));
+
+	    // Fill headers
+	    for (int i = 0; i < mainHeaders.length; i++) {
+	        Cell cell = h1.createCell(i);
+	        cell.setCellValue(mainHeaders[i]);
+	        cell.setCellStyle(header);
 	    }
 
-	    // ================== FIXED COLUMN WIDTHS ==================
-	  
-	    for (int c = 0; c <= LAST_COL; c++)
-	        sheet.setColumnWidth(c, widths[c]);
-
-	    // ================== DATA ROWS ==================
-	    for (AgendaSecEntityGATB entity : list) {
-
-	        JsonNode cd = entity.getColumnData();
-
-	        Row r = sheet.createRow(rowIdx);
-
-	        // PRE-CREATE CELLS WITH BORDER
-	        for (int c = 0; c <= LAST_COL; c++) {
-	            Cell cl = r.createCell(c);
-	            cl.setCellStyle(cellCenter);
-	        }
-
-	        if (cd.has("kramank")) r.getCell(0).setCellValue(cd.get("kramank").asText());
-	        if (cd.has("purnNavPad")) r.getCell(1).setCellValue(cd.get("purnNavPad").asText());
-	        if (cd.has("janmaDinank")) r.getCell(2).setCellValue(cd.get("janmaDinank").asText());
-	        if (cd.has("seveNiyuktiDinank")) r.getCell(3).setCellValue(cd.get("seveNiyuktiDinank").asText());
-	        if (cd.has("vay35PurviPravesh")) r.getCell(4).setCellValue(cd.get("vay35PurviPravesh").asText());
-	        if (cd.has("vibhagiyaChaukashi")) r.getCell(5).setCellValue(cd.get("vibhagiyaChaukashi").asText());
-	        if (cd.has("magasVargiya")) r.getCell(6).setCellValue(cd.get("magasVargiya").asText());
-	        if (cd.has("shasakiyaHattavaAdhikar")) r.getCell(7).setCellValue(cd.get("shasakiyaHattavaAdhikar").asText());
-	        if (cd.has("itarAbhipray")) r.getCell(8).setCellValue(cd.get("itarAbhipray").asText());
-	        if (cd.has("shera")) r.getCell(9).setCellValue(cd.get("shera").asText());
-
-	        // DYNAMIC ROW HEIGHT FIX
-	        float maxHeight = calculateDynamicHeight(r, widths);
-	        r.setHeightInPoints(maxHeight);
-
-	        rowIdx++;
+	    for (int i = 0; i < subHeaders.length; i++) {
+	        Cell cell = h2.createCell(11 + i);
+	        cell.setCellValue(subHeaders[i]);
+	        cell.setCellStyle(header);
 	    }
 
-	    // ================== FOOTER ==================
-	    rowIdx += 2;
+	    // Ensure border inside merged शेरा block
+	    for (int c = 11; c <= 12; c++) {
+	        Cell cell = h1.getCell(c);
+	        if (cell == null) cell = h1.createCell(c);
+	        cell.setCellStyle(header);
+	    }
 
-	    Row fr = sheet.createRow(rowIdx);
-	    fr.setHeightInPoints(70);
+	    // =================== DATA ROWS ===================
+	    for (AgendaThirteenEntity e : list) {
 
-	    String t1 = "सदस्य\nकार्यकारी अभियंता\nभामा आसखेड धरण विभाग,\nपुणे";
-	    String t2 = "सदस्य\nकार्यकारी अभियंता\nपाटबंधारे प्रकल्प अन्वेषण विभाग,\n(भिमा उपखोरे) पुणे";
-	    String t3 = "सदस्य सचिव\nअधीक्षक\nपुणे पाटबंधारे प्रकल्प मंडळ\nपुणे";
-	    String t4 = "अध्यक्ष\nउपअधीक्षक अभियंता\nपुणे पाटबंधारे प्रकल्प मंडळ\nपुणे.";
+	        JsonNode cd = e.getColumnData();
 
-	    sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, 2));
-	    sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 3, 5));
-	    sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 6, 7));
-	    sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 8, 9));
+	        Row r = sheet.createRow(rowIdx++);
 
-	    Cell f1 = fr.createCell(0); f1.setCellValue(t1); f1.setCellStyle(footerStyle);
-	    Cell f2 = fr.createCell(3); f2.setCellValue(t2); f2.setCellStyle(footerStyle);
-	    Cell f3 = fr.createCell(6); f3.setCellValue(t3); f3.setCellStyle(footerStyle);
-	    Cell f4 = fr.createCell(8); f4.setCellValue(t4); f4.setCellStyle(footerStyle);
+	        r.createCell(0).setCellValue(safe(cd, "kramank"));
+	        r.createCell(1).setCellValue(safe(cd, "anukampaSamayikKramank"));
+	        r.createCell(2).setCellValue(safe(cd, "karyalayNav"));
+	        r.createCell(3).setCellValue(safe(cd, "divangatNav"));
+	        r.createCell(4).setCellValue(safe(cd, "mrituDinank"));
+	        r.createCell(5).setCellValue(safe(cd, "natevaiName"));
+	        r.createCell(6).setCellValue(safe(cd, "avedanDinank"));
+	        r.createCell(7).setCellValue(safe(cd, "yogyNate"));
+	        r.createCell(8).setCellValue(safe(cd, "janmaTarikh"));
+	        r.createCell(9).setCellValue(safe(cd, "shikshanikArhata"));
+	        r.createCell(10).setCellValue(safe(cd, "jaatParg"));
+	        r.createCell(11).setCellValue(safe(cd, "sharaIther"));
+	        r.createCell(12).setCellValue(safe(cd, "sharaAadeshDinank"));
 
-	    clearMergedBorders(sheet, rowIdx, 0, 2);
-	    clearMergedBorders(sheet, rowIdx, 3, 5);
-	    clearMergedBorders(sheet, rowIdx, 6, 7);
-	    clearMergedBorders(sheet, rowIdx, 8, 9);
+	        apply(cellStyle, r, 13);
+	    }
 
-	    // ================== SAVE FILE ==================
+	    // Auto-size
+	    for (int i = 0; i <= 12; i++) sheet.autoSizeColumn(i);
+
+	    // Write file
 	    ByteArrayOutputStream out = new ByteArrayOutputStream();
 	    workbook.write(out);
 	    workbook.close();
 
 	    ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
-	    HttpHeaders headers1 = new HttpHeaders();
-	    headers1.add("Content-Disposition", "attachment; filename=agenda_sec.xlsx");
+	    HttpHeaders headers = new HttpHeaders();
+	    headers.add("Content-Disposition", "attachment; filename=anukampa.xlsx");
 
-	    return ResponseEntity.ok().headers(headers1)
-	            .contentType(MediaType.parseMediaType(
-	                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+	    return ResponseEntity.ok()
+	            .headers(headers)
+	            .contentType(MediaType.parseMediaType("application/vnd.ms-excel"))
 	            .body(new InputStreamResource(in));
-	    }
-	    else
-	    {
-		    List<AgendaSecEntityGATD> list = agendaSecDRepository.findByYearAndTargetDate(year, targetDate);
-
-		    XSSFWorkbook workbook = new XSSFWorkbook();
-		    XSSFSheet sheet = workbook.createSheet("AgendaSec");
-
-		    // ==== FONTS ====
-		    Font smallFont = workbook.createFont();
-		    smallFont.setFontHeightInPoints((short) 10);
-
-		    Font titleFont = workbook.createFont();
-		    titleFont.setFontHeightInPoints((short) 11);
-		    titleFont.setBold(true);
-
-		    Font headerFont = workbook.createFont();
-		    headerFont.setFontHeightInPoints((short) 10);
-		    headerFont.setBold(true);
-
-		    // ==== TITLE STYLE ====
-		    CellStyle titleStyle = workbook.createCellStyle();
-		    titleStyle.setAlignment(HorizontalAlignment.CENTER);
-		    titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-		    titleStyle.setFont(titleFont);
-		    titleStyle.setWrapText(true);
-
-		    // ==== CELL CENTER STYLE ====
-		    CellStyle cellCenter = workbook.createCellStyle();
-		    cellCenter.setAlignment(HorizontalAlignment.CENTER);
-		    cellCenter.setVerticalAlignment(VerticalAlignment.CENTER);
-		    cellCenter.setFont(smallFont);
-		    cellCenter.setWrapText(true);
-		    cellCenter.setBorderTop(BorderStyle.THIN);
-		    cellCenter.setBorderBottom(BorderStyle.THIN);
-		    cellCenter.setBorderLeft(BorderStyle.THIN);
-		    cellCenter.setBorderRight(BorderStyle.THIN);
-
-		    // ==== CELL LEFT STYLE ====
-		    CellStyle cellLeft = workbook.createCellStyle();
-		    cellLeft.cloneStyleFrom(cellCenter);
-		    cellLeft.setAlignment(HorizontalAlignment.LEFT);
-
-		    // ==== HEADER STYLE ====
-		    CellStyle headerStyle = workbook.createCellStyle();
-		    headerStyle.cloneStyleFrom(cellCenter);
-		    headerStyle.setFont(headerFont);
-
-		    // ==== FOOTER STYLE (NO BORDER) ====
-		    CellStyle footerStyle = workbook.createCellStyle();
-		    footerStyle.setAlignment(HorizontalAlignment.CENTER);
-		    footerStyle.setVerticalAlignment(VerticalAlignment.TOP);
-		    footerStyle.setBorderTop(BorderStyle.NONE);
-		    footerStyle.setBorderBottom(BorderStyle.NONE);
-		    footerStyle.setBorderLeft(BorderStyle.NONE);
-		    footerStyle.setBorderRight(BorderStyle.NONE);
-		    footerStyle.setWrapText(true);
-		    footerStyle.setFont(headerFont);
-
-		    final int LAST_COL = 9;
-		    int rowIdx = 0;
-
-		    // ================== TITLES ==================
-		    rowIdx = mergedNoBorder(sheet, rowIdx, "परिशिष्ट-ब", titleStyle, LAST_COL);
-		    rowIdx = mergedNoBorder(sheet, rowIdx,
-		            "1 ऑगस्ट  रोजी वयाची 49/54 वर्षे पुर्ण झालेले गट-क मधील शासकीय अधिकारी/कर्मचारी",
-		            titleStyle, LAST_COL);
-
-		    rowIdx = mergedNoBorder(sheet, rowIdx,
-		            "मंडळ कार्यालयाचे नाव- अधीक्षक अभियंता, पुणे पाटबंधारे प्रकल्प मंडळ,पुणे",
-		            titleStyle, LAST_COL);
-
-		    rowIdx++;
-
-		    // ================== HEADER ROWS ==================
-		    Row h1 = sheet.createRow(rowIdx++);
-		    Row h2 = sheet.createRow(rowIdx++);
-		    int[] widths = {1500, 3500, 3500, 3500, 4000, 4000, 4000, 4000, 4000, 5000};
-
-		    String[] headers = {
-	                "अ. क्र.", "शासकीय कर्मचाऱ्यांचे पुर्ण नांव व त्याने धारण केलेले पद", "जन्म दिनांक",
-	                "सेवेतील ‍ नेमणुकीचा दिनांक", "वयाची 35 वर्ष पुर्ण होण्यापुर्वी शासकीय सेवेत (भारतातील कुठलीही शासकीय सेवा धरुन) प्रवेश केला काय?",
-	                "विभागीय  चौकशी / कार्यवाही चालु असल्यास त्या संबंधीचे आरोप व त्याची सद्य:स्थिती यांचा तपशील", "मागासवर्गीय असल्यास कोणत्या वर्गात मोडतात",
-	                "शारिरिक दृष्ट्या शासकीय सेवेत राहण्यास पात्र आहेत काय?", "इतर अभिप्राय असल्यास", "शेरा"
-	        };
-
-		    for (int c = 0; c <= LAST_COL; c++) {
-
-		        Cell ch = h1.createCell(c);
-		        ch.setCellValue(headers[c]);
-		        ch.setCellStyle(headerStyle);
-
-		        Cell ch2 = h2.createCell(c);
-		        ch2.setCellStyle(headerStyle);
-
-		        sheet.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c));
-		        RegionUtil.setBorderTop(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c), sheet);
-		        RegionUtil.setBorderBottom(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c), sheet);
-		        RegionUtil.setBorderLeft(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c), sheet);
-		        RegionUtil.setBorderRight(BorderStyle.THIN, new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c), sheet);
-		       
-		    }
-		    float headerHeight = calculateDynamicHeight(h1, widths);
-		    h1.setHeightInPoints(Math.max(headerHeight, 25));  
-		    h2.setHeightInPoints(5);
-
-		    // ================== COLUMN NUMBER ROW ==================
-		    Row colNumRow = sheet.createRow(rowIdx++);
-		    for (int c = 0; c <= LAST_COL; c++) {
-		        Cell cn = colNumRow.createCell(c);
-		        cn.setCellValue(c + 1);
-		        cn.setCellStyle(cellCenter);
-		    }
-
-		    // ================== FIXED COLUMN WIDTHS ==================
-		  
-		    for (int c = 0; c <= LAST_COL; c++)
-		        sheet.setColumnWidth(c, widths[c]);
-
-		    // ================== DATA ROWS ==================
-		    for (AgendaSecEntityGATD entity : list) {
-
-		        JsonNode cd = entity.getColumnData();
-
-		        Row r = sheet.createRow(rowIdx);
-
-		        // PRE-CREATE CELLS WITH BORDER
-		        for (int c = 0; c <= LAST_COL; c++) {
-		            Cell cl = r.createCell(c);
-		            cl.setCellStyle(cellCenter);
-		        }
-
-		        if (cd.has("kramank")) r.getCell(0).setCellValue(cd.get("kramank").asText());
-		        if (cd.has("purnNavPad")) r.getCell(1).setCellValue(cd.get("purnNavPad").asText());
-		        if (cd.has("janmaDinank")) r.getCell(2).setCellValue(cd.get("janmaDinank").asText());
-		        if (cd.has("seveNiyuktiDinank")) r.getCell(3).setCellValue(cd.get("seveNiyuktiDinank").asText());
-		        if (cd.has("vay35PurviPravesh")) r.getCell(4).setCellValue(cd.get("vay35PurviPravesh").asText());
-		        if (cd.has("vibhagiyaChaukashi")) r.getCell(5).setCellValue(cd.get("vibhagiyaChaukashi").asText());
-		        if (cd.has("magasVargiya")) r.getCell(6).setCellValue(cd.get("magasVargiya").asText());
-		        if (cd.has("shasakiyaHattavaAdhikar")) r.getCell(7).setCellValue(cd.get("shasakiyaHattavaAdhikar").asText());
-		        if (cd.has("itarAbhipray")) r.getCell(8).setCellValue(cd.get("itarAbhipray").asText());
-		        if (cd.has("shera")) r.getCell(9).setCellValue(cd.get("shera").asText());
-
-		        // DYNAMIC ROW HEIGHT FIX
-		        float maxHeight = calculateDynamicHeight(r, widths);
-		        r.setHeightInPoints(maxHeight);
-
-		        rowIdx++;
-		    }
-
-		    // ================== FOOTER ==================
-		    rowIdx += 2;
-
-		    Row fr = sheet.createRow(rowIdx);
-		    fr.setHeightInPoints(70);
-
-		    String t1 = "सदस्य\nकार्यकारी अभियंता\nभामा आसखेड धरण विभाग,\nपुणे";
-		    String t2 = "सदस्य\nकार्यकारी अभियंता\nपाटबंधारे प्रकल्प अन्वेषण विभाग,\n(भिमा उपखोरे) पुणे";
-		    String t3 = "सदस्य सचिव\nअधीक्षक\nपुणे पाटबंधारे प्रकल्प मंडळ\nपुणे";
-		    String t4 = "अध्यक्ष\nउपअधीक्षक अभियंता\nपुणे पाटबंधारे प्रकल्प मंडळ\nपुणे.";
-
-		    sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, 2));
-		    sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 3, 5));
-		    sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 6, 7));
-		    sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 8, 9));
-
-		    Cell f1 = fr.createCell(0); f1.setCellValue(t1); f1.setCellStyle(footerStyle);
-		    Cell f2 = fr.createCell(3); f2.setCellValue(t2); f2.setCellStyle(footerStyle);
-		    Cell f3 = fr.createCell(6); f3.setCellValue(t3); f3.setCellStyle(footerStyle);
-		    Cell f4 = fr.createCell(8); f4.setCellValue(t4); f4.setCellStyle(footerStyle);
-
-		    clearMergedBorders(sheet, rowIdx, 0, 2);
-		    clearMergedBorders(sheet, rowIdx, 3, 5);
-		    clearMergedBorders(sheet, rowIdx, 6, 7);
-		    clearMergedBorders(sheet, rowIdx, 8, 9);
-
-		    // ================== SAVE FILE ==================
-		    ByteArrayOutputStream out = new ByteArrayOutputStream();
-		    workbook.write(out);
-		    workbook.close();
-
-		    ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
-		    HttpHeaders headers1 = new HttpHeaders();
-		    headers1.add("Content-Disposition", "attachment; filename=agenda_sec.xlsx");
-
-		    return ResponseEntity.ok().headers(headers1)
-		            .contentType(MediaType.parseMediaType(
-		                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-		            .body(new InputStreamResource(in));
-	    }
+	}
+	private String safe(JsonNode node, String key) {
+	    return (node != null && node.has(key) && !node.get(key).isNull())
+	            ? node.get(key).asText()
+	            : "";
 	}
 
 
-
-
-	// ---------------- HELPERS ----------------
-	private int mergedNoBorder(Sheet sheet, int rowIdx, String text, CellStyle style, int lastCol) {
-	    Row r = sheet.createRow(rowIdx);
-	    Cell c = r.createCell(0);
-	    c.setCellValue(text);
-	    c.setCellStyle(style);
-	    sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, lastCol));
-	    return rowIdx + 1;
-	}
-
-	private void clearMergedBorders(Sheet sheet, int row, int startCol, int endCol) {
-	    CellRangeAddress range = new CellRangeAddress(row, row, startCol, endCol);
-	    RegionUtil.setBorderTop(BorderStyle.NONE, range, sheet);
-	    RegionUtil.setBorderBottom(BorderStyle.NONE, range, sheet);
-	    RegionUtil.setBorderLeft(BorderStyle.NONE, range, sheet);
-	    RegionUtil.setBorderRight(BorderStyle.NONE, range, sheet);
-	}
-	private float calculateDynamicHeight(Row row, int[] columnWidths) {
-	    float maxHeight = 22f; // default
-
-	    for (int c = 0; c < row.getLastCellNum(); c++) {
-	        Cell cell = row.getCell(c);
-	        if (cell == null || cell.getCellType() != CellType.STRING) continue;
-
-	        String text = cell.getStringCellValue();
-	        int colWidthPx = columnWidths[c] / 40; // rough width
-
-	        int approxCharsPerLine = Math.max(1, colWidthPx / 7);
-	        int lines = (int) Math.ceil((double) text.length() / approxCharsPerLine);
-
-	        float height = Math.max(22, lines * 15);
-	        maxHeight = Math.max(maxHeight, height);
-	    }
-	    return maxHeight;
-	}
-
-
-
-//	// ===== remove borders from merged footer cells =====
-//	private void clearMergedBorders(Sheet sheet, int row, int startCol, int endCol) {
-//	    RegionUtil.setBorderTop(BorderStyle.NONE, new CellRangeAddress(row, row, startCol, endCol), sheet);
-//	    RegionUtil.setBorderBottom(BorderStyle.NONE, new CellRangeAddress(row, row, startCol, endCol), sheet);
-//	    RegionUtil.setBorderLeft(BorderStyle.NONE, new CellRangeAddress(row, row, startCol, endCol), sheet);
-//	    RegionUtil.setBorderRight(BorderStyle.NONE, new CellRangeAddress(row, row, startCol, endCol), sheet);
-//	}
-//	/** Helper - merge a single row without adding extra border on merged region (used for titles) */
-//	private int mergedNoBorder(Sheet sheet, int rowIdx, String text, CellStyle style, int lastCol) {
-//	    Row r = sheet.createRow(rowIdx);
-//	    Cell c = r.createCell(0);
-//	    c.setCellValue(text);
-//	    c.setCellStyle(style);
-//	    sheet.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, lastCol));
-//	    return rowIdx + 1;
-	//}
 }
