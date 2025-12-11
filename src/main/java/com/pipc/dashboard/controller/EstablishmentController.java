@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.pipc.dashboard.business.EstablishmentBusiness;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
+import com.pipc.dashboard.establishment.request.AgendaSecRequest;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
@@ -22,6 +23,7 @@ import com.pipc.dashboard.establishment.request.LeaveRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
 import com.pipc.dashboard.establishment.request.PassportNocRequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
+import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
@@ -158,10 +160,24 @@ public class EstablishmentController {
 
 		return establishmentBusiness.downloadAgendaExcel(year, targetDate);
 	}
+
+	@PostMapping("/saveOrUpdateAgendaSec")
+	public AgendaSecResponse save(@RequestBody AgendaSecRequest request) {
+		return establishmentBusiness.saveOrUpdateAgendaSec(request);
+	}
 	
-//	 @PostMapping("/saveOrUpdateAgendaSec")
-//	    public AgendaSecResponse save(@RequestBody AgendaSecRequest request) {
-//	        return service.saveOrUpdateAgendaSec(request);
-//	    }
+	 @GetMapping("/getAgendaSec")
+	    public AgendaSecResponse get(
+	            @RequestParam String year,
+	            @RequestParam String targetDate,@RequestParam String section) {
+
+	        return establishmentBusiness.getAgendaSecByYearAndTargetDate(year, targetDate,section);
+	    }
+	 @GetMapping("/downloadAgendaSecExcel")
+		public ResponseEntity<InputStreamResource> downloadAgendaSecExcel(@RequestParam String year,
+				@RequestParam String targetDate,@RequestParam String section) throws Exception {
+
+			return establishmentBusiness.downloadAgendaSecExcel(year, targetDate,section);
+		}
 
 }

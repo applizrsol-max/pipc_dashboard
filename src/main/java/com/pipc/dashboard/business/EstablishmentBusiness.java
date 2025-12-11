@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 
 import com.pipc.dashboard.establishment.request.AgendaRequest;
+import com.pipc.dashboard.establishment.request.AgendaSecRequest;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
@@ -14,6 +15,7 @@ import com.pipc.dashboard.establishment.request.LeaveRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
 import com.pipc.dashboard.establishment.request.PassportNocRequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
+import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
@@ -59,5 +61,11 @@ public interface EstablishmentBusiness {
 	AgendaResponse getAgendaByYearAndTargetDate(String year, String targetDate);
 
 	ResponseEntity<InputStreamResource> downloadAgendaExcel(String year, String targetDate) throws Exception;
+
+	AgendaSecResponse saveOrUpdateAgendaSec(AgendaSecRequest request);
+
+	AgendaSecResponse getAgendaSecByYearAndTargetDate(String year, String targetDate, String section);
+
+	ResponseEntity<InputStreamResource> downloadAgendaSecExcel(String year, String targetDate, String section) throws Exception;
 
 }

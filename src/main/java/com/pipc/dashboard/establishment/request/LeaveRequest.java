@@ -14,6 +14,7 @@ public class LeaveRequest {
 	private String officeName;
 	private String subjectReference;
 	private String flag;
+	private String kramankNo;
 
 	private ApplicantDetails applicantDetails;
 	private LeaveDetails leaveDetails;

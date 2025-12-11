@@ -29,6 +29,9 @@ public class LeaveEntity {
 
 	@Column(name = "row_id")
 	private Long rowId;
+	
+	@Column(name = "kramankNo")
+	private String kramankNo;
 
 	@Column(name = "year")
 	private String year;
