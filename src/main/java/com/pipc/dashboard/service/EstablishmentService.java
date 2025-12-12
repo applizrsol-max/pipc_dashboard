@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
+import com.pipc.dashboard.establishment.request.AppealWrapper2;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
@@ -75,6 +76,12 @@ public interface EstablishmentService {
 	ThirteenResponse getAnukampaData(String year, String targetDate);
 
 	ResponseEntity<InputStreamResource> downloadAnukampaExcel(String year, String targetDate) throws Exception;
+
+	AppealResponse saveOrUpdateAppeal2(AppealWrapper2 request);
+
+	AppealResponse getAppealData2(String year);
+
+	ResponseEntity<InputStreamResource> downloadAppealArj2(String year) throws IOException;
 
 
 }

@@ -73,6 +73,8 @@ import com.pipc.dashboard.establishment.repository.AgendaThirteenEntity;
 import com.pipc.dashboard.establishment.repository.AgendaThirteenRepository;
 import com.pipc.dashboard.establishment.repository.AppealEntity;
 import com.pipc.dashboard.establishment.repository.AppealRepository;
+import com.pipc.dashboard.establishment.repository.AppealRequestEntity;
+import com.pipc.dashboard.establishment.repository.AppealRequestRepository;
 import com.pipc.dashboard.establishment.repository.ApprovalDetailsEntity;
 import com.pipc.dashboard.establishment.repository.ApprovalDetailsRepository;
 import com.pipc.dashboard.establishment.repository.EmployeeDetailsEntity;
@@ -103,7 +105,9 @@ import com.pipc.dashboard.establishment.request.AgendaRow;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
 import com.pipc.dashboard.establishment.request.AgendaSecRow;
 import com.pipc.dashboard.establishment.request.AppealRequest;
+import com.pipc.dashboard.establishment.request.AppealRequest2;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
+import com.pipc.dashboard.establishment.request.AppealWrapper2;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
@@ -149,6 +153,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	private final AgendaSecBRepository agendaSecBRepository;
 	private final AgendaSecDRepository agendaSecDRepository;
 	private final AgendaThirteenRepository agendaThirteenRepository;
+	private final AppealRequestRepository appealRequestRepository;
 	private static final String TEMPLATE = "/templates/medical_bill_template.docx";
 
 	@Autowired
@@ -162,7 +167,8 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 			EmployeePostingRepository employeePostingRepository,
 			IncomeTaxDeductionRepository incomeTaxDeductionRepository, PassportNocRepository passportNocRepository,
 			AgendaOfficerRepository agendaOfficerRepository, AgendaSecBRepository agendaSecBRepository,
-			AgendaSecDRepository agendaSecDRepository, AgendaThirteenRepository agendaThirteenRepository) {
+			AgendaSecDRepository agendaSecDRepository, AgendaThirteenRepository agendaThirteenRepository,
+			AppealRequestRepository appealRequestRepository) {
 		this.apprRepo = apprRepo;
 		this.empRepo = empRepo;
 		this.kharchaRepo = kharchaRepo;
@@ -180,6 +186,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		this.agendaSecBRepository = agendaSecBRepository;
 		this.agendaSecDRepository = agendaSecDRepository;
 		this.agendaThirteenRepository = agendaThirteenRepository;
+		this.appealRequestRepository = appealRequestRepository;
 	}
 
 	@Override
@@ -2855,193 +2862,494 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	@Override
 	public ResponseEntity<InputStreamResource> downloadAnukampaExcel(String year, String targetDate) throws Exception {
 
-	    List<AgendaThirteenEntity> list = agendaThirteenRepository.findByYearAndTargetDate(year, targetDate);
+		List<AgendaThirteenEntity> list = agendaThirteenRepository.findByYearAndTargetDate(year, targetDate);
 
-	    XSSFWorkbook workbook = new XSSFWorkbook();
-	    XSSFSheet sheet = workbook.createSheet("Anukampa");
-	    sheet.setZoom(70);
+		XSSFWorkbook workbook = new XSSFWorkbook();
+		XSSFSheet sheet = workbook.createSheet("Anukampa");
+		sheet.setZoom(70);
 
-	    // ----------------------------------------------------------------
-	    // FONT & STYLES
-	    // ----------------------------------------------------------------
-	    XSSFFont boldFont = workbook.createFont();
-	    boldFont.setBold(true);
-	    boldFont.setFontHeight(11);
+		// ----------------------------------------------------------------
+		// FONT & STYLES
+		// ----------------------------------------------------------------
+		XSSFFont boldFont = workbook.createFont();
+		boldFont.setBold(true);
+		boldFont.setFontHeight(11);
 
-	    CellStyle headerStyle = workbook.createCellStyle();
-	    headerStyle.setWrapText(true);
-	    headerStyle.setAlignment(HorizontalAlignment.CENTER);
-	    headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-	    headerStyle.setBorderBottom(BorderStyle.THIN);
-	    headerStyle.setBorderTop(BorderStyle.THIN);
-	    headerStyle.setBorderLeft(BorderStyle.THIN);
-	    headerStyle.setBorderRight(BorderStyle.THIN);
-	    headerStyle.setFont(boldFont);
+		CellStyle headerStyle = workbook.createCellStyle();
+		headerStyle.setWrapText(true);
+		headerStyle.setAlignment(HorizontalAlignment.CENTER);
+		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		headerStyle.setBorderBottom(BorderStyle.THIN);
+		headerStyle.setBorderTop(BorderStyle.THIN);
+		headerStyle.setBorderLeft(BorderStyle.THIN);
+		headerStyle.setBorderRight(BorderStyle.THIN);
+		headerStyle.setFont(boldFont);
 
-	    CellStyle centerStyle = workbook.createCellStyle();
-	    centerStyle.setWrapText(true);
-	    centerStyle.setAlignment(HorizontalAlignment.CENTER);
-	    centerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-	    centerStyle.setBorderBottom(BorderStyle.THIN);
-	    centerStyle.setBorderTop(BorderStyle.THIN);
-	    centerStyle.setBorderLeft(BorderStyle.THIN);
-	    centerStyle.setBorderRight(BorderStyle.THIN);
+		CellStyle centerStyle = workbook.createCellStyle();
+		centerStyle.setWrapText(true);
+		centerStyle.setAlignment(HorizontalAlignment.CENTER);
+		centerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		centerStyle.setBorderBottom(BorderStyle.THIN);
+		centerStyle.setBorderTop(BorderStyle.THIN);
+		centerStyle.setBorderLeft(BorderStyle.THIN);
+		centerStyle.setBorderRight(BorderStyle.THIN);
 
-	    CellStyle titleStyle = workbook.createCellStyle();
-	    XSSFFont titleFont = workbook.createFont();
-	    titleFont.setBold(true);
-	    titleFont.setFontHeight(16);
-	    titleStyle.setFont(titleFont);
-	    titleStyle.setAlignment(HorizontalAlignment.CENTER);
-	    titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		CellStyle titleStyle = workbook.createCellStyle();
+		XSSFFont titleFont = workbook.createFont();
+		titleFont.setBold(true);
+		titleFont.setFontHeight(16);
+		titleStyle.setFont(titleFont);
+		titleStyle.setAlignment(HorizontalAlignment.CENTER);
+		titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
 
-	    // ----------------------------------------------------------------
-	    // TITLE ROW
-	    // ----------------------------------------------------------------
-	    Row titleRow = sheet.createRow(0);
-	    Cell titleCell = titleRow.createCell(0);
-	    titleCell.setCellValue("अधीक्षक अभियंता,पुणे पाटबंधारे प्रकल्प मंडळ,पुणे");
-	    titleCell.setCellStyle(titleStyle);
+		// ----------------------------------------------------------------
+		// TITLE ROW
+		// ----------------------------------------------------------------
+		Row titleRow = sheet.createRow(0);
+		Cell titleCell = titleRow.createCell(0);
+		titleCell.setCellValue("अधीक्षक अभियंता,पुणे पाटबंधारे प्रकल्प मंडळ,पुणे");
+		titleCell.setCellStyle(titleStyle);
 
-	    sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 12));
+		sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 12));
 
-	    // ----------------------------------------------------------------
-	    // MAIN HEADER ROW (ROW 1)
-	    // ----------------------------------------------------------------
-	    Row mainHeader = sheet.createRow(1);
-	    mainHeader.setHeight((short) 900);
+		// ----------------------------------------------------------------
+		// MAIN HEADER ROW (ROW 1)
+		// ----------------------------------------------------------------
+		Row mainHeader = sheet.createRow(1);
+		mainHeader.setHeight((short) 900);
 
-	    String[] mainHeaders = {
-	            "अ.क्र.",
-	            "अनुकंपा सामाईक जेष्ठता क्रमांक",
-	            "कार्यालयाचे नांव",
-	            "दिवंगत कर्मचा-यांचे नांव",
-	            "दिवंगत झालेला दिनांक",
-	            "अनुकंपा कारणास्तव नोकरीसाठी अर्ज केलेल्या नातेवाईकाचे नाव",
-	            "नोकरीसाठी अर्ज केल्याचा दिनांक",
-	            "दिवंगत कर्मचारी यांचेशी नाते",
-	            "जन्मतारीख",
-	            "शैक्षणिक अर्हता",
-	            "जातीचा प्रवर्ग",
-	            "शेरा"   // merged header for 11 & 12
-	    };
+		String[] mainHeaders = { "अ.क्र.", "अनुकंपा सामाईक जेष्ठता क्रमांक", "कार्यालयाचे नांव",
+				"दिवंगत कर्मचा-यांचे नांव", "दिवंगत झालेला दिनांक",
+				"अनुकंपा कारणास्तव नोकरीसाठी अर्ज केलेल्या नातेवाईकाचे नाव", "नोकरीसाठी अर्ज केल्याचा दिनांक",
+				"दिवंगत कर्मचारी यांचेशी नाते", "जन्मतारीख", "शैक्षणिक अर्हता", "जातीचा प्रवर्ग", "शेरा" // merged
+																											// header
+																											// for 11 &
+																											// 12
+		};
 
-	    for (int i = 0; i < mainHeaders.length; i++) {
-	        Cell c = mainHeader.createCell(i);
-	        c.setCellValue(mainHeaders[i]);
-	        c.setCellStyle(headerStyle);
-	    }
+		for (int i = 0; i < mainHeaders.length; i++) {
+			Cell c = mainHeader.createCell(i);
+			c.setCellValue(mainHeaders[i]);
+			c.setCellStyle(headerStyle);
+		}
 
-	    // IMPORTANT: Create cell(12) because loop created only 0–11
-	    Cell sheraExtra = mainHeader.createCell(12);
-	    sheraExtra.setCellStyle(headerStyle);
+		// IMPORTANT: Create cell(12) because loop created only 0–11
+		Cell sheraExtra = mainHeader.createCell(12);
+		sheraExtra.setCellStyle(headerStyle);
 
-	    // APPLY BORDER STYLE to both merged shera cells
-	    Cell sheraH1 = mainHeader.getCell(11);
-	    Cell sheraH2 = mainHeader.getCell(12);
-	    sheraH1.setCellStyle(headerStyle);
-	    sheraH2.setCellStyle(headerStyle);
+		// APPLY BORDER STYLE to both merged shera cells
+		Cell sheraH1 = mainHeader.getCell(11);
+		Cell sheraH2 = mainHeader.getCell(12);
+		sheraH1.setCellStyle(headerStyle);
+		sheraH2.setCellStyle(headerStyle);
 
-	    // MERGE SHERA HEADER
-	    sheet.addMergedRegion(new CellRangeAddress(1, 1, 11, 12));
+		// MERGE SHERA HEADER
+		sheet.addMergedRegion(new CellRangeAddress(1, 1, 11, 12));
 
-	    // ----------------------------------------------------------------
-	    // SUB HEADER ROW (ROW 2)
-	    // ----------------------------------------------------------------
-	    Row subHeader = sheet.createRow(2);
-	    subHeader.setHeight((short) 900);
+		// ----------------------------------------------------------------
+		// SUB HEADER ROW (ROW 2)
+		// ----------------------------------------------------------------
+		Row subHeader = sheet.createRow(2);
+		subHeader.setHeight((short) 900);
 
-	    // Merge vertically rows 1–2 for col 0 to col 10
-	    for (int col = 0; col <= 10; col++) {
-	        sheet.addMergedRegion(new CellRangeAddress(1, 2, col, col));
-	        Cell mergedCell = subHeader.createCell(col);
-	        mergedCell.setCellStyle(headerStyle);
-	    }
+		// Merge vertically rows 1–2 for col 0 to col 10
+		for (int col = 0; col <= 10; col++) {
+			sheet.addMergedRegion(new CellRangeAddress(1, 2, col, col));
+			Cell mergedCell = subHeader.createCell(col);
+			mergedCell.setCellStyle(headerStyle);
+		}
 
-	    // Create shera sub-columns
-	    Cell sh1 = subHeader.createCell(11);
-	    sh1.setCellValue("नियुक्ती दिली असल्यास");
-	    sh1.setCellStyle(headerStyle);
+		// Create shera sub-columns
+		Cell sh1 = subHeader.createCell(11);
+		sh1.setCellValue("नियुक्ती दिली असल्यास");
+		sh1.setCellStyle(headerStyle);
 
-	    Cell sh2 = subHeader.createCell(12);
-	    sh2.setCellValue("नियुक्ती आदेश दिनांक");
-	    sh2.setCellStyle(headerStyle);
+		Cell sh2 = subHeader.createCell(12);
+		sh2.setCellValue("नियुक्ती आदेश दिनांक");
+		sh2.setCellStyle(headerStyle);
 
-	    // ----------------------------------------------------------------
-	    // COLUMN WIDTHS
-	    // ----------------------------------------------------------------
-	    int[] columnWidths = {
-	            2000, 5000, 6000, 8000, 5000, 9000,
-	            5000, 6000, 5000, 5000, 4000, 5000, 6000
-	    };
-	    for (int i = 0; i < columnWidths.length; i++) {
-	        sheet.setColumnWidth(i, columnWidths[i]);
-	    }
+		// ----------------------------------------------------------------
+		// COLUMN WIDTHS
+		// ----------------------------------------------------------------
+		int[] columnWidths = { 2000, 5000, 6000, 8000, 5000, 9000, 5000, 6000, 5000, 5000, 4000, 5000, 6000 };
+		for (int i = 0; i < columnWidths.length; i++) {
+			sheet.setColumnWidth(i, columnWidths[i]);
+		}
 
-	    // ----------------------------------------------------------------
-	    // NUMBERING ROW (ROW 3)
-	    // ----------------------------------------------------------------
-	    Row numberingRow = sheet.createRow(3);
-	    for (int i = 0; i < 13; i++) {
-	        Cell c = numberingRow.createCell(i);
-	        c.setCellValue(i + 1);
-	        c.setCellStyle(centerStyle);
-	    }
+		// ----------------------------------------------------------------
+		// NUMBERING ROW (ROW 3)
+		// ----------------------------------------------------------------
+		Row numberingRow = sheet.createRow(3);
+		for (int i = 0; i < 13; i++) {
+			Cell c = numberingRow.createCell(i);
+			c.setCellValue(i + 1);
+			c.setCellStyle(centerStyle);
+		}
 
-	    // ----------------------------------------------------------------
-	    // DATA ROWS START AT ROW 4
-	    // ----------------------------------------------------------------
-	    int rowIndex = 4;
+		// ----------------------------------------------------------------
+		// DATA ROWS START AT ROW 4
+		// ----------------------------------------------------------------
+		int rowIndex = 4;
 
-	    for (AgendaThirteenEntity entity : list) {
-	        JsonNode json = entity.getColumnData();
-	        Row row = sheet.createRow(rowIndex++);
+		for (AgendaThirteenEntity entity : list) {
+			JsonNode json = entity.getColumnData();
+			Row row = sheet.createRow(rowIndex++);
 
-	        fill(row, 0, json.get("kramank"), centerStyle);
-	        fill(row, 1, json.get("anukramank"), centerStyle);
-	        fill(row, 2, json.get("karyalayacheNav"), centerStyle);
-	        fill(row, 3, json.get("divangatKarmachariNav"), centerStyle);
-	        fill(row, 4, json.get("divangatDinank"), centerStyle);
-	        fill(row, 5, json.get("navteekKaranyasathiNoKS"), centerStyle);
-	        fill(row, 6, json.get("narkhasathiArjiDinank"), centerStyle);
-	        fill(row, 7, json.get("divangatKarmachariYogyaNate"), centerStyle);
-	        fill(row, 8, json.get("janmTarikh"), centerStyle);
-	        fill(row, 9, json.get("shaikshanikArhata"), centerStyle);
-	        fill(row, 10, json.get("jatPramanpatra"), centerStyle);
+			fill(row, 0, json.get("kramank"), centerStyle);
+			fill(row, 1, json.get("anukramank"), centerStyle);
+			fill(row, 2, json.get("karyalayacheNav"), centerStyle);
+			fill(row, 3, json.get("divangatKarmachariNav"), centerStyle);
+			fill(row, 4, json.get("divangatDinank"), centerStyle);
+			fill(row, 5, json.get("navteekKaranyasathiNoKS"), centerStyle);
+			fill(row, 6, json.get("narkhasathiArjiDinank"), centerStyle);
+			fill(row, 7, json.get("divangatKarmachariYogyaNate"), centerStyle);
+			fill(row, 8, json.get("janmTarikh"), centerStyle);
+			fill(row, 9, json.get("shaikshanikArhata"), centerStyle);
+			fill(row, 10, json.get("jatPramanpatra"), centerStyle);
 
-	        if (json.has("shera")) {
-	            fill(row, 11, json.get("shera").get("nirNay"), centerStyle);
-	            fill(row, 12, json.get("shera").get("nikalDinank"), centerStyle);
-	        }
-	    }
+			if (json.has("shera")) {
+				fill(row, 11, json.get("shera").get("nirNay"), centerStyle);
+				fill(row, 12, json.get("shera").get("nikalDinank"), centerStyle);
+			}
+		}
 
-	    // ----------------------------------------------------------------
-	    // EXPORT FILE
-	    // ----------------------------------------------------------------
-	    ByteArrayOutputStream out = new ByteArrayOutputStream();
-	    workbook.write(out);
-	    workbook.close();
+		// ----------------------------------------------------------------
+		// EXPORT FILE
+		// ----------------------------------------------------------------
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		workbook.write(out);
+		workbook.close();
 
-	    ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
-	    HttpHeaders headers = new HttpHeaders();
-	    headers.add("Content-Disposition", "attachment; filename=Anukampa.xlsx");
+		ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+		HttpHeaders headers = new HttpHeaders();
+		headers.add("Content-Disposition", "attachment; filename=Anukampa.xlsx");
 
-	    return ResponseEntity.ok()
-	            .headers(headers)
-	            .contentType(MediaType.parseMediaType(
-	                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-	            .body(new InputStreamResource(in));
+		return ResponseEntity.ok().headers(headers)
+				.contentType(
+						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(new InputStreamResource(in));
 	}
-
 
 	// ----------------------------------------------------------------
 	// HELPER
 	// ----------------------------------------------------------------
 	private void fill(Row row, int col, JsonNode node, CellStyle style) {
-	    Cell cell = row.createCell(col);
-	    cell.setCellStyle(style);
-	    cell.setCellValue(node != null ? node.asText() : "");
+		Cell cell = row.createCell(col);
+		cell.setCellStyle(style);
+		cell.setCellValue(node != null ? node.asText() : "");
 	}
 
+	@Override
+	public AppealResponse saveOrUpdateAppeal2(AppealWrapper2 request) {
+
+		AppealResponse response = new AppealResponse();
+		ApplicationError error = new ApplicationError();
+		response.setData(new ArrayList<>());
+
+		try {
+
+			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+			LocalDateTime now = LocalDateTime.now();
+
+			for (AppealRequest2 dto : request.getAppealData()) {
+
+				// -----------------------------
+				// FIND RECORD USING deleteId + year/date
+				// -----------------------------
+				Optional<AppealRequestEntity> existingOpt = Optional.empty();
+
+				if (dto.getDeleteId() != null && dto.getDate() != null) {
+					existingOpt = appealRequestRepository.findByDeleteIdAndDate(dto.getDeleteId(), dto.getDate());
+				}
+
+				String flag = Optional.ofNullable(dto.getFlag()).orElse("C").toUpperCase();
+
+				// -----------------------------
+				// DELETE LOGIC BY deleteId + date/year
+				// -----------------------------
+				if (flag.equals("D")) {
+
+					if (existingOpt.isPresent()) {
+						appealRequestRepository.delete(existingOpt.get());
+
+						Map<String, Object> delMap = new LinkedHashMap<>();
+						delMap.put("deleteId", dto.getDeleteId());
+						delMap.put("date", dto.getDate());
+						delMap.put("status", "DELETED");
+						response.getData().add(delMap);
+					}
+					continue;
+				}
+
+				// -----------------------------
+				// CREATE / UPDATE LOGIC
+				// -----------------------------
+				// CREATE / UPDATE LOGIC
+				AppealRequestEntity entity = existingOpt.orElse(new AppealRequestEntity());
+				boolean isUpdate = existingOpt.isPresent();
+
+				entity.setDeleteId(dto.getDeleteId());
+				entity.setYear(dto.getYear());
+				entity.setRowId(dto.getRowId());
+				entity.setDate(dto.getDate());
+
+				if (isUpdate) {
+					entity.setFlag("U");
+					entity.setUpdatedBy(username);
+					entity.setUpdatedDate(now);
+				} else {
+					entity.setFlag("C");
+					entity.setCreatedBy(username);
+					entity.setCreatedDate(now);
+					entity.setUpdatedBy(username);
+					entity.setUpdatedDate(now);
+				}
+
+				// SET ALL FIELDS
+				entity.setArjachaNondaniKramank(dto.getArjachaNondaniKramank());
+				entity.setArjdarNavPatta(dto.getArjdarNavPatta());
+				entity.setArjPraptDinank(dto.getArjPraptDinank());
+				entity.setDarikhvReshBabli(dto.getDarikhvReshBabli());
+				entity.setMahitiChaPrakar(dto.getMahitiChaPrakar());
+				entity.setMaangItlelyaMahitichiRuprekha(dto.getMaangItlelyaMahitichiRuprekha());
+				entity.setYogyMahitiAaheKa(dto.getYogyMahitiAaheKa());
+				entity.setArjShulk(dto.getArjShulk());
+				entity.setShulkPramanitDinank(dto.getShulkPramanitDinank());
+				entity.setMahitiDilyaDinank(dto.getMahitiDilyaDinank());
+				entity.setMahitiNghitAaheKa(dto.getMahitiNghitAaheKa());
+				entity.setKonKshaAwarNokri(dto.getKonKshaAwarNokri());
+				entity.setPrathamAppeal(dto.getPrathamAppeal());
+				entity.setShera(dto.getShera());
+
+				entity.setDynamicColumns(dto.getDynamicColumns());
+
+				AppealRequestEntity saved = appealRequestRepository.save(entity);
+
+				Map<String, Object> map = new LinkedHashMap<>();
+				map.put("deleteId", saved.getDeleteId());
+				map.put("year", saved.getYear());
+				map.put("flag", saved.getFlag());
+				map.put("status", isUpdate ? "UPDATED" : "CREATED");
+				response.getData().add(map);
+			}
+
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+		} catch (Exception e) {
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+			response.setErrorDetails(error);
+		}
+
+		return response;
+	}
+
+	@Override
+	public AppealResponse getAppealData2(String year) {
+		AppealResponse response = new AppealResponse();
+		ApplicationError error = new ApplicationError();
+		response.setData(new ArrayList<>());
+
+		try {
+			List<AppealRequestEntity> appealList;
+
+			// 🎯 Filter by year OR fetch all
+			if (year != null && !year.isBlank()) {
+				appealList = appealRequestRepository.findByYear(year);
+			} else {
+				appealList = appealRequestRepository.findAll();
+			}
+
+			for (AppealRequestEntity e : appealList) {
+
+				Map<String, Object> map = new LinkedHashMap<>();
+
+				map.put("id", e.getId());
+				map.put("rowId", e.getRowId());
+				map.put("year", e.getYear());
+				map.put("date", e.getDate());
+				map.put("deleteId", e.getDeleteId());
+				map.put("flag", e.getFlag());
+
+				// ✅ NEW FIELD NAMES
+				map.put("arjachaNondaniKramank", e.getArjachaNondaniKramank());
+				map.put("arjdarNavPatta", e.getArjdarNavPatta());
+				map.put("arjPraptDinank", e.getArjPraptDinank());
+				map.put("darikhvReshBabli", e.getDarikhvReshBabli());
+				map.put("mahitiChaPrakar", e.getMahitiChaPrakar());
+				map.put("maangItlelyaMahitichiRuprekha", e.getMaangItlelyaMahitichiRuprekha());
+				map.put("yogyMahitiAaheKa", e.getYogyMahitiAaheKa());
+				map.put("arjShulk", e.getArjShulk());
+				map.put("shulkPramanitDinank", e.getShulkPramanitDinank());
+				map.put("mahitiDilyaDinank", e.getMahitiDilyaDinank());
+				map.put("mahitiNghitAaheKa", e.getMahitiNghitAaheKa());
+				map.put("konKshaAwarNokri", e.getKonKshaAwarNokri());
+				map.put("prathamAppeal", e.getPrathamAppeal());
+				map.put("shera", e.getShera());
+
+				// 🧩 Dynamic Columns
+				if (e.getDynamicColumns() != null && !e.getDynamicColumns().isEmpty()) {
+					Map<String, Object> dynMap = objectMapper.convertValue(e.getDynamicColumns(), Map.class);
+					map.put("dynamicColumns", dynMap);
+				} else {
+					map.put("dynamicColumns", new LinkedHashMap<>());
+				}
+
+				// Audit
+				map.put("createdBy", e.getCreatedBy());
+				map.put("createdDate", e.getCreatedDate());
+				map.put("updatedBy", e.getUpdatedBy());
+				map.put("updatedDate", e.getUpdatedDate());
+
+				response.getData().add(map);
+			}
+
+			// SORT by rowId
+			response.getData().sort(Comparator.comparing(m -> Integer.parseInt(m.get("rowId").toString())));
+
+			// Meta Info (No Pagination)
+			Map<String, Object> meta = new LinkedHashMap<>();
+			meta.put("totalRecords", response.getData().size());
+			meta.put("filterYear", year);
+			response.setMeta(meta);
+
+			response.setMessage("Appeal register data fetched successfully.");
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+
+		} catch (Exception ex) {
+			response.setMessage("Error while fetching appeal data.");
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+		}
+
+		response.setErrorDetails(error);
+		return response;
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadAppealArj2(String year) throws IOException {
+		List<AppealRequestEntity> list = (year != null && !year.isBlank()) ? appealRequestRepository.findByYear(year)
+				: appealRequestRepository.findAll();
+
+		list.sort(Comparator.comparing(AppealRequestEntity::getRowId));
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+
+		XSSFSheet sh = wb.createSheet("Appeal Register");
+		sh.setZoom(80);
+
+		// ---------- COLUMN WIDTH ----------
+		int[] colWidths = { 2000, 4500, 4500, 4500, 4500, 4500, 5500, 4500, 3500, 4500, 4500, 4000, 4000, 4000, 4500 };
+		for (int i = 0; i < colWidths.length; i++)
+			sh.setColumnWidth(i, colWidths[i]);
+
+		// ---------- FONTS ----------
+		XSSFFont marathiFont = wb.createFont();
+		marathiFont.setFontName("Mangal");
+		marathiFont.setFontHeightInPoints((short) 12);
+
+		XSSFFont headerFont = wb.createFont();
+		headerFont.setFontName("Mangal");
+		headerFont.setFontHeightInPoints((short) 12);
+		headerFont.setBold(true);
+
+		// ---------- BORDER STYLE ----------
+		CellStyle baseBorder = wb.createCellStyle();
+		baseBorder.setBorderBottom(BorderStyle.MEDIUM);
+		baseBorder.setBorderTop(BorderStyle.MEDIUM);
+		baseBorder.setBorderLeft(BorderStyle.MEDIUM);
+		baseBorder.setBorderRight(BorderStyle.MEDIUM);
+		baseBorder.setAlignment(HorizontalAlignment.CENTER);
+		baseBorder.setVerticalAlignment(VerticalAlignment.CENTER);
+		baseBorder.setWrapText(true);
+
+		CellStyle headerStyle = wb.createCellStyle();
+		headerStyle.cloneStyleFrom(baseBorder);
+		headerStyle.setFont(headerFont);
+
+		CellStyle dataStyle = wb.createCellStyle();
+		dataStyle.cloneStyleFrom(baseBorder);
+		dataStyle.setFont(marathiFont);
+
+		CellStyle numberStyle = wb.createCellStyle();
+		numberStyle.cloneStyleFrom(baseBorder);
+		numberStyle.setFont(marathiFont);
+
+		// ---------- TITLE ----------
+		sh.createRow(0);
+
+		Row titleRow = sh.createRow(1);
+		Cell titleCell = titleRow.createCell(0);
+		titleCell.setCellValue("माहिती अधिकारांतर्गत  मंडळ कार्यालयास प्राप्त झालेले अर्ज");
+		titleCell.setCellStyle(headerStyle);
+		sh.addMergedRegion(new CellRangeAddress(1, 1, 0, 14));
+
+		// ---------- HEADERS ----------
+		String[] headers = { "अ.क्र.", "अर्जाचा नोंदणी क्रमांक", "अर्जदाराचे नाव व पत्ता",
+				"अर्ज प्राप्त झाल्याचा दिनांक", "अर्जदार दारिद्रय रेषेखालील आहे काय", "माहितीचा थोडक्यात तपशील",
+				"मागितलेल्या माहितीचे स्वरुप", "त्रयस्थ पक्षाची माहिती आहे काय?", "अर्जाचे शुल्क रु.",
+				"माहिती शुल्क कळविल्याचा दिनांक", "माहिती दिल्याचा दिनांक", "माहिती नाकारली आहे का",
+				"कोणत्या कलमा आधारे नाकारली", "प्रथम अपील झाले आहे काय?", "शेरा" };
+
+		Row headerRow = sh.createRow(2);
+		headerRow.setHeightInPoints(40);
+
+		for (int i = 0; i < headers.length; i++) {
+			Cell cell = headerRow.createCell(i);
+			cell.setCellValue(headers[i]);
+			cell.setCellStyle(headerStyle);
+		}
+
+		// ---------- COLUMN NUMBERS ----------
+		Row numRow = sh.createRow(3);
+		for (int i = 0; i < headers.length; i++) {
+			Cell num = numRow.createCell(i);
+			num.setCellValue(i + 1);
+			num.setCellStyle(numberStyle);
+		}
+
+		// ---------- DATA ----------
+		int rowNum = 4;
+		int sr = 1;
+
+		for (AppealRequestEntity e : list) {
+
+			Row r = sh.createRow(rowNum++);
+
+			int c = 0;
+
+			addCell(r, c++, String.valueOf(sr++), dataStyle);
+			addCell(r, c++, nvl(e.getArjachaNondaniKramank()), dataStyle);
+			addCell(r, c++, nvl(e.getArjdarNavPatta()), dataStyle);
+			addCell(r, c++, nvl(e.getArjPraptDinank()), dataStyle);
+			addCell(r, c++, nvl(e.getDarikhvReshBabli()), dataStyle);
+			addCell(r, c++, nvl(e.getMahitiChaPrakar()), dataStyle);
+			addCell(r, c++, nvl(e.getMaangItlelyaMahitichiRuprekha()), dataStyle);
+			addCell(r, c++, nvl(e.getYogyMahitiAaheKa()), dataStyle);
+			addCell(r, c++, nvl(e.getArjShulk()), dataStyle);
+			addCell(r, c++, nvl(e.getShulkPramanitDinank()), dataStyle);
+			addCell(r, c++, nvl(e.getMahitiDilyaDinank()), dataStyle);
+			addCell(r, c++, nvl(e.getMahitiNghitAaheKa()), dataStyle);
+			addCell(r, c++, nvl(e.getKonKshaAwarNokri()), dataStyle);
+			addCell(r, c++, nvl(e.getPrathamAppeal()), dataStyle);
+			addCell(r, c++, nvl(e.getShera()), dataStyle);
+		}
+
+		// WRITE STREAM
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		HttpHeaders hh = new HttpHeaders();
+		hh.add("Content-Disposition", "attachment; filename=Appeal_Register.xlsx");
+
+		return ResponseEntity.ok().headers(hh)
+				.contentType(
+						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
 
 }

@@ -12,6 +12,7 @@ import com.pipc.dashboard.business.EstablishmentBusiness;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
+import com.pipc.dashboard.establishment.request.AppealWrapper2;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
@@ -159,8 +160,23 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	}
 
 	@Override
-	public ResponseEntity<InputStreamResource> downloadAnukampaExcel(String year, String targetDate) throws Exception{
+	public ResponseEntity<InputStreamResource> downloadAnukampaExcel(String year, String targetDate) throws Exception {
 		return establishmentService.downloadAnukampaExcel(year, targetDate);
+	}
+
+	@Override
+	public AppealResponse saveOrUpdateAppeal2(AppealWrapper2 request) {
+		return establishmentService.saveOrUpdateAppeal2(request);
+	}
+
+	@Override
+	public AppealResponse getAppealData2(String year) {
+		return establishmentService.getAppealData2(year);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadAppealArj2(String year) throws IOException {
+		return establishmentService.downloadAppealArj2(year);
 	}
 
 }

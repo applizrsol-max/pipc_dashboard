@@ -3,25 +3,33 @@ package com.pipc.dashboard.serviceimpl;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.MDC;
 import org.springframework.core.io.InputStreamResource;
@@ -36,12 +44,16 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pipc.dashboard.pdn.repository.IrrigationCapacityEntityRevised;
+import com.pipc.dashboard.pdn.repository.IrrigationRepositoryRevised;
 import com.pipc.dashboard.pdn.repository.NrldEntity;
 import com.pipc.dashboard.pdn.repository.NrldRepository;
 import com.pipc.dashboard.pdn.repository.PdnAgendaEntity;
 import com.pipc.dashboard.pdn.repository.PdnAgendaRepository;
 import com.pipc.dashboard.pdn.request.AgendaDetail;
 import com.pipc.dashboard.pdn.request.AgendaPoint;
+import com.pipc.dashboard.pdn.request.IrrigationRowDTO;
+import com.pipc.dashboard.pdn.request.IrrigationSaveRequest;
 import com.pipc.dashboard.pdn.request.NrldRequest;
 import com.pipc.dashboard.pdn.request.PdnAgendaRequest;
 import com.pipc.dashboard.pdn.response.NrldResponse;
@@ -58,11 +70,14 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 	private final PdnAgendaRepository pdnAgnedaRepo;
 	private final ObjectMapper objectMapper;
 	private final NrldRepository nrldRepo;
+	private IrrigationRepositoryRevised irrigationRepositoryRevised;
 
-	public PdnAgendaServiceImpl(PdnAgendaRepository pdnAgnedaRepo, ObjectMapper objectMapper, NrldRepository nrldRepo) {
+	public PdnAgendaServiceImpl(PdnAgendaRepository pdnAgnedaRepo, ObjectMapper objectMapper, NrldRepository nrldRepo,
+			IrrigationRepositoryRevised irrigationRepositoryRevised) {
 		this.pdnAgnedaRepo = pdnAgnedaRepo;
 		this.objectMapper = objectMapper;
 		this.nrldRepo = nrldRepo;
+		this.irrigationRepositoryRevised = irrigationRepositoryRevised;
 	}
 
 	// ----------------------------------------------------
@@ -551,6 +566,351 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 							.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
 					.body(new InputStreamResource(in));
 		}
+	}
+
+	@Override
+	public NrldResponse saveOrUpdateIccCap(IrrigationSaveRequest req) {
+		String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		NrldResponse response = new NrldResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+
+			ObjectMapper objectMapper = new ObjectMapper();
+
+			for (IrrigationRowDTO row : req.getRows()) {
+
+				// 🔴 CASE 1 — PERMANENT DELETE USING deleteId + year + date
+				if ("D".equalsIgnoreCase(row.getFlag())) {
+
+					Optional<IrrigationCapacityEntityRevised> existing = irrigationRepositoryRevised
+							.findByYearAndDateAndDeleteId(req.getYear(), req.getDate(), row.getDeleteId());
+
+					if (existing.isPresent()) {
+						// 🔥 PERMANENT DELETE
+						irrigationRepositoryRevised.delete(existing.get());
+					}
+
+					continue;
+				}
+
+				// 🟡 CASE 2 — CREATE / UPDATE
+				Optional<IrrigationCapacityEntityRevised> existing = irrigationRepositoryRevised
+						.findByYearAndDateAndRowId(req.getYear(), req.getDate(), row.getRowId());
+
+				IrrigationCapacityEntityRevised entity = existing.orElse(new IrrigationCapacityEntityRevised());
+
+				// BASIC FIELDS
+				entity.setYear(req.getYear());
+				entity.setDate(req.getDate());
+				entity.setRowId(row.getRowId());
+				entity.setDeleteId(row.getDeleteId());
+
+				// JSONB DATA
+				JsonNode jsonData = objectMapper.valueToTree(row.getData());
+				entity.setData(jsonData);
+
+				// FLAG LOGIC
+				entity.setFlag(existing.isPresent() ? "U" : "C");
+
+				// AUDIT
+				if (!existing.isPresent()) {
+					entity.setCreatedAt(LocalDateTime.now());
+					entity.setCreatedBy(currentUser);
+				}
+				entity.setUpdatedAt(LocalDateTime.now());
+				entity.setUpdatedBy(currentUser);
+
+				irrigationRepositoryRevised.save(entity);
+			}
+
+			// SUCCESS RESPONSE
+			error.setErrorCode("0");
+			error.setErrorDescription("Saved Successfully");
+			response.setErrorDetails(error);
+			return response;
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			error.setErrorCode("500");
+			error.setErrorDescription("Error occurred while saving: " + ex.getMessage());
+			response.setErrorDetails(error);
+			return response;
+		}
+	}
+
+	@Override
+	public NrldResponse getIccCapData(String year, String date) {
+		NrldResponse response = new NrldResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+
+			// Fetch all for year + date
+			List<IrrigationCapacityEntityRevised> list = irrigationRepositoryRevised.findByYearAndDate(year, date);
+
+			// Sort by rowId ASC
+			list.sort(Comparator.comparing(IrrigationCapacityEntityRevised::getRowId));
+
+			List<Map<String, Object>> finalList = new ArrayList<>();
+
+			ObjectMapper mapper = new ObjectMapper();
+
+			for (IrrigationCapacityEntityRevised e : list) {
+
+				// Convert JSONB (JsonNode) → Map<String,Object>
+				Map<String, Object> row = mapper.convertValue(e.getData(), Map.class);
+
+				// Add system attributes
+				row.put("rowId", e.getRowId());
+				row.put("deleteId", e.getDeleteId());
+				row.put("flag", e.getFlag());
+
+				finalList.add(row);
+			}
+
+			response.setData(finalList);
+
+			error.setErrorCode("0");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+			return response;
+
+		} catch (Exception ex) {
+
+			ex.printStackTrace();
+			error.setErrorCode("500");
+			error.setErrorDescription("Error fetching data: " + ex.getMessage());
+			response.setErrorDetails(error);
+			return response;
+		}
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadIccData(String year, String date) throws IOException {
+
+		List<IrrigationCapacityEntityRevised> list = irrigationRepositoryRevised.findByYearAndDate(year, date);
+		list.sort(Comparator.comparing(IrrigationCapacityEntityRevised::getRowId));
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet("Irrigation Capacity");
+
+		// ================== FONTS ==================
+		XSSFFont titleFont = wb.createFont();
+		titleFont.setBold(true);
+		titleFont.setFontHeightInPoints((short) 13);
+
+		XSSFFont headerFont = wb.createFont();
+		headerFont.setBold(true);
+		headerFont.setFontHeightInPoints((short) 10);
+
+		XSSFFont sectionFont = wb.createFont();
+		sectionFont.setBold(true);
+		sectionFont.setColor(IndexedColors.RED.getIndex());
+		sectionFont.setFontHeightInPoints((short) 10);
+
+		XSSFFont dataFont = wb.createFont();
+		dataFont.setFontHeightInPoints((short) 10);
+
+		// ================== STYLES ==================
+		XSSFCellStyle titleStyle = wb.createCellStyle();
+		titleStyle.setAlignment(HorizontalAlignment.CENTER);
+		titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		titleStyle.setFont(titleFont);
+
+		// UPDATED → LEFT aligned + NO background
+		XSSFCellStyle subHeaderStyle = wb.createCellStyle();
+		subHeaderStyle.setAlignment(HorizontalAlignment.LEFT); // UPDATED
+		subHeaderStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		subHeaderStyle.setFont(headerFont);
+		subHeaderStyle.setFillPattern(FillPatternType.NO_FILL); // UPDATED
+
+		// UPDATED → No grey background
+		XSSFCellStyle sectionStyle = wb.createCellStyle();
+		sectionStyle.setAlignment(HorizontalAlignment.LEFT);
+		sectionStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		sectionStyle.setFont(sectionFont);
+		sectionStyle.setFillPattern(FillPatternType.NO_FILL); // UPDATED
+		sectionStyle.setBorderBottom(BorderStyle.THIN);
+		sectionStyle.setBorderTop(BorderStyle.THIN);
+		sectionStyle.setBorderLeft(BorderStyle.THIN);
+		sectionStyle.setBorderRight(BorderStyle.THIN);
+
+		XSSFCellStyle headerStyle = wb.createCellStyle();
+		headerStyle.setAlignment(HorizontalAlignment.CENTER);
+		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		headerStyle.setBorderBottom(BorderStyle.THIN);
+		headerStyle.setBorderTop(BorderStyle.THIN);
+		headerStyle.setBorderLeft(BorderStyle.THIN);
+		headerStyle.setBorderRight(BorderStyle.THIN);
+		headerStyle.setFont(headerFont);
+
+		XSSFCellStyle dataStyle = wb.createCellStyle();
+		dataStyle.setAlignment(HorizontalAlignment.CENTER);
+		dataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		dataStyle.setBorderBottom(BorderStyle.THIN);
+		dataStyle.setBorderTop(BorderStyle.THIN);
+		dataStyle.setBorderLeft(BorderStyle.THIN);
+		dataStyle.setBorderRight(BorderStyle.THIN);
+		dataStyle.setFont(dataFont);
+
+		XSSFCellStyle leftStyle = wb.createCellStyle();
+		leftStyle.cloneStyleFrom(dataStyle);
+		leftStyle.setAlignment(HorizontalAlignment.LEFT);
+
+		// Utility
+		BiFunction<Row, Integer, Cell> cell = (r, c) -> {
+			Cell cc = r.getCell(c);
+			if (cc == null)
+				cc = r.createCell(c);
+			return cc;
+		};
+
+		int rowIndex = 0;
+
+		// ================== TITLE (Dynamic Date) ==================
+		Row titleRow = sheet.createRow(rowIndex++);
+		titleRow.setHeightInPoints(22); // UPDATED (bigger spacing)
+
+		String marathiDate = formatMarathiDate(date);
+		cell.apply(titleRow, 0).setCellValue(marathiDate + " अखेर निर्मित सिंचन क्षमता");
+		cell.apply(titleRow, 0).setCellStyle(titleStyle);
+		sheet.addMergedRegion(new CellRangeAddress(titleRow.getRowNum(), titleRow.getRowNum(), 0, 7));
+
+		// ================== SUB HEADER ==================
+		Row deptRow = sheet.createRow(rowIndex++);
+		deptRow.setHeightInPoints(18); // UPDATED spacing
+
+		cell.apply(deptRow, 0).setCellValue("पुणे पाटबंधारे प्रकल्प मंडळ, पुणे");
+		cell.apply(deptRow, 0).setCellStyle(subHeaderStyle); // UPDATED left align, no bg
+		sheet.addMergedRegion(new CellRangeAddress(deptRow.getRowNum(), deptRow.getRowNum(), 0, 7));
+
+		// ================== HEADER TABLE ==================
+		// ================== HEADER ROW 1 ==================
+		Row h1 = sheet.createRow(rowIndex++);
+		h1.setHeightInPoints(24);
+		for (int i = 0; i <= 7; i++)
+			cell.apply(h1, i).setCellStyle(headerStyle);
+
+		cell.apply(h1, 0).setCellValue("अ. क्र.");
+		cell.apply(h1, 1).setCellValue("प्रकल्पाचे नांव");
+		cell.apply(h1, 2).setCellValue("अंतिम सिंचन क्षमता");
+		cell.apply(h1, 4).setCellValue("निमित्त सिंचन क्षमता");
+		cell.apply(h1, 6).setCellValue("उर्वरीत सिंचन क्षमता");
+
+		// Merge spanning 2 rows for first two cols
+		sheet.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h1.getRowNum() + 1, 0, 0));
+		sheet.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h1.getRowNum() + 1, 1, 1));
+		sheet.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h1.getRowNum(), 2, 3));
+		sheet.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h1.getRowNum(), 4, 5));
+		sheet.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h1.getRowNum(), 6, 7));
+
+		// ================== HEADER ROW 2 ==================
+		Row h2 = sheet.createRow(rowIndex++);
+		h2.setHeightInPoints(22);
+
+		// Ensure merged region cells have borders
+		cell.apply(h2, 0).setCellStyle(headerStyle); // FIX
+		cell.apply(h2, 1).setCellStyle(headerStyle); // FIX
+
+		String[] labels = { "ICA", "IP", "ICA", "IP", "ICA", "IP" };
+		int col = 2;
+		for (String lbl : labels) {
+			Cell c = cell.apply(h2, col);
+			c.setCellValue(lbl);
+			c.setCellStyle(headerStyle);
+			col++;
+		}
+
+		// ================== SECTION ROW ==================
+		Row sec = sheet.createRow(rowIndex++);
+		sec.setHeightInPoints(18); // UPDATED
+
+		cell.apply(sec, 0).setCellValue("मोठे प्रकल्प (प्रगत)");
+		cell.apply(sec, 0).setCellStyle(sectionStyle); // UPDATED no bg
+
+		sheet.addMergedRegion(new CellRangeAddress(sec.getRowNum(), sec.getRowNum(), 0, 7));
+
+		// ================== DATA ROWS ==================
+		long totalAntICA = 0, totalAntIP = 0;
+		long totalNimitICA = 0, totalNimitIP = 0;
+		long totalUpareetICA = 0, totalUpareetIP = 0;
+
+		int sr = 1;
+
+		for (IrrigationCapacityEntityRevised e : list) {
+
+			JsonNode d = e.getData();
+
+			Row r = sheet.createRow(rowIndex++);
+			r.setHeightInPoints(20);
+
+			cell.apply(r, 0).setCellValue(sr++);
+			cell.apply(r, 1).setCellValue(d.path("projectName").asText(""));
+			cell.apply(r, 2).setCellValue(d.path("antishechanICA").asLong(0));
+			cell.apply(r, 3).setCellValue(d.path("antishechanIP").asLong(0));
+			cell.apply(r, 4).setCellValue(d.path("nimitICA").asLong(0));
+			cell.apply(r, 5).setCellValue(d.path("nimitIP").asLong(0));
+			cell.apply(r, 6).setCellValue(d.path("upareetICA").asLong(0));
+			cell.apply(r, 7).setCellValue(d.path("upareetIP").asLong(0));
+
+			// styles
+			cell.apply(r, 0).setCellStyle(dataStyle);
+			cell.apply(r, 1).setCellStyle(leftStyle);
+			for (int i = 2; i <= 7; i++)
+				cell.apply(r, i).setCellStyle(dataStyle);
+
+			// totals
+			totalAntICA += d.path("antishechanICA").asLong(0);
+			totalAntIP += d.path("antishechanIP").asLong(0);
+			totalNimitICA += d.path("nimitICA").asLong(0);
+			totalNimitIP += d.path("nimitIP").asLong(0);
+			totalUpareetICA += d.path("upareetICA").asLong(0);
+			totalUpareetIP += d.path("upareetIP").asLong(0);
+		}
+
+		// ================== TOTAL ROW ==================
+		Row total = sheet.createRow(rowIndex++);
+		total.setHeightInPoints(24);
+
+		for (int i = 0; i <= 7; i++)
+			cell.apply(total, i).setCellStyle(headerStyle);
+
+		cell.apply(total, 0).setCellValue("पुपाप्रमं, पुणे");
+		sheet.addMergedRegion(new CellRangeAddress(total.getRowNum(), total.getRowNum(), 0, 1));
+
+		cell.apply(total, 2).setCellValue(totalAntICA);
+		cell.apply(total, 3).setCellValue(totalAntIP);
+		cell.apply(total, 4).setCellValue(totalNimitICA);
+		cell.apply(total, 5).setCellValue(totalNimitIP);
+		cell.apply(total, 6).setCellValue(totalUpareetICA);
+		cell.apply(total, 7).setCellValue(totalUpareetIP);
+
+		// Adjust widths
+		for (int i = 0; i <= 7; i++) {
+			sheet.autoSizeColumn(i);
+			if (sheet.getColumnWidth(i) < 4300)
+				sheet.setColumnWidth(i, 4300);
+		}
+
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		return ResponseEntity.ok()
+				.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Irrigation_Capacity.xlsx")
+				.contentType(MediaType.APPLICATION_OCTET_STREAM)
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	private String formatMarathiDate(String yyyyMmDd) {
+		LocalDate dt = LocalDate.parse(yyyyMmDd);
+		String[] months = { "", "जानेवारी", "फेब्रुवारी", "मार्च", "एप्रिल", "मे", "जून", "जुलै", "ऑगस्ट", "सप्टेंबर",
+				"ऑक्टोबर", "नोव्हेंबर", "डिसेंबर" };
+
+		return dt.getDayOfMonth() + " " + months[dt.getMonthValue()] + " " + dt.getYear();
 	}
 
 }

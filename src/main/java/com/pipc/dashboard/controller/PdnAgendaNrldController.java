@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.pipc.dashboard.business.PdnAgendaBusiness;
 import com.pipc.dashboard.pdn.repository.NrldEntity;
 import com.pipc.dashboard.pdn.repository.PdnAgendaEntity;
+import com.pipc.dashboard.pdn.request.IrrigationSaveRequest;
 import com.pipc.dashboard.pdn.request.NrldRequest;
 import com.pipc.dashboard.pdn.request.PdnAgendaRequest;
 import com.pipc.dashboard.pdn.response.NrldResponse;
@@ -65,5 +66,22 @@ public class PdnAgendaNrldController {
 	public ResponseEntity<InputStreamResource> downloadPdnAgendaData(@RequestParam("year") String year)
 			throws Exception {
 		return pdnAgendaBusiness.downloadPdnAgendaData(year);
+	}
+
+	@PostMapping("/saveOrUpdateIccCap")
+	public NrldResponse saveOrUpdateIccCap(@RequestBody IrrigationSaveRequest req) {
+		return pdnAgendaBusiness.saveOrUpdateIccCap(req);
+	}
+
+	@GetMapping("/getIccCapData")
+	public NrldResponse getIccCapData(@RequestParam String year, @RequestParam String date) {
+
+		return pdnAgendaBusiness.getIccCapData(year, date);
+	}
+
+	@GetMapping("/downloadIccData")
+	public ResponseEntity<InputStreamResource> downloadIccData(@RequestParam String year, @RequestParam String date)
+			throws Exception {
+		return pdnAgendaBusiness.downloadIccData(year, date);
 	}
 }

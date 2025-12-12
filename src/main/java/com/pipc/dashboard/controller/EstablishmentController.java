@@ -17,6 +17,7 @@ import com.pipc.dashboard.business.EstablishmentBusiness;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
+import com.pipc.dashboard.establishment.request.AppealWrapper2;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
@@ -199,4 +200,22 @@ public class EstablishmentController {
 		return establishmentBusiness.downloadAnukampaExcel(year, targetDate);
 	}
 
+	@PostMapping("/saveOrUpdateAppeal2")
+	public AppealResponse saveOrUpdateAppeal2(@RequestBody AppealWrapper2 request) {
+		return establishmentBusiness.saveOrUpdateAppeal2(request);
+	}
+
+	@GetMapping("/getAppealData2")
+	public ResponseEntity<AppealResponse> getAppealData2(@RequestParam(required = false) String year) {
+
+		AppealResponse response = establishmentBusiness.getAppealData2(year);
+		return ResponseEntity.ok(response);
+	}
+
+	@GetMapping("/downloadAppealArj2")
+	public ResponseEntity<InputStreamResource> downloadAppealArj2(@RequestParam(required = false) String year)
+			throws IOException {
+
+		return establishmentBusiness.downloadAppealArj2(year);
+	}
 }
