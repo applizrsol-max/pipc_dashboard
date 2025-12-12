@@ -2829,187 +2829,218 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 	@Override
 	public ThirteenResponse getAnukampaData(String year, String targetDate) {
-		 ThirteenResponse res = new ThirteenResponse();
-		    ApplicationError err = new ApplicationError();
+		ThirteenResponse res = new ThirteenResponse();
+		ApplicationError err = new ApplicationError();
 
-		    try {
-		        List<AgendaThirteenEntity> list =
-		                agendaThirteenRepository.findByYearAndTargetDate(year, targetDate)
-		                        .stream()
-		                        .sorted(Comparator.comparingLong(AgendaThirteenEntity::getRowId))
-		                        .toList();
+		try {
+			List<AgendaThirteenEntity> list = agendaThirteenRepository.findByYearAndTargetDate(year, targetDate)
+					.stream().sorted(Comparator.comparingLong(AgendaThirteenEntity::getRowId)).toList();
 
-		        res.setData(list);
-		        res.setMessage("Success");
+			res.setData(list);
+			res.setMessage("Success");
 
-		        err.setErrorCode("200");
-		        err.setErrorDescription("Fetched successfully");
+			err.setErrorCode("200");
+			err.setErrorDescription("Fetched successfully");
 
-		    } catch (Exception e) {
-		        err.setErrorCode("500");
-		        err.setErrorDescription(e.getMessage());
-		        res.setMessage("Failed");
-		    }
+		} catch (Exception e) {
+			err.setErrorCode("500");
+			err.setErrorDescription(e.getMessage());
+			res.setMessage("Failed");
+		}
 
-		    res.setErrorDetails(err);
-		    return res;
+		res.setErrorDetails(err);
+		return res;
 	}
 
 	@Override
 	public ResponseEntity<InputStreamResource> downloadAnukampaExcel(String year, String targetDate) throws Exception {
 
-	    // ===== Fetch from DB (as per your requirement) =====
-	    List<AgendaThirteenEntity> list =
-	            agendaThirteenRepository.findByYearAndTargetDate(year, targetDate);
+	    List<AgendaThirteenEntity> list = agendaThirteenRepository.findByYearAndTargetDate(year, targetDate);
 
 	    XSSFWorkbook workbook = new XSSFWorkbook();
-	    XSSFSheet sheet = workbook.createSheet("अनुकंपा");
+	    XSSFSheet sheet = workbook.createSheet("Anukampa");
+	    sheet.setZoom(70);
 
-	    // ---------- SMALL FONT ----------
-	    Font smallFont = workbook.createFont();
-	    smallFont.setFontHeightInPoints((short) 10);
+	    // ----------------------------------------------------------------
+	    // FONT & STYLES
+	    // ----------------------------------------------------------------
+	    XSSFFont boldFont = workbook.createFont();
+	    boldFont.setBold(true);
+	    boldFont.setFontHeight(11);
 
-	    // ---------- HEADER STYLE ----------
-	    CellStyle header = workbook.createCellStyle();
-	    header.setAlignment(HorizontalAlignment.CENTER);
-	    header.setVerticalAlignment(VerticalAlignment.CENTER);
-	    header.setBorderBottom(BorderStyle.THIN);
-	    header.setBorderTop(BorderStyle.THIN);
-	    header.setBorderLeft(BorderStyle.THIN);
-	    header.setBorderRight(BorderStyle.THIN);
-	    header.setWrapText(true);
+	    CellStyle headerStyle = workbook.createCellStyle();
+	    headerStyle.setWrapText(true);
+	    headerStyle.setAlignment(HorizontalAlignment.CENTER);
+	    headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+	    headerStyle.setBorderBottom(BorderStyle.THIN);
+	    headerStyle.setBorderTop(BorderStyle.THIN);
+	    headerStyle.setBorderLeft(BorderStyle.THIN);
+	    headerStyle.setBorderRight(BorderStyle.THIN);
+	    headerStyle.setFont(boldFont);
 
-	    Font hFont = workbook.createFont();
-	    hFont.setBold(true);
-	    hFont.setFontHeightInPoints((short) 10);
-	    header.setFont(hFont);
+	    CellStyle centerStyle = workbook.createCellStyle();
+	    centerStyle.setWrapText(true);
+	    centerStyle.setAlignment(HorizontalAlignment.CENTER);
+	    centerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+	    centerStyle.setBorderBottom(BorderStyle.THIN);
+	    centerStyle.setBorderTop(BorderStyle.THIN);
+	    centerStyle.setBorderLeft(BorderStyle.THIN);
+	    centerStyle.setBorderRight(BorderStyle.THIN);
 
-	    // ---------- DATA STYLE ----------
-	    CellStyle cellStyle = workbook.createCellStyle();
-	    cellStyle.setAlignment(HorizontalAlignment.CENTER);
-	    cellStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-	    cellStyle.setBorderBottom(BorderStyle.THIN);
-	    cellStyle.setBorderTop(BorderStyle.THIN);
-	    cellStyle.setBorderLeft(BorderStyle.THIN);
-	    cellStyle.setBorderRight(BorderStyle.THIN);
-	    cellStyle.setWrapText(true);
-	    cellStyle.setFont(smallFont);
-
-	    // ---------- TITLE STYLE ----------
-	    CellStyle title = workbook.createCellStyle();
-	    title.setAlignment(HorizontalAlignment.CENTER);
-	    title.setVerticalAlignment(VerticalAlignment.CENTER);
-	    Font titleFont = workbook.createFont();
+	    CellStyle titleStyle = workbook.createCellStyle();
+	    XSSFFont titleFont = workbook.createFont();
 	    titleFont.setBold(true);
-	    titleFont.setFontHeightInPoints((short) 14);
-	    title.setFont(titleFont);
+	    titleFont.setFontHeight(16);
+	    titleStyle.setFont(titleFont);
+	    titleStyle.setAlignment(HorizontalAlignment.CENTER);
+	    titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
 
-	    int rowIdx = 0;
+	    // ----------------------------------------------------------------
+	    // TITLE ROW
+	    // ----------------------------------------------------------------
+	    Row titleRow = sheet.createRow(0);
+	    Cell titleCell = titleRow.createCell(0);
+	    titleCell.setCellValue("अधीक्षक अभियंता,पुणे पाटबंधारे प्रकल्प मंडळ,पुणे");
+	    titleCell.setCellStyle(titleStyle);
 
-	    // =================== TITLE SECTION ===================
-	    rowIdx = merged(sheet, rowIdx, "परिशिष्ट-ब", title, 12);
-	    rowIdx = merged(sheet, rowIdx,
-	            "1 ऑगस्ट रोजी वयाची 49/54 वर्षे पूर्ण झालेले गट-क मधील शासकीय अधिकारी/कर्मचारी",
-	            title, 12);
-	    rowIdx = merged(sheet, rowIdx,
-	            "अधीक्षक अभियंता, पुणे पाटबंधारे प्रकल्प मंडळ, पुणे",
-	            title, 12);
+	    sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 12));
 
-	    rowIdx++;
-
-	    // =================== HEADER ROWS ===================
-	    Row h1 = sheet.createRow(rowIdx++);
-	    Row h2 = sheet.createRow(rowIdx++);
+	    // ----------------------------------------------------------------
+	    // MAIN HEADER ROW (ROW 1)
+	    // ----------------------------------------------------------------
+	    Row mainHeader = sheet.createRow(1);
+	    mainHeader.setHeight((short) 900);
 
 	    String[] mainHeaders = {
 	            "अ.क्र.",
 	            "अनुकंपा सामाईक जेष्ठता क्रमांक",
-	            "कार्यालयाचे नाव",
-	            "दिवंगत कर्मचारीचे नाव",
-	            "दिवंगत झाल्याची दिनांक",
-	            "अनुकंपा नोकरीसाठी अर्ज केलेल्या नातेवाईकाचे नाव",
-	            "नोकर्‍यासाठी अर्ज केलेला दिनांक",
-	            "दिवंगत कर्मचारी योग्य नाते",
+	            "कार्यालयाचे नांव",
+	            "दिवंगत कर्मचा-यांचे नांव",
+	            "दिवंगत झालेला दिनांक",
+	            "अनुकंपा कारणास्तव नोकरीसाठी अर्ज केलेल्या नातेवाईकाचे नाव",
+	            "नोकरीसाठी अर्ज केल्याचा दिनांक",
+	            "दिवंगत कर्मचारी यांचेशी नाते",
 	            "जन्मतारीख",
 	            "शैक्षणिक अर्हता",
-	            "जात प्रवर्ग",
-	            "शेरा"
+	            "जातीचा प्रवर्ग",
+	            "शेरा"   // merged header for 11 & 12
 	    };
 
-	    String[] subHeaders = {"निर्णयासाठी दिलेला इतर शेरा", "निर्णयाचा आदेश दिनांक"};
-
-	    // Merge first 11 columns vertically
-	    for (int c = 0; c <= 10; c++)
-	        sheet.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h2.getRowNum(), c, c));
-
-	    // Merge शेरा group
-	    sheet.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h1.getRowNum(), 11, 12));
-
-	    // Fill headers
 	    for (int i = 0; i < mainHeaders.length; i++) {
-	        Cell cell = h1.createCell(i);
-	        cell.setCellValue(mainHeaders[i]);
-	        cell.setCellStyle(header);
+	        Cell c = mainHeader.createCell(i);
+	        c.setCellValue(mainHeaders[i]);
+	        c.setCellStyle(headerStyle);
 	    }
 
-	    for (int i = 0; i < subHeaders.length; i++) {
-	        Cell cell = h2.createCell(11 + i);
-	        cell.setCellValue(subHeaders[i]);
-	        cell.setCellStyle(header);
+	    // IMPORTANT: Create cell(12) because loop created only 0–11
+	    Cell sheraExtra = mainHeader.createCell(12);
+	    sheraExtra.setCellStyle(headerStyle);
+
+	    // APPLY BORDER STYLE to both merged shera cells
+	    Cell sheraH1 = mainHeader.getCell(11);
+	    Cell sheraH2 = mainHeader.getCell(12);
+	    sheraH1.setCellStyle(headerStyle);
+	    sheraH2.setCellStyle(headerStyle);
+
+	    // MERGE SHERA HEADER
+	    sheet.addMergedRegion(new CellRangeAddress(1, 1, 11, 12));
+
+	    // ----------------------------------------------------------------
+	    // SUB HEADER ROW (ROW 2)
+	    // ----------------------------------------------------------------
+	    Row subHeader = sheet.createRow(2);
+	    subHeader.setHeight((short) 900);
+
+	    // Merge vertically rows 1–2 for col 0 to col 10
+	    for (int col = 0; col <= 10; col++) {
+	        sheet.addMergedRegion(new CellRangeAddress(1, 2, col, col));
+	        Cell mergedCell = subHeader.createCell(col);
+	        mergedCell.setCellStyle(headerStyle);
 	    }
 
-	    // Ensure border inside merged शेरा block
-	    for (int c = 11; c <= 12; c++) {
-	        Cell cell = h1.getCell(c);
-	        if (cell == null) cell = h1.createCell(c);
-	        cell.setCellStyle(header);
+	    // Create shera sub-columns
+	    Cell sh1 = subHeader.createCell(11);
+	    sh1.setCellValue("नियुक्ती दिली असल्यास");
+	    sh1.setCellStyle(headerStyle);
+
+	    Cell sh2 = subHeader.createCell(12);
+	    sh2.setCellValue("नियुक्ती आदेश दिनांक");
+	    sh2.setCellStyle(headerStyle);
+
+	    // ----------------------------------------------------------------
+	    // COLUMN WIDTHS
+	    // ----------------------------------------------------------------
+	    int[] columnWidths = {
+	            2000, 5000, 6000, 8000, 5000, 9000,
+	            5000, 6000, 5000, 5000, 4000, 5000, 6000
+	    };
+	    for (int i = 0; i < columnWidths.length; i++) {
+	        sheet.setColumnWidth(i, columnWidths[i]);
 	    }
 
-	    // =================== DATA ROWS ===================
-	    for (AgendaThirteenEntity e : list) {
-
-	        JsonNode cd = e.getColumnData();
-
-	        Row r = sheet.createRow(rowIdx++);
-
-	        r.createCell(0).setCellValue(safe(cd, "kramank"));
-	        r.createCell(1).setCellValue(safe(cd, "anukampaSamayikKramank"));
-	        r.createCell(2).setCellValue(safe(cd, "karyalayNav"));
-	        r.createCell(3).setCellValue(safe(cd, "divangatNav"));
-	        r.createCell(4).setCellValue(safe(cd, "mrituDinank"));
-	        r.createCell(5).setCellValue(safe(cd, "natevaiName"));
-	        r.createCell(6).setCellValue(safe(cd, "avedanDinank"));
-	        r.createCell(7).setCellValue(safe(cd, "yogyNate"));
-	        r.createCell(8).setCellValue(safe(cd, "janmaTarikh"));
-	        r.createCell(9).setCellValue(safe(cd, "shikshanikArhata"));
-	        r.createCell(10).setCellValue(safe(cd, "jaatParg"));
-	        r.createCell(11).setCellValue(safe(cd, "sharaIther"));
-	        r.createCell(12).setCellValue(safe(cd, "sharaAadeshDinank"));
-
-	        apply(cellStyle, r, 13);
+	    // ----------------------------------------------------------------
+	    // NUMBERING ROW (ROW 3)
+	    // ----------------------------------------------------------------
+	    Row numberingRow = sheet.createRow(3);
+	    for (int i = 0; i < 13; i++) {
+	        Cell c = numberingRow.createCell(i);
+	        c.setCellValue(i + 1);
+	        c.setCellStyle(centerStyle);
 	    }
 
-	    // Auto-size
-	    for (int i = 0; i <= 12; i++) sheet.autoSizeColumn(i);
+	    // ----------------------------------------------------------------
+	    // DATA ROWS START AT ROW 4
+	    // ----------------------------------------------------------------
+	    int rowIndex = 4;
 
-	    // Write file
+	    for (AgendaThirteenEntity entity : list) {
+	        JsonNode json = entity.getColumnData();
+	        Row row = sheet.createRow(rowIndex++);
+
+	        fill(row, 0, json.get("kramank"), centerStyle);
+	        fill(row, 1, json.get("anukramank"), centerStyle);
+	        fill(row, 2, json.get("karyalayacheNav"), centerStyle);
+	        fill(row, 3, json.get("divangatKarmachariNav"), centerStyle);
+	        fill(row, 4, json.get("divangatDinank"), centerStyle);
+	        fill(row, 5, json.get("navteekKaranyasathiNoKS"), centerStyle);
+	        fill(row, 6, json.get("narkhasathiArjiDinank"), centerStyle);
+	        fill(row, 7, json.get("divangatKarmachariYogyaNate"), centerStyle);
+	        fill(row, 8, json.get("janmTarikh"), centerStyle);
+	        fill(row, 9, json.get("shaikshanikArhata"), centerStyle);
+	        fill(row, 10, json.get("jatPramanpatra"), centerStyle);
+
+	        if (json.has("shera")) {
+	            fill(row, 11, json.get("shera").get("nirNay"), centerStyle);
+	            fill(row, 12, json.get("shera").get("nikalDinank"), centerStyle);
+	        }
+	    }
+
+	    // ----------------------------------------------------------------
+	    // EXPORT FILE
+	    // ----------------------------------------------------------------
 	    ByteArrayOutputStream out = new ByteArrayOutputStream();
 	    workbook.write(out);
 	    workbook.close();
 
 	    ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
 	    HttpHeaders headers = new HttpHeaders();
-	    headers.add("Content-Disposition", "attachment; filename=anukampa.xlsx");
+	    headers.add("Content-Disposition", "attachment; filename=Anukampa.xlsx");
 
 	    return ResponseEntity.ok()
 	            .headers(headers)
-	            .contentType(MediaType.parseMediaType("application/vnd.ms-excel"))
+	            .contentType(MediaType.parseMediaType(
+	                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
 	            .body(new InputStreamResource(in));
 	}
-	private String safe(JsonNode node, String key) {
-	    return (node != null && node.has(key) && !node.get(key).isNull())
-	            ? node.get(key).asText()
-	            : "";
+
+
+	// ----------------------------------------------------------------
+	// HELPER
+	// ----------------------------------------------------------------
+	private void fill(Row row, int col, JsonNode node, CellStyle style) {
+	    Cell cell = row.createCell(col);
+	    cell.setCellStyle(style);
+	    cell.setCellValue(node != null ? node.asText() : "");
 	}
 
 
