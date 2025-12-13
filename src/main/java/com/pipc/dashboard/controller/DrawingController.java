@@ -18,11 +18,13 @@ import com.pipc.dashboard.drawing.request.DamNalikaRequest;
 import com.pipc.dashboard.drawing.request.DamSafetyRequest;
 import com.pipc.dashboard.drawing.request.PralambitBhusampadanRequest;
 import com.pipc.dashboard.drawing.request.SinchanKshamataRequest;
+import com.pipc.dashboard.drawing.request.TenderSaveRequest;
 import com.pipc.dashboard.drawing.response.DamInspectionResponse;
 import com.pipc.dashboard.drawing.response.DamNalikaResponse;
 import com.pipc.dashboard.drawing.response.DamSafetyResponse;
 import com.pipc.dashboard.drawing.response.PralambitBhusampadanResponse;
 import com.pipc.dashboard.drawing.response.SinchanKshamataResponse;
+import com.pipc.dashboard.drawing.response.TenderBhamaResponse;
 
 @RestController
 @RequestMapping("/pipc/dashboard/drawing")
@@ -122,6 +124,22 @@ public class DrawingController {
 	public ResponseEntity<InputStreamResource> downloadSinchanKshamataExcel(@RequestParam String period,
 			@RequestParam String date) throws IOException {
 		return drawingBusiness.downloadSinchanKshamataExcel(period, date);
+	}
+
+	@PostMapping("/saveOrUpdateTenderBhama")
+	public TenderBhamaResponse saveOrUpdateTenderBhama(@RequestBody TenderSaveRequest req) {
+		return drawingBusiness.saveOrUpdateTenderBhama(req);
+	}
+
+	@GetMapping("/getTenderBhamaDetails")
+	public TenderBhamaResponse get(@RequestParam String year, @RequestParam String month, @RequestParam String date) {
+		return drawingBusiness.getTenderBhamaDetails(year, month, date);
+	}
+
+	@GetMapping("/downloadTenderBhama")
+	public ResponseEntity<InputStreamResource> downloadTenderBhama(@RequestParam String year, String month,
+			@RequestParam String date) throws IOException {
+		return drawingBusiness.downloadTenderBhama(year, month, date);
 	}
 
 }

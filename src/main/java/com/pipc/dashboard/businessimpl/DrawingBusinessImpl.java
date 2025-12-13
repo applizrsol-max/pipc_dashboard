@@ -13,11 +13,13 @@ import com.pipc.dashboard.drawing.request.DamNalikaRequest;
 import com.pipc.dashboard.drawing.request.DamSafetyRequest;
 import com.pipc.dashboard.drawing.request.PralambitBhusampadanRequest;
 import com.pipc.dashboard.drawing.request.SinchanKshamataRequest;
+import com.pipc.dashboard.drawing.request.TenderSaveRequest;
 import com.pipc.dashboard.drawing.response.DamInspectionResponse;
 import com.pipc.dashboard.drawing.response.DamNalikaResponse;
 import com.pipc.dashboard.drawing.response.DamSafetyResponse;
 import com.pipc.dashboard.drawing.response.PralambitBhusampadanResponse;
 import com.pipc.dashboard.drawing.response.SinchanKshamataResponse;
+import com.pipc.dashboard.drawing.response.TenderBhamaResponse;
 import com.pipc.dashboard.service.DrawingService;
 
 @Component
@@ -102,6 +104,22 @@ public class DrawingBusinessImpl implements DrawingBusiness {
 	public ResponseEntity<InputStreamResource> downloadSinchanKshamataExcel(String period, String year)
 			throws IOException {
 		return drawingService.downloadSinchanKshamataExcel(period, year);
+	}
+
+	@Override
+	public TenderBhamaResponse saveOrUpdateTenderBhama(TenderSaveRequest req) {
+		return drawingService.saveOrUpdateTenderBhama(req);
+	}
+
+	@Override
+	public TenderBhamaResponse getTenderBhamaDetails(String year, String month, String date) {
+		return drawingService.getTenderBhamaDetails(year, month, date);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadTenderBhama(String year, String month, String date)
+			throws IOException {
+		return drawingService.downloadTenderBhama(year, month, date);
 	}
 
 }

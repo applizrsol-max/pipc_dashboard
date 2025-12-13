@@ -18,6 +18,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -33,6 +34,8 @@ import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.RegionUtil;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFRichTextString;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -66,6 +69,8 @@ import com.pipc.dashboard.drawing.repository.PralambitBhusampadanEntity;
 import com.pipc.dashboard.drawing.repository.PralambitBhusampadanRepository;
 import com.pipc.dashboard.drawing.repository.SinchanKshamataEntity;
 import com.pipc.dashboard.drawing.repository.SinchanKshamataRepository;
+import com.pipc.dashboard.drawing.repository.TenderBhamaEntity;
+import com.pipc.dashboard.drawing.repository.TenderBhamaRepository;
 import com.pipc.dashboard.drawing.request.DamDynamicRow;
 import com.pipc.dashboard.drawing.request.DamInspectionRequest;
 import com.pipc.dashboard.drawing.request.DamNalikaRequest;
@@ -79,11 +84,14 @@ import com.pipc.dashboard.drawing.request.PralambitBhusampadanRow;
 import com.pipc.dashboard.drawing.request.PralambitVishay;
 import com.pipc.dashboard.drawing.request.SinchanData;
 import com.pipc.dashboard.drawing.request.SinchanKshamataRequest;
+import com.pipc.dashboard.drawing.request.TenderRowDTO;
+import com.pipc.dashboard.drawing.request.TenderSaveRequest;
 import com.pipc.dashboard.drawing.response.DamInspectionResponse;
 import com.pipc.dashboard.drawing.response.DamNalikaResponse;
 import com.pipc.dashboard.drawing.response.DamSafetyResponse;
 import com.pipc.dashboard.drawing.response.PralambitBhusampadanResponse;
 import com.pipc.dashboard.drawing.response.SinchanKshamataResponse;
+import com.pipc.dashboard.drawing.response.TenderBhamaResponse;
 import com.pipc.dashboard.service.DrawingService;
 import com.pipc.dashboard.utility.ApplicationError;
 
@@ -107,6 +115,8 @@ public class DrawingServiceImpl implements DrawingService {
 	private PralambitBhusampadanRepository pralambitBhusampadanRepository;
 	@Autowired
 	private SinchanKshamataRepository sinchanKshamataRepository;
+	@Autowired
+	private TenderBhamaRepository tenderBhamaRerpository;
 
 	@Transactional
 	@Override
@@ -445,7 +455,7 @@ public class DrawingServiceImpl implements DrawingService {
 				if (departments == null || departments.isEmpty()) {
 					response.setMessage("No departments found for given year and period.");
 					response.setData(Collections.emptyList());
-					
+
 					error.setErrorCode("NO_DEPARTMENT");
 					error.setErrorDescription("No department data found.");
 					response.setErrorDetails(error);
@@ -624,31 +634,28 @@ public class DrawingServiceImpl implements DrawingService {
 			List<Map<String, Object>> resultList = new ArrayList<>();
 
 			for (DamNalikaEntity entity : entityPage.getContent()) {
-			    Map<String, Object> map = new LinkedHashMap<>();
-			    map.put("id", entity.getId());
-			    map.put("title", entity.getTitle());
-			    map.put("period", entity.getPeriod());
-			    map.put("departmentKey", entity.getDepartmentKey());
-			    map.put("departmentName", entity.getDepartmentName());
-			    map.put("rowId", entity.getRowId());
-			    map.put("year", entity.getYear());
-			    map.put("month", entity.getMonth());
-			    map.put("data", entity.getData());
-			    map.put("flag", entity.getFlag());
-			    map.put("createdAt", entity.getCreatedAt());
-			    map.put("updatedAt", entity.getUpdatedAt());
-			    resultList.add(map);
+				Map<String, Object> map = new LinkedHashMap<>();
+				map.put("id", entity.getId());
+				map.put("title", entity.getTitle());
+				map.put("period", entity.getPeriod());
+				map.put("departmentKey", entity.getDepartmentKey());
+				map.put("departmentName", entity.getDepartmentName());
+				map.put("rowId", entity.getRowId());
+				map.put("year", entity.getYear());
+				map.put("month", entity.getMonth());
+				map.put("data", entity.getData());
+				map.put("flag", entity.getFlag());
+				map.put("createdAt", entity.getCreatedAt());
+				map.put("updatedAt", entity.getUpdatedAt());
+				resultList.add(map);
 			}
 
 			/* 🔥 Department-wise + RowId sorting */
-			resultList.sort(
-			    Comparator.comparing((Map<String, Object> m) -> m.get("departmentKey").toString())
-			              .thenComparingInt(m -> Integer.parseInt(m.get("rowId").toString()))
-			);
+			resultList.sort(Comparator.comparing((Map<String, Object> m) -> m.get("departmentKey").toString())
+					.thenComparingInt(m -> Integer.parseInt(m.get("rowId").toString())));
 
 			response.setMessage("Nalika data fetched successfully");
 			response.setData(resultList);
-
 
 			error.setErrorCode("NALIKA_GET_SUCCESS");
 			error.setErrorDescription("Data fetched successfully");
@@ -757,54 +764,50 @@ public class DrawingServiceImpl implements DrawingService {
 
 	@Override
 	public PralambitBhusampadanResponse getPralambitBhusampadan(String period, String star, int page, int size) {
-	    PralambitBhusampadanResponse resp = new PralambitBhusampadanResponse();
-	    ApplicationError err = new ApplicationError();
+		PralambitBhusampadanResponse resp = new PralambitBhusampadanResponse();
+		ApplicationError err = new ApplicationError();
 
-	    try {
-	        Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
-	        Page<PralambitBhusampadanEntity> result = 
-	                (star == null || star.isBlank())
-	                ? pralambitBhusampadanRepository.findByPeriod(period, pageable)
-	                : pralambitBhusampadanRepository.findByPeriodAndStar(period, star, pageable);
+		try {
+			Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
+			Page<PralambitBhusampadanEntity> result = (star == null || star.isBlank())
+					? pralambitBhusampadanRepository.findByPeriod(period, pageable)
+					: pralambitBhusampadanRepository.findByPeriodAndStar(period, star, pageable);
 
-	        List<Map<String, Object>> out = new ArrayList<>();
-	        for (PralambitBhusampadanEntity e : result.getContent()) {
-	            Map<String, Object> m = new LinkedHashMap<>();
-	            m.put("id", e.getId());
-	            m.put("title", e.getTitle());
-	            m.put("period", e.getPeriod());
-	            m.put("kramank", e.getKramank());
-	            m.put("subId", e.getSubId());
-	            m.put("star", e.getStar());
-	            m.put("data", objectMapper.convertValue(e.getData(), new TypeReference<Map<String, Object>>() {}));
-	            m.put("flag", e.getFlag());
-	            m.put("createdAt", e.getCreatedAt());
-	            out.add(m);
-	        }
+			List<Map<String, Object>> out = new ArrayList<>();
+			for (PralambitBhusampadanEntity e : result.getContent()) {
+				Map<String, Object> m = new LinkedHashMap<>();
+				m.put("id", e.getId());
+				m.put("title", e.getTitle());
+				m.put("period", e.getPeriod());
+				m.put("kramank", e.getKramank());
+				m.put("subId", e.getSubId());
+				m.put("star", e.getStar());
+				m.put("data", objectMapper.convertValue(e.getData(), new TypeReference<Map<String, Object>>() {
+				}));
+				m.put("flag", e.getFlag());
+				m.put("createdAt", e.getCreatedAt());
+				out.add(m);
+			}
 
-	        // 🔥 Sort by kramank → subId
-	        out.sort(
-	        	    Comparator.comparingInt((Map<String, Object> m) -> Integer.parseInt(m.get("kramank").toString()))
-	        	              .thenComparingInt((Map<String, Object> m) -> Integer.parseInt(m.get("subId").toString()))
-	        	);
+			// 🔥 Sort by kramank → subId
+			out.sort(Comparator.comparingInt((Map<String, Object> m) -> Integer.parseInt(m.get("kramank").toString()))
+					.thenComparingInt((Map<String, Object> m) -> Integer.parseInt(m.get("subId").toString())));
 
+			resp.setData(out);
+			resp.setMessage("Data fetched successfully");
+			err.setErrorCode("BHUSAMPADAN_GET_OK");
+			err.setErrorDescription("Records retrieved");
+			resp.setErrorDetails(err);
+			return resp;
 
-	        resp.setData(out);
-	        resp.setMessage("Data fetched successfully");
-	        err.setErrorCode("BHUSAMPADAN_GET_OK");
-	        err.setErrorDescription("Records retrieved");
-	        resp.setErrorDetails(err);
-	        return resp;
-
-	    } catch (Exception e) {
-	        err.setErrorCode("BHUSAMPADAN_GET_ERR");
-	        err.setErrorDescription(e.getMessage());
-	        resp.setErrorDetails(err);
-	        resp.setMessage("Error fetching data");
-	        return resp;
-	    }
+		} catch (Exception e) {
+			err.setErrorCode("BHUSAMPADAN_GET_ERR");
+			err.setErrorDescription(e.getMessage());
+			resp.setErrorDetails(err);
+			resp.setMessage("Error fetching data");
+			return resp;
+		}
 	}
-
 
 	@Override
 	public ResponseEntity<InputStreamResource> downloadDamSafetyExcel(String period) throws IOException {
@@ -2074,7 +2077,6 @@ public class DrawingServiceImpl implements DrawingService {
 		res.setPeriod(period);
 		res.setDate(date);
 		res.setData(sectionList);
-		
 
 		err.setErrorCode("SINGET_OK");
 		err.setErrorDescription("Fetched successfully");
@@ -2603,6 +2605,380 @@ public class DrawingServiceImpl implements DrawingService {
 		RegionUtil.setBorderBottom(BorderStyle.MEDIUM, range, sheet);
 		RegionUtil.setBorderLeft(BorderStyle.MEDIUM, range, sheet);
 		RegionUtil.setBorderRight(BorderStyle.MEDIUM, range, sheet);
+	}
+
+	@Override
+	public TenderBhamaResponse saveOrUpdateTenderBhama(TenderSaveRequest req) {
+
+		String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		TenderBhamaResponse response = new TenderBhamaResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+			ObjectMapper mapper = new ObjectMapper();
+
+			for (TenderRowDTO row : req.getRows()) {
+
+				// 🔴 DELETE CASE
+				if ("D".equalsIgnoreCase(row.getFlag())) {
+
+					Optional<TenderBhamaEntity> deleted = tenderBhamaRerpository.findByYearAndMonthAndDateAndDeleteId(
+							req.getYear(), req.getMonth(), req.getDate(), row.getDeleteId());
+
+					deleted.ifPresent(entity -> {
+						tenderBhamaRerpository.delete(entity); // 🔥 complete delete from DB
+					});
+
+					continue;
+				}
+
+				// 🟡 UPDATE / CREATE
+				Optional<TenderBhamaEntity> existing = tenderBhamaRerpository.findByYearAndMonthAndDateAndRowId(
+						req.getYear(), req.getMonth(), req.getDate(), row.getRowId());
+
+				TenderBhamaEntity entity = existing.orElse(new TenderBhamaEntity());
+
+				// BASIC FIELDS
+				entity.setYear(req.getYear());
+				entity.setMonth(req.getMonth());
+				entity.setDate(req.getDate());
+				entity.setRowId(row.getRowId());
+				entity.setDeleteId(row.getDeleteId());
+
+				// JSON NODE
+				entity.setData(mapper.valueToTree(row.getData()));
+
+				// FLAG
+				entity.setFlag(existing.isPresent() ? "U" : "C");
+
+				// AUDIT
+				if (!existing.isPresent()) {
+					entity.setCreatedAt(LocalDateTime.now());
+					entity.setCreatedBy(currentUser);
+				}
+
+				entity.setUpdatedAt(LocalDateTime.now());
+				entity.setUpdatedBy(currentUser);
+
+				tenderBhamaRerpository.save(entity);
+			}
+
+			error.setErrorCode("0");
+			error.setErrorDescription("Saved Successfully");
+			response.setErrorDetails(error);
+
+		} catch (Exception ex) {
+
+			ex.printStackTrace();
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+			response.setErrorDetails(error);
+
+		}
+		return response;
+	}
+
+	@Override
+	public TenderBhamaResponse getTenderBhamaDetails(String year, String month, String date) {
+
+		TenderBhamaResponse response = new TenderBhamaResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+			List<TenderBhamaEntity> list = tenderBhamaRerpository.findByYearAndMonthAndDate(year, month, date);
+
+			// Sort by rowId
+			list.sort(Comparator.comparing(TenderBhamaEntity::getRowId));
+
+			List<Map<String, Object>> result = new ArrayList<>();
+			ObjectMapper mapper = new ObjectMapper();
+
+			for (TenderBhamaEntity e : list) {
+
+				// No need to check D because now HARD DELETE is used
+				// If any D record remains, still skip it
+				if ("D".equalsIgnoreCase(e.getFlag()))
+					continue;
+
+				Map<String, Object> row = new LinkedHashMap<>();
+
+				// Add DB fields
+				row.put("rowId", e.getRowId());
+				row.put("deleteId", e.getDeleteId());
+				row.put("flag", e.getFlag());
+				row.put("kramank", e.getRowId()); // UI numbering
+
+				// Add dynamic JSON data
+				Map<String, Object> dataMap = mapper.convertValue(e.getData(), Map.class);
+				row.put("data", dataMap);
+
+				result.add(row);
+			}
+
+			response.setRows(result);
+			error.setErrorCode("0");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+			return response;
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+			response.setErrorDetails(error);
+			return response;
+		}
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadTenderBhama(String year, String month, String date)
+	        throws IOException {
+
+	    List<TenderBhamaEntity> list = tenderBhamaRerpository.findByYearAndMonthAndDate(year, month, date);
+	    list.sort(Comparator.comparing(TenderBhamaEntity::getRowId));
+
+	    XSSFWorkbook wb = new XSSFWorkbook();
+	    XSSFSheet sheet = wb.createSheet("Tender Progress");
+	    sheet.setZoom(70);
+
+	    // ---------- FONTS ----------
+	    XSSFFont bold16 = wb.createFont();
+	    bold16.setBold(true);
+	    bold16.setFontHeightInPoints((short) 13);
+
+	    XSSFFont bold12 = wb.createFont();
+	    bold12.setBold(true);
+	    bold12.setFontHeightInPoints((short) 10);
+
+	    XSSFFont dataFont = wb.createFont();
+	    dataFont.setFontHeightInPoints((short) 10);
+
+	    // ---------- STYLES ----------
+	    XSSFCellStyle centerBold16 = wb.createCellStyle();
+	    centerBold16.setAlignment(HorizontalAlignment.CENTER);
+	    centerBold16.setVerticalAlignment(VerticalAlignment.CENTER);
+	    centerBold16.setFont(bold16);
+
+	    XSSFCellStyle centerBold12 = wb.createCellStyle();
+	    centerBold12.setAlignment(HorizontalAlignment.CENTER);
+	    centerBold12.setVerticalAlignment(VerticalAlignment.CENTER);
+	    centerBold12.setFont(bold12);
+
+	    XSSFCellStyle headerStyle = wb.createCellStyle();
+	    headerStyle.cloneStyleFrom(centerBold12);
+	    headerStyle.setBorderBottom(BorderStyle.THIN);
+	    headerStyle.setBorderTop(BorderStyle.THIN);
+	    headerStyle.setBorderLeft(BorderStyle.THIN);
+	    headerStyle.setBorderRight(BorderStyle.THIN);
+
+	    XSSFCellStyle dataStyle = wb.createCellStyle();
+	    dataStyle.setAlignment(HorizontalAlignment.CENTER);
+	    dataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+	    dataStyle.setBorderBottom(BorderStyle.THIN);
+	    dataStyle.setBorderTop(BorderStyle.THIN);
+	    dataStyle.setBorderLeft(BorderStyle.THIN);
+	    dataStyle.setBorderRight(BorderStyle.THIN);
+	    dataStyle.setFont(dataFont);
+	    dataStyle.setWrapText(true);
+
+	    XSSFCellStyle leftStyle = wb.createCellStyle();
+	    leftStyle.cloneStyleFrom(dataStyle);
+	    leftStyle.setAlignment(HorizontalAlignment.LEFT);
+
+	    BiFunction<Row, Integer, Cell> cell = (r, c) -> {
+	        Cell cc = r.getCell(c);
+	        return cc != null ? cc : r.createCell(c);
+	    };
+
+	    int rowIndex = 0;
+
+	    // ========== ROW 1 ==========
+	    Row r1 = sheet.createRow(rowIndex++);
+	    r1.setHeightInPoints(28);
+
+	    String fullTitle = " निविदा अंतिम करणेबाबतचा तपशील   (बांधकामाधीन /बिगर सिंचन)  -  "
+	            + formatHeaderDate(date) + " च्या सद्यस्थितीस अनुसरुन ";
+
+	    cell.apply(r1, 0).setCellValue(fullTitle);
+	    cell.apply(r1, 0).setCellStyle(centerBold16);
+	    sheet.addMergedRegion(new CellRangeAddress(r1.getRowNum(), r1.getRowNum(), 0, 8));
+
+	    // ========== ROW 2 ==========
+	    Row r2 = sheet.createRow(rowIndex++);
+	    r2.setHeightInPoints(22);
+
+	    cell.apply(r2, 0).setCellValue("विभागीय कार्यालयाचे नाव:- कार्यकारी अभियंता, भामा आसखेड धरण विभाग, पुणे");
+	    cell.apply(r2, 0).setCellStyle(centerBold12);
+	    sheet.addMergedRegion(new CellRangeAddress(r2.getRowNum(), r2.getRowNum(), 0, 8));
+
+	    // ========== ROW 3 ==========
+	 // ---------- ROW 3: Month (A+B merged) + (रु. कोटी) in Column D ----------
+	    Row r3 = sheet.createRow(rowIndex++);
+	    r3.setHeightInPoints(20);
+
+	    // Marathi Month
+	    String marMonth = getMarathiMonth(month);
+
+	    // A + B merge for "माहे - ऑगस्ट 2025"
+	    Cell cMonth = cell.apply(r3, 0);
+	    cMonth.setCellValue("माहे - " + marMonth + " " + year);
+	    cMonth.setCellStyle(centerBold12);
+
+	    // Merge col 0 and 1
+	    sheet.addMergedRegion(new CellRangeAddress(
+	            r3.getRowNum(), 
+	            r3.getRowNum(), 
+	            0, 1   // merge A+B
+	    ));
+
+	    // "(रु. कोटी)" in Column D (col index = 3)
+	    Cell cRupee = cell.apply(r3, 3);
+	    cRupee.setCellValue("(रु.   कोटी)");
+	    cRupee.setCellStyle(centerBold12);
+
+	    // Clear other columns
+	    for (int i = 2; i <= 8; i++) {
+	        if (i == 3) continue;
+	        Cell empty = cell.apply(r3, i);
+	        empty.setCellValue("");
+	    }
+
+
+	    // ========== TABLE HEADER ==========
+	    Row h = sheet.createRow(rowIndex++);
+	    h.setHeightInPoints(32);
+
+	    String[] headers = {
+	            "अ. क्र.", "कामाचे नाव", "निविदा क्र. व वर्ष",
+	            "कंत्राटदाराचे नाव", "मुळ निविदा किंमत",
+	            "निविदेची अद्यावत किंमत", "कामावर झालेला अद्यावत खर्च",
+	            "कामाची उर्वरित किंमत", "शेरा"
+	    };
+
+	    int col = 0;
+	    for (String hd : headers) {
+	        Cell ch = cell.apply(h, col);
+	        ch.setCellValue(hd);
+	        ch.setCellStyle(headerStyle);
+	        col++;
+	    }
+
+	    // ========== DATA ROWS ==========
+	    ObjectMapper mapper = new ObjectMapper();
+	    int sr = 1;
+
+	    for (TenderBhamaEntity e : list) {
+	        Map<String, Object> d = mapper.convertValue(e.getData(), Map.class);
+
+	        Row dr = sheet.createRow(rowIndex++);
+	        dr.setHeightInPoints(36);
+
+	        cell.apply(dr, 0).setCellValue(sr++);
+	        cell.apply(dr, 0).setCellStyle(dataStyle);
+
+	        cell.apply(dr, 1).setCellValue(d.getOrDefault("kamacheNav", "").toString());
+	        cell.apply(dr, 1).setCellStyle(leftStyle);
+
+	        cell.apply(dr, 2).setCellValue(d.getOrDefault("nitivKrVarsh", "").toString());
+	        cell.apply(dr, 2).setCellStyle(leftStyle);
+
+	        cell.apply(dr, 3).setCellValue(d.getOrDefault("kantradarNav", "").toString());
+	        cell.apply(dr, 3).setCellStyle(leftStyle);
+
+	        cell.apply(dr, 4).setCellValue(toDouble(d.get("mukhyaNividaKimat")));
+	        cell.apply(dr, 4).setCellStyle(dataStyle);
+
+	        cell.apply(dr, 5).setCellValue(toDouble(d.get("atiriktKimat")));
+	        cell.apply(dr, 5).setCellStyle(dataStyle);
+
+	        cell.apply(dr, 6).setCellValue(toDouble(d.get("kamawarAtkhrc")));
+	        cell.apply(dr, 6).setCellStyle(dataStyle);
+
+	        cell.apply(dr, 7).setCellValue(toDouble(d.get("urvaritKimat")));
+	        cell.apply(dr, 7).setCellStyle(dataStyle);
+
+	        cell.apply(dr, 8).setCellValue(d.getOrDefault("shera", "").toString());
+	        cell.apply(dr, 8).setCellStyle(leftStyle);
+	    }
+
+	    // ========== TOTAL ROW ==========
+	    Row total = sheet.createRow(rowIndex++);
+	    total.setHeightInPoints(26);
+
+	    cell.apply(total, 3).setCellValue("एकूण");
+	    cell.apply(total, 3).setCellStyle(centerBold12);
+
+	    cell.apply(total, 4).setCellValue(list.size() + " निविदा");
+	    cell.apply(total, 4).setCellStyle(centerBold12);
+
+	    for (int i = 0; i <= 8; i++) {
+	        Cell cc = cell.apply(total, i);
+	        if (i != 3 && i != 4) cc.setCellValue("");
+	        cc.setCellStyle(headerStyle);
+	    }
+
+	    // ========== FIXED COLUMN WIDTHS ==========
+	    sheet.setColumnWidth(0, 3000);
+	    sheet.setColumnWidth(1, 14000);
+	    sheet.setColumnWidth(2, 7000);
+	    sheet.setColumnWidth(3, 9000);
+	    sheet.setColumnWidth(4, 5000);
+	    sheet.setColumnWidth(5, 5000);
+	    sheet.setColumnWidth(6, 5000);
+	    sheet.setColumnWidth(7, 5000);
+	    sheet.setColumnWidth(8, 10000);
+
+	    ByteArrayOutputStream out = new ByteArrayOutputStream();
+	    wb.write(out);
+	    wb.close();
+
+	    return ResponseEntity.ok()
+	            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=TenderBhama.xlsx")
+	            .contentType(MediaType.APPLICATION_OCTET_STREAM)
+	            .body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	private String formatHeaderDate(String date) {
+		LocalDate dt = LocalDate.parse(date);
+		return dt.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));
+	}
+
+	private double toDouble(Object val) {
+		if (val == null)
+			return 0;
+		return Double.parseDouble(val.toString());
+	}
+
+	private String getMarathiMonth(String engMonth) {
+		switch (engMonth.toLowerCase()) {
+		case "january":
+			return "जानेवारी";
+		case "february":
+			return "फेब्रुवारी";
+		case "march":
+			return "मार्च";
+		case "april":
+			return "एप्रिल";
+		case "may":
+			return "मे";
+		case "june":
+			return "जून";
+		case "july":
+			return "जुलै";
+		case "august":
+			return "ऑगस्ट";
+		case "september":
+			return "सप्टेंबर";
+		case "october":
+			return "ऑक्टोबर";
+		case "november":
+			return "नोव्हेंबर";
+		case "december":
+			return "डिसेंबर";
+		}
+		return engMonth;
 	}
 
 }
