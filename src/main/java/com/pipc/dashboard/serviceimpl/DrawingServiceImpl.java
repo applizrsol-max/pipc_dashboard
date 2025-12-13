@@ -74,6 +74,8 @@ import com.pipc.dashboard.drawing.repository.TenderBhamaEntity;
 import com.pipc.dashboard.drawing.repository.TenderBhamaRepository;
 import com.pipc.dashboard.drawing.repository.TenderPlanEntity;
 import com.pipc.dashboard.drawing.repository.TenderPlanRepository;
+import com.pipc.dashboard.drawing.repository.TenderSummaryEntity;
+import com.pipc.dashboard.drawing.repository.TenderSummaryRepository;
 import com.pipc.dashboard.drawing.repository.TenderTargetEntity;
 import com.pipc.dashboard.drawing.repository.TenderTargetRepository;
 import com.pipc.dashboard.drawing.request.DamDynamicRow;
@@ -126,6 +128,8 @@ public class DrawingServiceImpl implements DrawingService {
 	private TenderTargetRepository tenderTargetRepository;
 	@Autowired
 	private TenderPlanRepository tenderPlanRepository;
+	@Autowired
+	private TenderSummaryRepository tenderSummaryRepository;
 
 	@Transactional
 	@Override
@@ -3531,4 +3535,279 @@ public class DrawingServiceImpl implements DrawingService {
 				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
 	}
 
+	@Override
+	public TenderBhamaResponse saveOrUpdateTenderSummary(TenderSaveRequest req) {
+		TenderBhamaResponse response = new TenderBhamaResponse();
+		ApplicationError error = new ApplicationError();
+
+		String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		try {
+			ObjectMapper mapper = new ObjectMapper();
+
+			for (TenderRowDTO row : req.getRows()) {
+
+				// -----------------------------------------
+				// 🔴 CASE 1: DELETE using deleteId + year
+				// -----------------------------------------
+				if ("D".equalsIgnoreCase(row.getFlag())) {
+
+					Optional<TenderSummaryEntity> existing = tenderSummaryRepository
+							.findByYearAndDeleteId(req.getYear(), row.getDeleteId());
+
+					existing.ifPresent(tenderSummaryRepository::delete);
+					continue;
+				}
+
+				// -----------------------------------------
+				// 🟡 CASE 2: UPDATE or CREATE using rowId + year
+				// -----------------------------------------
+				Optional<TenderSummaryEntity> existing = tenderSummaryRepository.findByYearAndRowId(req.getYear(),
+						row.getRowId());
+
+				TenderSummaryEntity entity = existing.orElse(new TenderSummaryEntity());
+
+				entity.setYear(req.getYear());
+				entity.setRowId(row.getRowId());
+				entity.setDeleteId(row.getDeleteId());
+
+				// JSONB conversion
+				entity.setData(mapper.valueToTree(row.getData()));
+
+				// FLAG: C or U
+				entity.setFlag(existing.isPresent() ? "U" : "C");
+
+				if (!existing.isPresent()) {
+					entity.setCreatedAt(LocalDateTime.now());
+					entity.setCreatedBy(user);
+				}
+
+				entity.setUpdatedAt(LocalDateTime.now());
+				entity.setUpdatedBy(user);
+
+				tenderSummaryRepository.save(entity);
+			}
+
+			error.setErrorCode("0");
+			error.setErrorDescription("Saved Successfully");
+			response.setErrorDetails(error);
+			return response;
+
+		} catch (Exception ex) {
+
+			ex.printStackTrace();
+			error.setErrorCode("500");
+			error.setErrorDescription("Error: " + ex.getMessage());
+			response.setErrorDetails(error);
+			return response;
+		}
+	}
+
+	@Override
+	public TenderBhamaResponse getTenderSummary(String year) {
+
+		TenderBhamaResponse response = new TenderBhamaResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+			List<TenderSummaryEntity> list = tenderSummaryRepository.findByYear(year);
+
+			list.sort(Comparator.comparing(TenderSummaryEntity::getRowId));
+
+			ObjectMapper mapper = new ObjectMapper();
+			List<Map<String, Object>> result = new ArrayList<>();
+
+			for (TenderSummaryEntity e : list) {
+
+				Map<String, Object> row = mapper.convertValue(e.getData(), Map.class);
+
+				// include identifiers also
+				row.put("rowId", e.getRowId());
+				row.put("deleteId", e.getDeleteId());
+				row.put("flag", e.getFlag());
+
+				result.add(row);
+			}
+
+			response.setRows(result);
+
+			error.setErrorCode("0");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+			return response;
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+			response.setErrorDetails(error);
+
+			return response;
+		}
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadTenderSummary(String year) throws IOException {
+
+		List<TenderSummaryEntity> list = tenderSummaryRepository.findByYear(year);
+		list.sort(Comparator.comparing(TenderSummaryEntity::getRowId));
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet("Tender Summary");
+		sheet.setZoom(90);
+
+		// --------------------- FONTS ---------------------
+		XSSFFont titleFont = wb.createFont();
+		titleFont.setBold(true);
+		titleFont.setFontHeightInPoints((short) 12);
+
+		XSSFFont boldFont = wb.createFont();
+		boldFont.setBold(true);
+		boldFont.setFontHeightInPoints((short) 10);
+
+		XSSFFont normalFont = wb.createFont();
+		normalFont.setFontHeightInPoints((short) 10);
+
+		// --------------------- STYLES ---------------------
+		XSSFCellStyle centerBold = wb.createCellStyle();
+		centerBold.setAlignment(HorizontalAlignment.CENTER);
+		centerBold.setVerticalAlignment(VerticalAlignment.CENTER);
+		centerBold.setFont(titleFont);
+
+		XSSFCellStyle headerStyle = wb.createCellStyle();
+		headerStyle.setAlignment(HorizontalAlignment.CENTER);
+		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		headerStyle.setFont(boldFont);
+		headerStyle.setWrapText(true);
+		headerStyle.setBorderBottom(BorderStyle.THIN);
+		headerStyle.setBorderTop(BorderStyle.THIN);
+		headerStyle.setBorderLeft(BorderStyle.THIN);
+		headerStyle.setBorderRight(BorderStyle.THIN);
+
+		XSSFCellStyle dataCenter = wb.createCellStyle();
+		dataCenter.setAlignment(HorizontalAlignment.CENTER);
+		dataCenter.setVerticalAlignment(VerticalAlignment.CENTER);
+		dataCenter.setFont(normalFont);
+		dataCenter.setWrapText(true);
+		dataCenter.setBorderBottom(BorderStyle.THIN);
+		dataCenter.setBorderTop(BorderStyle.THIN);
+		dataCenter.setBorderLeft(BorderStyle.THIN);
+		dataCenter.setBorderRight(BorderStyle.THIN);
+
+		XSSFCellStyle dataLeft = wb.createCellStyle();
+		dataLeft.cloneStyleFrom(dataCenter);
+		dataLeft.setAlignment(HorizontalAlignment.LEFT);
+
+		BiFunction<Row, Integer, Cell> cell = (r, c) -> r.getCell(c) != null ? r.getCell(c) : r.createCell(c);
+
+		int rowIndex = 0;
+
+		// ---------------- ROW 1: MAIN TITLE ----------------
+		Row r1 = sheet.createRow(rowIndex++);
+		r1.setHeightInPoints(22);
+		cell.apply(r1, 0).setCellValue("निविदा अंतिम करणेचे नियोजन 2025");
+		cell.apply(r1, 0).setCellStyle(centerBold);
+		sheet.addMergedRegion(new CellRangeAddress(r1.getRowNum(), r1.getRowNum(), 0, 3));
+
+		// ---------------- ROW 2: SUB TITLE ----------------
+		Row r2 = sheet.createRow(rowIndex++);
+		r2.setHeightInPoints(20);
+		cell.apply(r2, 0).setCellValue("विभागीय कार्यालयाचे नांव :-");
+		cell.apply(r2, 0).setCellStyle(centerBold);
+		sheet.addMergedRegion(new CellRangeAddress(r2.getRowNum(), r2.getRowNum(), 0, 3));
+
+		// ---------------- ROW 3: TABLE HEADER ----------------
+		Row h = sheet.createRow(rowIndex++);
+		h.setHeightInPoints(28);
+
+		String[] headers = { "एकूण कामे", "कामांची संख्या", "अंतीम केलेली संख्या", "उर्वरीत कामे संख्या" };
+
+		for (int i = 0; i < headers.length; i++) {
+			Cell ch = cell.apply(h, i);
+			ch.setCellValue(headers[i]);
+			ch.setCellStyle(headerStyle);
+		}
+
+		// ---------------- DATA ROWS ----------------
+		ObjectMapper mapper = new ObjectMapper();
+
+		long totalKamanchi = 0;
+		long totalAntim = 0;
+		long totalUrvarti = 0;
+
+		for (TenderSummaryEntity e : list) {
+
+			Map<String, Object> d = mapper.convertValue(e.getData(), Map.class);
+
+			Row r = sheet.createRow(rowIndex++);
+			r.setHeightInPoints(26);
+
+			// ekunKam
+			cell.apply(r, 0).setCellValue(d.getOrDefault("ekunKam", "").toString());
+			cell.apply(r, 0).setCellStyle(dataLeft);
+
+			long kamanchi = getLong(d.get("kamanchiSankhya"));
+			long antim = getLong(d.get("antimKeleliSankhya"));
+			long urvarti = getLong(d.get("urvaritKamSankhya"));
+
+			totalKamanchi += kamanchi;
+			totalAntim += antim;
+			totalUrvarti += urvarti;
+
+			cell.apply(r, 1).setCellValue(kamanchi);
+			cell.apply(r, 1).setCellStyle(dataCenter);
+
+			cell.apply(r, 2).setCellValue(antim);
+			cell.apply(r, 2).setCellStyle(dataCenter);
+
+			cell.apply(r, 3).setCellValue(urvarti);
+			cell.apply(r, 3).setCellStyle(dataCenter);
+		}
+
+		// ---------------- TOTAL ROW ----------------
+		Row total = sheet.createRow(rowIndex++);
+		total.setHeightInPoints(24);
+
+		Cell t0 = cell.apply(total, 0);
+		t0.setCellValue("एकूण");
+		t0.setCellStyle(headerStyle);
+
+		Cell t1 = cell.apply(total, 1);
+		t1.setCellValue(totalKamanchi);
+		t1.setCellStyle(headerStyle);
+
+		Cell t2 = cell.apply(total, 2);
+		t2.setCellValue(totalAntim);
+		t2.setCellStyle(headerStyle);
+
+		Cell t3 = cell.apply(total, 3);
+		t3.setCellValue(totalUrvarti);
+		t3.setCellStyle(headerStyle);
+
+		// ---------------- COLUMN WIDTHS ----------------
+		int[] widths = { 8000, 5000, 5000, 5000 };
+		for (int i = 0; i < widths.length; i++) {
+			sheet.setColumnWidth(i, widths[i]);
+		}
+
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=TenderSummary.xlsx")
+				.contentType(MediaType.APPLICATION_OCTET_STREAM)
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	private long getLong(Object v) {
+		if (v == null)
+			return 0;
+		try {
+			return Long.parseLong(v.toString());
+		} catch (Exception ex) {
+			return 0;
+		}
+	}
 }

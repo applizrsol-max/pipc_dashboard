@@ -68,4 +68,10 @@ public interface DrawingService {
 
 	ResponseEntity<InputStreamResource> downloadTenderPlan(String year) throws IOException;
 
+	TenderBhamaResponse saveOrUpdateTenderSummary(TenderSaveRequest req);
+
+	TenderBhamaResponse getTenderSummary(String year);
+
+	ResponseEntity<InputStreamResource> downloadTenderSummary(String year) throws IOException;
+
 }

@@ -173,4 +173,19 @@ public class DrawingController {
 	public ResponseEntity<InputStreamResource> downloadTenderPlan(@RequestParam String year) throws IOException {
 		return drawingBusiness.downloadTenderPlan(year);
 	}
+
+	@PostMapping("/saveOrUpdateTenderSummary")
+	public TenderBhamaResponse saveOrUpdateTenderSummary(@RequestBody TenderSaveRequest req) {
+		return drawingBusiness.saveOrUpdateTenderSummary(req);
+	}
+
+	@GetMapping("/getTenderSummary")
+	public TenderBhamaResponse getTenderSummary(@RequestParam String year) {
+		return drawingBusiness.getTenderSummary(year);
+	}
+
+	@GetMapping("/downloadTenderSummary")
+	public ResponseEntity<InputStreamResource> downloadTenderSummary(@RequestParam String year) throws IOException {
+		return drawingBusiness.downloadTenderSummary(year);
+	}
 }
