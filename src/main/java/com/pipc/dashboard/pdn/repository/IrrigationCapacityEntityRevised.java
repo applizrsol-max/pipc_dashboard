@@ -28,8 +28,8 @@ public class IrrigationCapacityEntityRevised {
 	private String year;
 	private String date;
 
-	private Integer rowId;
-	private Integer deleteId;
+	private Long rowId;
+	private Long deleteId;
 
 	// C = Create, U = Update, D = Delete
 	private String flag;

@@ -7,9 +7,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface IrrigationRepositoryRevised extends JpaRepository<IrrigationCapacityEntityRevised, Long> {
 
-	Optional<IrrigationCapacityEntityRevised> findByYearAndDateAndRowId(String year, String dateVal, Integer deleteId);
+	Optional<IrrigationCapacityEntityRevised> findByYearAndDateAndRowId(String year, String dateVal, Long deleteId);
 
-	Optional<IrrigationCapacityEntityRevised> findByYearAndDateAndDeleteId(String year, String date, Integer deleteId);
+	Optional<IrrigationCapacityEntityRevised> findByYearAndDateAndDeleteId(String year, String date, Long deleteId);
 
 	List<IrrigationCapacityEntityRevised> findByYearAndDate(String year, String date);
 

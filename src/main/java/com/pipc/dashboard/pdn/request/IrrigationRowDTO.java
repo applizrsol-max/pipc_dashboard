@@ -6,8 +6,8 @@ import lombok.Data;
 
 @Data
 public class IrrigationRowDTO {
-	private Integer rowId;
-	private Integer deleteId;
+	private Long rowId;
+	private Long deleteId;
 	private String flag; // C/U/D from UI (D only)
 	private Map<String, Object> data; // dynamic columns
 }
