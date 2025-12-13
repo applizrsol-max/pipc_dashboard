@@ -137,4 +137,19 @@ public class DrawingBusinessImpl implements DrawingBusiness {
 		return drawingService.downloadTenderTarget(year, month);
 	}
 
+	@Override
+	public TenderBhamaResponse saveOrUpdateTenderPlan(TenderSaveRequest req) {
+		return drawingService.saveOrUpdateTenderPlan(req);
+	}
+
+	@Override
+	public TenderBhamaResponse getTenderPlan(String year) {
+		return drawingService.getTenderPlan(year);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadTenderPlan(String year) throws IOException {
+		return drawingService.downloadTenderPlan(year);
+	}
+
 }

@@ -159,4 +159,18 @@ public class DrawingController {
 		return drawingBusiness.downloadTenderTarget(year, month);
 	}
 
+	@PostMapping("/saveOrUpdateTenderPlan")
+	public TenderBhamaResponse saveOrUpdateTenderPlan(@RequestBody TenderSaveRequest req) {
+		return drawingBusiness.saveOrUpdateTenderPlan(req);
+	}
+
+	@GetMapping("/getTenderPlan")
+	public TenderBhamaResponse getTenderPlan(@RequestParam String year) {
+		return drawingBusiness.getTenderPlan(year);
+	}
+
+	@GetMapping("/downloadTenderPlan")
+	public ResponseEntity<InputStreamResource> downloadTenderPlan(@RequestParam String year) throws IOException {
+		return drawingBusiness.downloadTenderPlan(year);
+	}
 }

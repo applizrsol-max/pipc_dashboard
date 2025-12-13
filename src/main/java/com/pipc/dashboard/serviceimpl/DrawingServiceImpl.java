@@ -72,6 +72,8 @@ import com.pipc.dashboard.drawing.repository.SinchanKshamataEntity;
 import com.pipc.dashboard.drawing.repository.SinchanKshamataRepository;
 import com.pipc.dashboard.drawing.repository.TenderBhamaEntity;
 import com.pipc.dashboard.drawing.repository.TenderBhamaRepository;
+import com.pipc.dashboard.drawing.repository.TenderPlanEntity;
+import com.pipc.dashboard.drawing.repository.TenderPlanRepository;
 import com.pipc.dashboard.drawing.repository.TenderTargetEntity;
 import com.pipc.dashboard.drawing.repository.TenderTargetRepository;
 import com.pipc.dashboard.drawing.request.DamDynamicRow;
@@ -122,6 +124,8 @@ public class DrawingServiceImpl implements DrawingService {
 	private TenderBhamaRepository tenderBhamaRerpository;
 	@Autowired
 	private TenderTargetRepository tenderTargetRepository;
+	@Autowired
+	private TenderPlanRepository tenderPlanRepository;
 
 	@Transactional
 	@Override
@@ -3172,19 +3176,14 @@ public class DrawingServiceImpl implements DrawingService {
 		m.setCellStyle(monthStyle);
 
 		// Merge A–F
-		sheet.addMergedRegion(new CellRangeAddress(
-		        monthRow.getRowNum(),
-		        monthRow.getRowNum(),
-		        0, 5
-		));
-
+		sheet.addMergedRegion(new CellRangeAddress(monthRow.getRowNum(), monthRow.getRowNum(), 0, 5));
 
 		// ----------------- TABLE HEADER -----------------
 		Row h = sheet.createRow(rowIndex++);
 		h.setHeightInPoints(38);
 
-		String[] headers = { "अ.क्र.", "विभागाचे नांव", "एकुण चालू कामे",
-				"अंतिम करणेस नियोजित (Target) कामाची संख्या", "माहे सप्टेंबर 2025 मध्ये अंतिम केलेली कामांची संख्या",
+		String[] headers = { "अ.क्र.", "विभागाचे नांव", "एकुण चालू कामे", "अंतिम करणेस नियोजित (Target) कामाची संख्या",
+				"माहे सप्टेंबर 2025 मध्ये अंतिम केलेली कामांची संख्या",
 				"नियोजनानुसार अंतिम करणेची उर्वरीत कामे संख्या" };
 
 		int col = 0;
@@ -3252,6 +3251,282 @@ public class DrawingServiceImpl implements DrawingService {
 		wb.close();
 
 		return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=TenderTarget.xlsx")
+				.contentType(MediaType.APPLICATION_OCTET_STREAM)
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	@Override
+	public TenderBhamaResponse saveOrUpdateTenderPlan(TenderSaveRequest req) {
+
+		TenderBhamaResponse response = new TenderBhamaResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+			ObjectMapper mapper = new ObjectMapper();
+
+			for (TenderRowDTO row : req.getRows()) {
+
+				// 🔴 CASE 1: HARD DELETE
+				if ("D".equalsIgnoreCase(row.getFlag())) {
+
+					Optional<TenderPlanEntity> existing = tenderPlanRepository.findByYearAndDeleteId(req.getYear(),
+							row.getDeleteId());
+
+					existing.ifPresent(entity -> {
+						tenderPlanRepository.delete(entity);
+					});
+
+					continue;
+				}
+
+				// 🟡 CASE 2: CREATE OR UPDATE
+				Optional<TenderPlanEntity> existing = tenderPlanRepository.findByYearAndRowId(req.getYear(),
+						row.getRowId());
+
+				TenderPlanEntity entity = existing.orElse(new TenderPlanEntity());
+
+				entity.setYear(req.getYear());
+				entity.setRowId(row.getRowId());
+				entity.setDeleteId(row.getDeleteId());
+
+				// JSONB
+				JsonNode json = mapper.valueToTree(row.getData());
+				entity.setData(json);
+
+				// FLAG LOGIC
+				entity.setFlag(existing.isPresent() ? "U" : "C");
+
+				// AUDIT
+				String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+				if (!existing.isPresent()) {
+					entity.setCreatedAt(LocalDateTime.now());
+					entity.setCreatedBy(user);
+				}
+
+				entity.setUpdatedAt(LocalDateTime.now());
+				entity.setUpdatedBy(user);
+
+				tenderPlanRepository.save(entity);
+			}
+
+			error.setErrorCode("0");
+			error.setErrorDescription("Saved Successfully");
+			response.setErrorDetails(error);
+
+		} catch (Exception ex) {
+
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+			response.setErrorDetails(error);
+
+		}
+		return response;
+	}
+
+	@Override
+	public TenderBhamaResponse getTenderPlan(String year) {
+
+		TenderBhamaResponse response = new TenderBhamaResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+			List<TenderPlanEntity> list = tenderPlanRepository.findByYear(year);
+
+			// Sort by rowId
+			list.sort(Comparator.comparing(TenderPlanEntity::getRowId));
+
+			ObjectMapper mapper = new ObjectMapper();
+			List<Map<String, Object>> rows = new ArrayList<>();
+
+			for (TenderPlanEntity e : list) {
+
+				Map<String, Object> row = mapper.convertValue(e.getData(), Map.class);
+
+				// Include metadata
+				row.put("rowId", e.getRowId());
+				row.put("deleteId", e.getDeleteId());
+				row.put("flag", e.getFlag());
+
+				rows.add(row);
+			}
+
+			response.setRows(rows);
+			error.setErrorCode("0");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+			return response;
+
+		} catch (Exception ex) {
+
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+			response.setErrorDetails(error);
+			return response;
+		}
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadTenderPlan(String year) throws IOException {
+
+		List<TenderPlanEntity> list = tenderPlanRepository.findByYear(year);
+		list.sort(Comparator.comparing(TenderPlanEntity::getRowId));
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet("Tender Plan");
+		sheet.setZoom(90);
+
+		// ---------------- FONTS ----------------
+		XSSFFont titleFont = wb.createFont();
+		titleFont.setBold(true);
+		titleFont.setFontHeightInPoints((short) 11);
+
+		XSSFFont boldFont = wb.createFont();
+		boldFont.setBold(true);
+		boldFont.setFontHeightInPoints((short) 10);
+
+		XSSFFont normalFont = wb.createFont();
+		normalFont.setFontHeightInPoints((short) 10);
+
+		// ---------------- STYLES ----------------
+		XSSFCellStyle centerBold = wb.createCellStyle();
+		centerBold.setAlignment(HorizontalAlignment.CENTER);
+		centerBold.setVerticalAlignment(VerticalAlignment.CENTER);
+		centerBold.setFont(titleFont);
+
+		XSSFCellStyle centerBoldSmall = wb.createCellStyle();
+		centerBoldSmall.setAlignment(HorizontalAlignment.CENTER);
+		centerBoldSmall.setVerticalAlignment(VerticalAlignment.CENTER);
+		centerBoldSmall.setFont(boldFont);
+
+		XSSFCellStyle leftBold = wb.createCellStyle();
+		leftBold.setAlignment(HorizontalAlignment.LEFT);
+		leftBold.setVerticalAlignment(VerticalAlignment.CENTER);
+		leftBold.setFont(boldFont);
+
+		XSSFCellStyle headerStyle = wb.createCellStyle();
+		headerStyle.setAlignment(HorizontalAlignment.CENTER);
+		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		headerStyle.setFont(boldFont);
+		headerStyle.setBorderBottom(BorderStyle.THIN);
+		headerStyle.setBorderTop(BorderStyle.THIN);
+		headerStyle.setBorderLeft(BorderStyle.THIN);
+		headerStyle.setBorderRight(BorderStyle.THIN);
+		headerStyle.setWrapText(true);
+
+		XSSFCellStyle dataCenter = wb.createCellStyle();
+		dataCenter.setAlignment(HorizontalAlignment.CENTER);
+		dataCenter.setVerticalAlignment(VerticalAlignment.CENTER);
+		dataCenter.setBorderBottom(BorderStyle.THIN);
+		dataCenter.setBorderTop(BorderStyle.THIN);
+		dataCenter.setBorderLeft(BorderStyle.THIN);
+		dataCenter.setBorderRight(BorderStyle.THIN);
+		dataCenter.setFont(normalFont);
+		dataCenter.setWrapText(true);
+
+		XSSFCellStyle dataLeft = wb.createCellStyle();
+		dataLeft.cloneStyleFrom(dataCenter);
+		dataLeft.setAlignment(HorizontalAlignment.LEFT);
+
+		BiFunction<Row, Integer, Cell> cell = (r, c) -> r.getCell(c) != null ? r.getCell(c) : r.createCell(c);
+
+		int rowIndex = 0;
+
+		// ---------------- ROW 1: MAIN TITLE ----------------
+		Row r1 = sheet.createRow(rowIndex++);
+		r1.setHeightInPoints(26);
+		cell.apply(r1, 0).setCellValue(" निविदा अंतिम करणेचे नियोजन 2025");
+		cell.apply(r1, 0).setCellStyle(centerBold);
+		sheet.addMergedRegion(new CellRangeAddress(r1.getRowNum(), r1.getRowNum(), 0, 4));
+
+		// ---------------- ROW 2: OFFICE NAME ----------------
+		Row r2 = sheet.createRow(rowIndex++);
+		r2.setHeightInPoints(20);
+		cell.apply(r2, 0).setCellValue("विभागीय कार्यालयाचे नांव :-");
+		cell.apply(r2, 0).setCellStyle(centerBoldSmall);
+		sheet.addMergedRegion(new CellRangeAddress(r2.getRowNum(), r2.getRowNum(), 0, 4));
+
+		// ---------------- ROW 3: Project Name Header ----------------
+		Row r3 = sheet.createRow(rowIndex++);
+		r3.setHeightInPoints(20);
+		cell.apply(r3, 0).setCellValue("प्रकल्पाचे नांव :-");
+		cell.apply(r3, 0).setCellStyle(leftBold);
+		sheet.addMergedRegion(new CellRangeAddress(r3.getRowNum(), r3.getRowNum(), 0, 4));
+
+		// ---------------- ROW 4: TABLE HEADERS ----------------
+		Row h = sheet.createRow(rowIndex++);
+		h.setHeightInPoints(40);
+
+		String[] headers = { "अ. क्र", "निविदा कामाचे नांव", "सबंधीत उपविभाग",
+				"काम अंतिम करण्याचे नियोजन कार्यक्रम व महिना", "शेरा/ कामाची सद्यस्थिती" };
+
+		for (int i = 0; i < headers.length; i++) {
+			Cell ch = cell.apply(h, i);
+			ch.setCellValue(headers[i]);
+			ch.setCellStyle(headerStyle);
+		}
+
+		// ---------------- ROW 5: COLUMN NUMBER ROW ----------------
+		Row numRow = sheet.createRow(rowIndex++);
+		numRow.setHeightInPoints(22);
+
+		String[] colNums = { "1", "2", "3", "4", "5" };
+
+		for (int i = 0; i < colNums.length; i++) {
+			Cell cnum = cell.apply(numRow, i);
+			cnum.setCellValue(colNums[i]);
+			cnum.setCellStyle(headerStyle); // same border + formatting
+		}
+
+		// ---------------- DATA ROWS ----------------
+		ObjectMapper mapper = new ObjectMapper();
+		int sr = 1;
+
+		Function<Object, String> formatValue = (v) -> {
+			if (v == null || v.toString().trim().isEmpty())
+				return "______";
+			return v.toString();
+		};
+
+		for (TenderPlanEntity e : list) {
+
+			Map<String, Object> d = mapper.convertValue(e.getData(), Map.class);
+
+			Row r = sheet.createRow(rowIndex++);
+			r.setHeightInPoints(30);
+
+			// SR
+			cell.apply(r, 0).setCellValue(sr++);
+			cell.apply(r, 0).setCellStyle(dataCenter);
+
+			// निविदा कामाचे नाव
+			cell.apply(r, 1).setCellValue(formatValue.apply(d.get("nividaKamacheNav")));
+			cell.apply(r, 1).setCellStyle(dataLeft);
+
+			// उपविभाग
+			cell.apply(r, 2).setCellValue(formatValue.apply(d.get("sambandhitUpvibhag")));
+			cell.apply(r, 2).setCellStyle(dataLeft);
+
+			// महिना
+			cell.apply(r, 3).setCellValue(formatValue.apply(d.get("kamAantimNiyojanMahina")));
+			cell.apply(r, 3).setCellStyle(dataLeft);
+
+			// शेरा
+			cell.apply(r, 4).setCellValue(formatValue.apply(d.get("shera")));
+			cell.apply(r, 4).setCellStyle(dataLeft);
+		}
+
+		// ---------------- COL WIDTH ----------------
+		int[] widths = { 3000, 9000, 6000, 9000, 9000 };
+		for (int i = 0; i < widths.length; i++)
+			sheet.setColumnWidth(i, widths[i]);
+
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=TenderPlan.xlsx")
 				.contentType(MediaType.APPLICATION_OCTET_STREAM)
 				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
 	}

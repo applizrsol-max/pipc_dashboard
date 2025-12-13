@@ -6,6 +6,8 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.slf4j.MDC;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -32,9 +34,11 @@ public class RequestResponseLoggingAspect {
 
 	@Around("within(@org.springframework.web.bind.annotation.RestController *)")
 	public Object logController(ProceedingJoinPoint pjp) throws Throwable {
+
 		String user = Optional.ofNullable(MDC.get("user")).filter(s -> !s.isBlank()).orElse("SYSTEM");
 
 		long start = System.currentTimeMillis();
+
 		LoggingAuditEntity entity = new LoggingAuditEntity();
 
 		HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes())
@@ -44,39 +48,57 @@ public class RequestResponseLoggingAspect {
 		entity.setServiceName(pjp.getTarget().getClass().getSimpleName());
 		entity.setHttpMethod(request.getMethod());
 		entity.setRequestUrl(request.getRequestURI());
+		entity.setUserId(user);
 
-		// REQUEST JSON → SANITIZE
+		// REQUEST LOG
 		JsonNode reqNode = mapper.valueToTree(pjp.getArgs());
 		entity.setRequest(sensitiveDataSanitizer.sanitize(reqNode));
-
-		entity.setUserId(user);
 
 		Object response = null;
 
 		try {
+
+			// Execute API
 			response = pjp.proceed();
 			entity.setStatus("SUCCESS");
 
-		} catch (Exception ex) {
-			entity.setStatus("ERROR");
+			// ---------------------------------------------------
+			// 🔥 FILE DOWNLOAD RESPONSE LOGGING SKIP
+			// ---------------------------------------------------
+			boolean isFileResponse = response instanceof InputStreamResource || response instanceof byte[]
+					|| (response instanceof ResponseEntity<?> re && re.getBody() instanceof InputStreamResource);
 
-			JsonNode errorNode = mapper.createObjectNode().put("exception", ex.getMessage());
-			entity.setResponse(errorNode);
+			if (isFileResponse) {
+
+				// DO NOT LOG RESPONSE BODY
+				entity.setResponse(
+						mapper.createObjectNode().put("message", "File download response skipped from logging"));
+
+				entity.setExecutionTimeMs(System.currentTimeMillis() - start);
+				repo.save(entity);
+
+				return response; // IMPORTANT
+			}
+
+			// ---------------------------------------------------
+			// NORMAL JSON RESPONSE → LOG FULL BODY
+			// ---------------------------------------------------
+			JsonNode resNode = mapper.valueToTree(response);
+			entity.setResponse(sensitiveDataSanitizer.sanitize(resNode));
+
 			entity.setExecutionTimeMs(System.currentTimeMillis() - start);
-
 			repo.save(entity);
+
+			return response;
+
+		} catch (Exception ex) {
+
+			entity.setStatus("ERROR");
+			entity.setResponse(mapper.createObjectNode().put("exception", ex.getMessage()));
+			entity.setExecutionTimeMs(System.currentTimeMillis() - start);
+			repo.save(entity);
+
 			throw ex;
 		}
-
-		// RESPONSE JSON → SANITIZE
-		JsonNode resNode = mapper.valueToTree(response);
-		entity.setResponse(sensitiveDataSanitizer.sanitize(resNode));
-
-		entity.setExecutionTimeMs(System.currentTimeMillis() - start);
-
-		repo.save(entity);
-
-		return response;
 	}
-
 }
