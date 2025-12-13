@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -71,6 +72,8 @@ import com.pipc.dashboard.drawing.repository.SinchanKshamataEntity;
 import com.pipc.dashboard.drawing.repository.SinchanKshamataRepository;
 import com.pipc.dashboard.drawing.repository.TenderBhamaEntity;
 import com.pipc.dashboard.drawing.repository.TenderBhamaRepository;
+import com.pipc.dashboard.drawing.repository.TenderTargetEntity;
+import com.pipc.dashboard.drawing.repository.TenderTargetRepository;
 import com.pipc.dashboard.drawing.request.DamDynamicRow;
 import com.pipc.dashboard.drawing.request.DamInspectionRequest;
 import com.pipc.dashboard.drawing.request.DamNalikaRequest;
@@ -117,6 +120,8 @@ public class DrawingServiceImpl implements DrawingService {
 	private SinchanKshamataRepository sinchanKshamataRepository;
 	@Autowired
 	private TenderBhamaRepository tenderBhamaRerpository;
+	@Autowired
+	private TenderTargetRepository tenderTargetRepository;
 
 	@Transactional
 	@Override
@@ -2734,210 +2739,203 @@ public class DrawingServiceImpl implements DrawingService {
 
 	@Override
 	public ResponseEntity<InputStreamResource> downloadTenderBhama(String year, String month, String date)
-	        throws IOException {
+			throws IOException {
 
-	    List<TenderBhamaEntity> list = tenderBhamaRerpository.findByYearAndMonthAndDate(year, month, date);
-	    list.sort(Comparator.comparing(TenderBhamaEntity::getRowId));
+		List<TenderBhamaEntity> list = tenderBhamaRerpository.findByYearAndMonthAndDate(year, month, date);
+		list.sort(Comparator.comparing(TenderBhamaEntity::getRowId));
 
-	    XSSFWorkbook wb = new XSSFWorkbook();
-	    XSSFSheet sheet = wb.createSheet("Tender Progress");
-	    sheet.setZoom(70);
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet("Tender Progress");
+		sheet.setZoom(70);
 
-	    // ---------- FONTS ----------
-	    XSSFFont bold16 = wb.createFont();
-	    bold16.setBold(true);
-	    bold16.setFontHeightInPoints((short) 13);
+		// ---------- FONTS ----------
+		XSSFFont bold16 = wb.createFont();
+		bold16.setBold(true);
+		bold16.setFontHeightInPoints((short) 13);
 
-	    XSSFFont bold12 = wb.createFont();
-	    bold12.setBold(true);
-	    bold12.setFontHeightInPoints((short) 10);
+		XSSFFont bold12 = wb.createFont();
+		bold12.setBold(true);
+		bold12.setFontHeightInPoints((short) 10);
 
-	    XSSFFont dataFont = wb.createFont();
-	    dataFont.setFontHeightInPoints((short) 10);
+		XSSFFont dataFont = wb.createFont();
+		dataFont.setFontHeightInPoints((short) 10);
 
-	    // ---------- STYLES ----------
-	    XSSFCellStyle centerBold16 = wb.createCellStyle();
-	    centerBold16.setAlignment(HorizontalAlignment.CENTER);
-	    centerBold16.setVerticalAlignment(VerticalAlignment.CENTER);
-	    centerBold16.setFont(bold16);
+		// ---------- STYLES ----------
+		XSSFCellStyle centerBold16 = wb.createCellStyle();
+		centerBold16.setAlignment(HorizontalAlignment.CENTER);
+		centerBold16.setVerticalAlignment(VerticalAlignment.CENTER);
+		centerBold16.setFont(bold16);
 
-	    XSSFCellStyle centerBold12 = wb.createCellStyle();
-	    centerBold12.setAlignment(HorizontalAlignment.CENTER);
-	    centerBold12.setVerticalAlignment(VerticalAlignment.CENTER);
-	    centerBold12.setFont(bold12);
+		XSSFCellStyle centerBold12 = wb.createCellStyle();
+		centerBold12.setAlignment(HorizontalAlignment.CENTER);
+		centerBold12.setVerticalAlignment(VerticalAlignment.CENTER);
+		centerBold12.setFont(bold12);
 
-	    XSSFCellStyle headerStyle = wb.createCellStyle();
-	    headerStyle.cloneStyleFrom(centerBold12);
-	    headerStyle.setBorderBottom(BorderStyle.THIN);
-	    headerStyle.setBorderTop(BorderStyle.THIN);
-	    headerStyle.setBorderLeft(BorderStyle.THIN);
-	    headerStyle.setBorderRight(BorderStyle.THIN);
+		XSSFCellStyle headerStyle = wb.createCellStyle();
+		headerStyle.cloneStyleFrom(centerBold12);
+		headerStyle.setBorderBottom(BorderStyle.THIN);
+		headerStyle.setBorderTop(BorderStyle.THIN);
+		headerStyle.setBorderLeft(BorderStyle.THIN);
+		headerStyle.setBorderRight(BorderStyle.THIN);
 
-	    XSSFCellStyle dataStyle = wb.createCellStyle();
-	    dataStyle.setAlignment(HorizontalAlignment.CENTER);
-	    dataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-	    dataStyle.setBorderBottom(BorderStyle.THIN);
-	    dataStyle.setBorderTop(BorderStyle.THIN);
-	    dataStyle.setBorderLeft(BorderStyle.THIN);
-	    dataStyle.setBorderRight(BorderStyle.THIN);
-	    dataStyle.setFont(dataFont);
-	    dataStyle.setWrapText(true);
+		XSSFCellStyle dataStyle = wb.createCellStyle();
+		dataStyle.setAlignment(HorizontalAlignment.CENTER);
+		dataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		dataStyle.setBorderBottom(BorderStyle.THIN);
+		dataStyle.setBorderTop(BorderStyle.THIN);
+		dataStyle.setBorderLeft(BorderStyle.THIN);
+		dataStyle.setBorderRight(BorderStyle.THIN);
+		dataStyle.setFont(dataFont);
+		dataStyle.setWrapText(true);
 
-	    XSSFCellStyle leftStyle = wb.createCellStyle();
-	    leftStyle.cloneStyleFrom(dataStyle);
-	    leftStyle.setAlignment(HorizontalAlignment.LEFT);
+		XSSFCellStyle leftStyle = wb.createCellStyle();
+		leftStyle.cloneStyleFrom(dataStyle);
+		leftStyle.setAlignment(HorizontalAlignment.LEFT);
 
-	    BiFunction<Row, Integer, Cell> cell = (r, c) -> {
-	        Cell cc = r.getCell(c);
-	        return cc != null ? cc : r.createCell(c);
-	    };
+		BiFunction<Row, Integer, Cell> cell = (r, c) -> {
+			Cell cc = r.getCell(c);
+			return cc != null ? cc : r.createCell(c);
+		};
 
-	    int rowIndex = 0;
+		int rowIndex = 0;
 
-	    // ========== ROW 1 ==========
-	    Row r1 = sheet.createRow(rowIndex++);
-	    r1.setHeightInPoints(28);
+		// ========== ROW 1 ==========
+		Row r1 = sheet.createRow(rowIndex++);
+		r1.setHeightInPoints(28);
 
-	    String fullTitle = " निविदा अंतिम करणेबाबतचा तपशील   (बांधकामाधीन /बिगर सिंचन)  -  "
-	            + formatHeaderDate(date) + " च्या सद्यस्थितीस अनुसरुन ";
+		String fullTitle = " निविदा अंतिम करणेबाबतचा तपशील   (बांधकामाधीन /बिगर सिंचन)  -  " + formatHeaderDate(date)
+				+ " च्या सद्यस्थितीस अनुसरुन ";
 
-	    cell.apply(r1, 0).setCellValue(fullTitle);
-	    cell.apply(r1, 0).setCellStyle(centerBold16);
-	    sheet.addMergedRegion(new CellRangeAddress(r1.getRowNum(), r1.getRowNum(), 0, 8));
+		cell.apply(r1, 0).setCellValue(fullTitle);
+		cell.apply(r1, 0).setCellStyle(centerBold16);
+		sheet.addMergedRegion(new CellRangeAddress(r1.getRowNum(), r1.getRowNum(), 0, 8));
 
-	    // ========== ROW 2 ==========
-	    Row r2 = sheet.createRow(rowIndex++);
-	    r2.setHeightInPoints(22);
+		// ========== ROW 2 ==========
+		Row r2 = sheet.createRow(rowIndex++);
+		r2.setHeightInPoints(22);
 
-	    cell.apply(r2, 0).setCellValue("विभागीय कार्यालयाचे नाव:- कार्यकारी अभियंता, भामा आसखेड धरण विभाग, पुणे");
-	    cell.apply(r2, 0).setCellStyle(centerBold12);
-	    sheet.addMergedRegion(new CellRangeAddress(r2.getRowNum(), r2.getRowNum(), 0, 8));
+		cell.apply(r2, 0).setCellValue("विभागीय कार्यालयाचे नाव:- कार्यकारी अभियंता, भामा आसखेड धरण विभाग, पुणे");
+		cell.apply(r2, 0).setCellStyle(centerBold12);
+		sheet.addMergedRegion(new CellRangeAddress(r2.getRowNum(), r2.getRowNum(), 0, 8));
 
-	    // ========== ROW 3 ==========
-	 // ---------- ROW 3: Month (A+B merged) + (रु. कोटी) in Column D ----------
-	    Row r3 = sheet.createRow(rowIndex++);
-	    r3.setHeightInPoints(20);
+		// ========== ROW 3 ==========
+		// ---------- ROW 3: Month (A+B merged) + (रु. कोटी) in Column D ----------
+		Row r3 = sheet.createRow(rowIndex++);
+		r3.setHeightInPoints(20);
 
-	    // Marathi Month
-	    String marMonth = getMarathiMonth(month);
+		// Marathi Month
+		String marMonth = getMarathiMonth(month);
 
-	    // A + B merge for "माहे - ऑगस्ट 2025"
-	    Cell cMonth = cell.apply(r3, 0);
-	    cMonth.setCellValue("माहे - " + marMonth + " " + year);
-	    cMonth.setCellStyle(centerBold12);
+		// A + B merge for "माहे - ऑगस्ट 2025"
+		Cell cMonth = cell.apply(r3, 0);
+		cMonth.setCellValue("माहे - " + marMonth + " " + year);
+		cMonth.setCellStyle(centerBold12);
 
-	    // Merge col 0 and 1
-	    sheet.addMergedRegion(new CellRangeAddress(
-	            r3.getRowNum(), 
-	            r3.getRowNum(), 
-	            0, 1   // merge A+B
-	    ));
+		// Merge col 0 and 1
+		sheet.addMergedRegion(new CellRangeAddress(r3.getRowNum(), r3.getRowNum(), 0, 1 // merge A+B
+		));
 
-	    // "(रु. कोटी)" in Column D (col index = 3)
-	    Cell cRupee = cell.apply(r3, 3);
-	    cRupee.setCellValue("(रु.   कोटी)");
-	    cRupee.setCellStyle(centerBold12);
+		// "(रु. कोटी)" in Column D (col index = 3)
+		Cell cRupee = cell.apply(r3, 3);
+		cRupee.setCellValue("(रु.   कोटी)");
+		cRupee.setCellStyle(centerBold12);
 
-	    // Clear other columns
-	    for (int i = 2; i <= 8; i++) {
-	        if (i == 3) continue;
-	        Cell empty = cell.apply(r3, i);
-	        empty.setCellValue("");
-	    }
+		// Clear other columns
+		for (int i = 2; i <= 8; i++) {
+			if (i == 3)
+				continue;
+			Cell empty = cell.apply(r3, i);
+			empty.setCellValue("");
+		}
 
+		// ========== TABLE HEADER ==========
+		Row h = sheet.createRow(rowIndex++);
+		h.setHeightInPoints(32);
 
-	    // ========== TABLE HEADER ==========
-	    Row h = sheet.createRow(rowIndex++);
-	    h.setHeightInPoints(32);
+		String[] headers = { "अ. क्र.", "कामाचे नाव", "निविदा क्र. व वर्ष", "कंत्राटदाराचे नाव", "मुळ निविदा किंमत",
+				"निविदेची अद्यावत किंमत", "कामावर झालेला अद्यावत खर्च", "कामाची उर्वरित किंमत", "शेरा" };
 
-	    String[] headers = {
-	            "अ. क्र.", "कामाचे नाव", "निविदा क्र. व वर्ष",
-	            "कंत्राटदाराचे नाव", "मुळ निविदा किंमत",
-	            "निविदेची अद्यावत किंमत", "कामावर झालेला अद्यावत खर्च",
-	            "कामाची उर्वरित किंमत", "शेरा"
-	    };
+		int col = 0;
+		for (String hd : headers) {
+			Cell ch = cell.apply(h, col);
+			ch.setCellValue(hd);
+			ch.setCellStyle(headerStyle);
+			col++;
+		}
 
-	    int col = 0;
-	    for (String hd : headers) {
-	        Cell ch = cell.apply(h, col);
-	        ch.setCellValue(hd);
-	        ch.setCellStyle(headerStyle);
-	        col++;
-	    }
+		// ========== DATA ROWS ==========
+		ObjectMapper mapper = new ObjectMapper();
+		int sr = 1;
 
-	    // ========== DATA ROWS ==========
-	    ObjectMapper mapper = new ObjectMapper();
-	    int sr = 1;
+		for (TenderBhamaEntity e : list) {
+			Map<String, Object> d = mapper.convertValue(e.getData(), Map.class);
 
-	    for (TenderBhamaEntity e : list) {
-	        Map<String, Object> d = mapper.convertValue(e.getData(), Map.class);
+			Row dr = sheet.createRow(rowIndex++);
+			dr.setHeightInPoints(36);
 
-	        Row dr = sheet.createRow(rowIndex++);
-	        dr.setHeightInPoints(36);
+			cell.apply(dr, 0).setCellValue(sr++);
+			cell.apply(dr, 0).setCellStyle(dataStyle);
 
-	        cell.apply(dr, 0).setCellValue(sr++);
-	        cell.apply(dr, 0).setCellStyle(dataStyle);
+			cell.apply(dr, 1).setCellValue(d.getOrDefault("kamacheNav", "").toString());
+			cell.apply(dr, 1).setCellStyle(leftStyle);
 
-	        cell.apply(dr, 1).setCellValue(d.getOrDefault("kamacheNav", "").toString());
-	        cell.apply(dr, 1).setCellStyle(leftStyle);
+			cell.apply(dr, 2).setCellValue(d.getOrDefault("nitivKrVarsh", "").toString());
+			cell.apply(dr, 2).setCellStyle(leftStyle);
 
-	        cell.apply(dr, 2).setCellValue(d.getOrDefault("nitivKrVarsh", "").toString());
-	        cell.apply(dr, 2).setCellStyle(leftStyle);
+			cell.apply(dr, 3).setCellValue(d.getOrDefault("kantradarNav", "").toString());
+			cell.apply(dr, 3).setCellStyle(leftStyle);
 
-	        cell.apply(dr, 3).setCellValue(d.getOrDefault("kantradarNav", "").toString());
-	        cell.apply(dr, 3).setCellStyle(leftStyle);
+			cell.apply(dr, 4).setCellValue(toDouble(d.get("mukhyaNividaKimat")));
+			cell.apply(dr, 4).setCellStyle(dataStyle);
 
-	        cell.apply(dr, 4).setCellValue(toDouble(d.get("mukhyaNividaKimat")));
-	        cell.apply(dr, 4).setCellStyle(dataStyle);
+			cell.apply(dr, 5).setCellValue(toDouble(d.get("atiriktKimat")));
+			cell.apply(dr, 5).setCellStyle(dataStyle);
 
-	        cell.apply(dr, 5).setCellValue(toDouble(d.get("atiriktKimat")));
-	        cell.apply(dr, 5).setCellStyle(dataStyle);
+			cell.apply(dr, 6).setCellValue(toDouble(d.get("kamawarAtkhrc")));
+			cell.apply(dr, 6).setCellStyle(dataStyle);
 
-	        cell.apply(dr, 6).setCellValue(toDouble(d.get("kamawarAtkhrc")));
-	        cell.apply(dr, 6).setCellStyle(dataStyle);
+			cell.apply(dr, 7).setCellValue(toDouble(d.get("urvaritKimat")));
+			cell.apply(dr, 7).setCellStyle(dataStyle);
 
-	        cell.apply(dr, 7).setCellValue(toDouble(d.get("urvaritKimat")));
-	        cell.apply(dr, 7).setCellStyle(dataStyle);
+			cell.apply(dr, 8).setCellValue(d.getOrDefault("shera", "").toString());
+			cell.apply(dr, 8).setCellStyle(leftStyle);
+		}
 
-	        cell.apply(dr, 8).setCellValue(d.getOrDefault("shera", "").toString());
-	        cell.apply(dr, 8).setCellStyle(leftStyle);
-	    }
+		// ========== TOTAL ROW ==========
+		Row total = sheet.createRow(rowIndex++);
+		total.setHeightInPoints(26);
 
-	    // ========== TOTAL ROW ==========
-	    Row total = sheet.createRow(rowIndex++);
-	    total.setHeightInPoints(26);
+		cell.apply(total, 3).setCellValue("एकूण");
+		cell.apply(total, 3).setCellStyle(centerBold12);
 
-	    cell.apply(total, 3).setCellValue("एकूण");
-	    cell.apply(total, 3).setCellStyle(centerBold12);
+		cell.apply(total, 4).setCellValue(list.size() + " निविदा");
+		cell.apply(total, 4).setCellStyle(centerBold12);
 
-	    cell.apply(total, 4).setCellValue(list.size() + " निविदा");
-	    cell.apply(total, 4).setCellStyle(centerBold12);
+		for (int i = 0; i <= 8; i++) {
+			Cell cc = cell.apply(total, i);
+			if (i != 3 && i != 4)
+				cc.setCellValue("");
+			cc.setCellStyle(headerStyle);
+		}
 
-	    for (int i = 0; i <= 8; i++) {
-	        Cell cc = cell.apply(total, i);
-	        if (i != 3 && i != 4) cc.setCellValue("");
-	        cc.setCellStyle(headerStyle);
-	    }
+		// ========== FIXED COLUMN WIDTHS ==========
+		sheet.setColumnWidth(0, 3000);
+		sheet.setColumnWidth(1, 14000);
+		sheet.setColumnWidth(2, 7000);
+		sheet.setColumnWidth(3, 9000);
+		sheet.setColumnWidth(4, 5000);
+		sheet.setColumnWidth(5, 5000);
+		sheet.setColumnWidth(6, 5000);
+		sheet.setColumnWidth(7, 5000);
+		sheet.setColumnWidth(8, 10000);
 
-	    // ========== FIXED COLUMN WIDTHS ==========
-	    sheet.setColumnWidth(0, 3000);
-	    sheet.setColumnWidth(1, 14000);
-	    sheet.setColumnWidth(2, 7000);
-	    sheet.setColumnWidth(3, 9000);
-	    sheet.setColumnWidth(4, 5000);
-	    sheet.setColumnWidth(5, 5000);
-	    sheet.setColumnWidth(6, 5000);
-	    sheet.setColumnWidth(7, 5000);
-	    sheet.setColumnWidth(8, 10000);
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
 
-	    ByteArrayOutputStream out = new ByteArrayOutputStream();
-	    wb.write(out);
-	    wb.close();
-
-	    return ResponseEntity.ok()
-	            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=TenderBhama.xlsx")
-	            .contentType(MediaType.APPLICATION_OCTET_STREAM)
-	            .body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+		return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=TenderBhama.xlsx")
+				.contentType(MediaType.APPLICATION_OCTET_STREAM)
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
 	}
 
 	private String formatHeaderDate(String date) {
@@ -2979,6 +2977,283 @@ public class DrawingServiceImpl implements DrawingService {
 			return "डिसेंबर";
 		}
 		return engMonth;
+	}
+
+	@Override
+	public TenderBhamaResponse saveOrUpdateTenderTarget(TenderSaveRequest req) {
+		TenderBhamaResponse response = new TenderBhamaResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+			ObjectMapper mapper = new ObjectMapper();
+
+			for (TenderRowDTO row : req.getRows()) {
+
+				// 🔴 CASE 1 — HARD DELETE
+				if ("D".equalsIgnoreCase(row.getFlag())) {
+
+					Optional<TenderTargetEntity> existing = tenderTargetRepository
+							.findByYearAndMonthAndDeleteId(req.getYear(), req.getMonth(), row.getDeleteId());
+
+					existing.ifPresent(entity -> {
+						tenderTargetRepository.delete(entity); // HARD DELETE
+					});
+
+					continue;
+				}
+
+				// 🟡 CASE 2 — UPDATE OR CREATE
+				Optional<TenderTargetEntity> existing = tenderTargetRepository.findByYearAndMonthAndRowId(req.getYear(),
+						req.getMonth(), row.getRowId());
+
+				TenderTargetEntity entity = existing.orElse(new TenderTargetEntity());
+
+				// BASIC FIELDS
+				entity.setYear(req.getYear());
+				entity.setMonth(req.getMonth());
+				entity.setRowId(row.getRowId());
+				entity.setDeleteId(row.getDeleteId());
+
+				// JSONB DATA
+				JsonNode json = mapper.valueToTree(row.getData());
+				entity.setData(json);
+
+				// FLAG LOGIC
+				entity.setFlag(existing.isPresent() ? "U" : "C");
+
+				// AUDIT FIELDS
+				String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+				if (!existing.isPresent()) {
+					entity.setCreatedAt(LocalDateTime.now());
+					entity.setCreatedBy(user);
+				}
+
+				entity.setUpdatedAt(LocalDateTime.now());
+				entity.setUpdatedBy(user);
+
+				tenderTargetRepository.save(entity);
+			}
+
+			error.setErrorCode("0");
+			error.setErrorDescription("Saved Successfully");
+			response.setErrorDetails(error);
+
+			return response;
+
+		} catch (Exception ex) {
+
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+			response.setErrorDetails(error);
+			return response;
+		}
+	}
+
+	@Override
+	public TenderBhamaResponse getTenderTarget(String year, String month) {
+
+		TenderBhamaResponse response = new TenderBhamaResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+
+			List<TenderTargetEntity> list = tenderTargetRepository.findByYearAndMonth(year, month);
+
+			list.sort(Comparator.comparing(TenderTargetEntity::getRowId));
+
+			ObjectMapper mapper = new ObjectMapper();
+			List<Map<String, Object>> result = new ArrayList<>();
+
+			for (TenderTargetEntity e : list) {
+
+				Map<String, Object> row = mapper.convertValue(e.getData(), Map.class);
+
+				// include metadata also
+				row.put("rowId", e.getRowId());
+				row.put("deleteId", e.getDeleteId());
+				row.put("flag", e.getFlag());
+
+				result.add(row);
+			}
+
+			response.setRows(result);
+
+			error.setErrorCode("0");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+			return response;
+
+		} catch (Exception ex) {
+
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+			response.setErrorDetails(error);
+			return response;
+		}
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadTenderTarget(String year, String month) throws IOException {
+
+		List<TenderTargetEntity> list = tenderTargetRepository.findByYearAndMonth(year, month);
+		list.sort(Comparator.comparing(TenderTargetEntity::getRowId));
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet("Tender Target Summary");
+		sheet.setZoom(90);
+
+		// ----------------- FONTS -----------------
+		XSSFFont bold14 = wb.createFont();
+		bold14.setBold(true);
+		bold14.setFontHeightInPoints((short) 14);
+
+		XSSFFont bold12 = wb.createFont();
+		bold12.setBold(true);
+		bold12.setFontHeightInPoints((short) 11);
+
+		XSSFFont dataFont = wb.createFont();
+		dataFont.setFontHeightInPoints((short) 10);
+
+		// ----------------- STYLES -----------------
+		XSSFCellStyle titleStyle = wb.createCellStyle();
+		titleStyle.setAlignment(HorizontalAlignment.CENTER);
+		titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		titleStyle.setFont(bold14);
+
+		XSSFCellStyle headerStyle = wb.createCellStyle();
+		headerStyle.setAlignment(HorizontalAlignment.CENTER);
+		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		headerStyle.setBorderBottom(BorderStyle.THIN);
+		headerStyle.setBorderTop(BorderStyle.THIN);
+		headerStyle.setBorderLeft(BorderStyle.THIN);
+		headerStyle.setBorderRight(BorderStyle.THIN);
+		headerStyle.setWrapText(true);
+		headerStyle.setFont(bold12);
+
+		XSSFCellStyle dataCenterStyle = wb.createCellStyle();
+		dataCenterStyle.cloneStyleFrom(headerStyle);
+		dataCenterStyle.setFont(dataFont);
+		dataCenterStyle.setWrapText(true);
+
+		XSSFCellStyle dataLeftStyle = wb.createCellStyle();
+		dataLeftStyle.cloneStyleFrom(dataCenterStyle);
+		dataLeftStyle.setAlignment(HorizontalAlignment.LEFT);
+
+		// utility
+		BiFunction<Row, Integer, Cell> cell = (r, c) -> r.getCell(c) != null ? r.getCell(c) : r.createCell(c);
+
+		int rowIndex = 0;
+
+		// ----------------- TITLE -----------------
+		Row titleRow = sheet.createRow(rowIndex++);
+		titleRow.setHeightInPoints(25);
+
+		Cell t = cell.apply(titleRow, 0);
+		t.setCellValue("विषय:-  निविदा अंतिम करणेचे नियोजन व कार्यवाही");
+		t.setCellStyle(titleStyle);
+		sheet.addMergedRegion(new CellRangeAddress(titleRow.getRowNum(), titleRow.getRowNum(), 0, 5));
+
+		// ----------------- MONTH ROW -----------------
+		// ---------- MONTH ROW ----------
+		Row monthRow = sheet.createRow(rowIndex++);
+		monthRow.setHeightInPoints(20);
+
+		Cell m = cell.apply(monthRow, 0);
+		m.setCellValue("माहे -  " + getMarathiMonth(month) + " " + year);
+
+		// Correct Style for month row
+		XSSFCellStyle monthStyle = wb.createCellStyle();
+		monthStyle.setFont(bold12);
+		monthStyle.setAlignment(HorizontalAlignment.LEFT);
+		monthStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		m.setCellStyle(monthStyle);
+
+		// Merge A–F
+		sheet.addMergedRegion(new CellRangeAddress(
+		        monthRow.getRowNum(),
+		        monthRow.getRowNum(),
+		        0, 5
+		));
+
+
+		// ----------------- TABLE HEADER -----------------
+		Row h = sheet.createRow(rowIndex++);
+		h.setHeightInPoints(38);
+
+		String[] headers = { "अ.क्र.", "विभागाचे नांव", "एकुण चालू कामे",
+				"अंतिम करणेस नियोजित (Target) कामाची संख्या", "माहे सप्टेंबर 2025 मध्ये अंतिम केलेली कामांची संख्या",
+				"नियोजनानुसार अंतिम करणेची उर्वरीत कामे संख्या" };
+
+		int col = 0;
+		for (String hd : headers) {
+			Cell ch = cell.apply(h, col);
+			ch.setCellValue(hd);
+			ch.setCellStyle(headerStyle);
+			col++;
+		}
+
+		// ----------------- DATA ROWS -----------------
+		ObjectMapper mapper = new ObjectMapper();
+		int sr = 1;
+
+		for (TenderTargetEntity e : list) {
+
+			Map<String, Object> d = mapper.convertValue(e.getData(), Map.class);
+
+			Row r = sheet.createRow(rowIndex++);
+			r.setHeightInPoints(34);
+
+			// 1 SR No.
+			cell.apply(r, 0).setCellValue(sr++);
+			cell.apply(r, 0).setCellStyle(dataCenterStyle);
+
+			// 2 Vibhag Name
+			cell.apply(r, 1).setCellValue(d.getOrDefault("vibhagcheNav", "").toString());
+			cell.apply(r, 1).setCellStyle(dataLeftStyle);
+
+			// Helper: underline empty values
+			Function<Object, String> val = (v) -> {
+				if (v == null)
+					return "______";
+				String s = v.toString();
+				return s.trim().isEmpty() ? "______" : s;
+			};
+
+			// 3 ekun chalu kam
+			cell.apply(r, 2).setCellValue(val.apply(d.get("ekunChaluKam")));
+			cell.apply(r, 2).setCellStyle(dataCenterStyle);
+
+			// 4 target
+			cell.apply(r, 3).setCellValue(val.apply(d.get("antimNiyojitTargetKam")));
+			cell.apply(r, 3).setCellStyle(dataCenterStyle);
+
+			// 5 Sept 2025
+			cell.apply(r, 4).setCellValue(val.apply(d.get("sept2025MadeAntimKamanchiSankhya")));
+			cell.apply(r, 4).setCellStyle(dataCenterStyle);
+
+			// 6 Uvarit Kam
+			cell.apply(r, 5).setCellValue(val.apply(d.get("niyojanAnusarUrvartiKam")));
+			cell.apply(r, 5).setCellStyle(dataCenterStyle);
+		}
+
+		// ----------------- Column Width -----------------
+		int[] widths = { 2500, 11000, 5000, 8000, 9000, 8000 };
+
+		for (int i = 0; i < widths.length; i++) {
+			sheet.setColumnWidth(i, widths[i]);
+		}
+
+		// ----------------- RETURN FILE -----------------
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=TenderTarget.xlsx")
+				.contentType(MediaType.APPLICATION_OCTET_STREAM)
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
 	}
 
 }

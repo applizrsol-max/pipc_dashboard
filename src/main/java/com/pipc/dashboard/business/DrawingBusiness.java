@@ -56,4 +56,10 @@ public interface DrawingBusiness {
 
 	ResponseEntity<InputStreamResource> downloadTenderBhama(String year, String month, String date) throws IOException;
 
+	TenderBhamaResponse saveOrUpdateTenderTarget(TenderSaveRequest req);
+
+	TenderBhamaResponse getTenderTarget(String year, String month);
+
+	ResponseEntity<InputStreamResource> downloadTenderTarget(String year, String month) throws IOException;
+
 }
