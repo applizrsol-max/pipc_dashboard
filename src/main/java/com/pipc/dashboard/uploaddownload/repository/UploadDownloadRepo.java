@@ -15,4 +15,28 @@ public interface UploadDownloadRepo extends JpaRepository<UploadDownloadEntity, 
 	List<UploadDownloadEntity> findByTypeAndYear(String type, String year);
 
 	List<UploadDownloadEntity> findByTypeAndYearAndMonth(String type, String year, String month);
+	List<UploadDownloadEntity>
+	findByTypeAndYearAndMonthAndDayAndNameContainingIgnoreCase(
+	    String type,
+	    String year,
+	    String month,
+	    String day,
+	    String name
+	);
+
+	List<UploadDownloadEntity>
+	findByTypeAndYearAndMonthAndNameContainingIgnoreCase(
+	    String type,
+	    String year,
+	    String month,
+	    String name
+	);
+
+	List<UploadDownloadEntity>
+	findByTypeAndYearAndNameContainingIgnoreCase(
+	    String type,
+	    String year,
+	    String name
+	);
+
 }

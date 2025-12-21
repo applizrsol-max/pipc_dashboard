@@ -86,12 +86,25 @@ public class UploadDownloadServiceImpl implements UploadDownloadService {
 
 		List<UploadDownloadEntity> entities;
 
+		// null-safe name (empty = match all)
+		String name = (damName == null) ? "" : damName;
+
 		if (day != null && !day.isBlank()) {
-			entities = uploadDownloadRepo.findByTypeAndNameAndYearAndMonthAndDay(type, damName, year, month, day);
+
+			entities = uploadDownloadRepo.findByTypeAndYearAndMonthAndDayAndNameContainingIgnoreCase(type, year, month,
+					day, name);
+
 		} else if (month != null && !month.isBlank()) {
-			entities = uploadDownloadRepo.findByTypeAndNameAndYearAndMonth(type, damName, year, month);
+
+			entities = uploadDownloadRepo.findByTypeAndYearAndMonthAndNameContainingIgnoreCase(type, year, month, name);
+
+		} else if (year != null && !year.isBlank()) {
+
+			entities = uploadDownloadRepo.findByTypeAndYearAndNameContainingIgnoreCase(type, year, name);
+
 		} else {
-			entities = uploadDownloadRepo.findByTypeAndNameAndYear(type, damName, year);
+			// safety fallback (normally needed nahi hoga)
+			entities = uploadDownloadRepo.findByTypeAndYearAndNameContainingIgnoreCase(type, year, name);
 		}
 
 		return entities.stream().map(this::toDto).collect(Collectors.toList());
@@ -125,25 +138,21 @@ public class UploadDownloadServiceImpl implements UploadDownloadService {
 
 	@Override
 	public String writeZip(String type, String year, String month, ZipOutputStream zos) throws IOException {
-		 List<UploadDownloadEntity> list =
-	                (month != null && !month.isBlank())
-	                        ? uploadDownloadRepo.findByTypeAndYearAndMonth(type, year, month)
-	                        : uploadDownloadRepo.findByTypeAndYear(type, year);
+		List<UploadDownloadEntity> list = (month != null && !month.isBlank())
+				? uploadDownloadRepo.findByTypeAndYearAndMonth(type, year, month)
+				: uploadDownloadRepo.findByTypeAndYear(type, year);
 
-	        for (UploadDownloadEntity e : list) {
-	            Path path = Paths.get(e.getFilePath());
-	            if (!Files.exists(path)) continue;
+		for (UploadDownloadEntity e : list) {
+			Path path = Paths.get(e.getFilePath());
+			if (!Files.exists(path))
+				continue;
 
-	            String entry =
-	                    e.getName().replace(" ", "_")
-	                            + "/" + e.getOriginalFileName();
+			String entry = e.getName().replace(" ", "_") + "/" + e.getOriginalFileName();
 
-	            zos.putNextEntry(new ZipEntry(entry));
-	            Files.copy(path, zos);
-	            zos.closeEntry();
-	        }
-			return month;
-	    }
+			zos.putNextEntry(new ZipEntry(entry));
+			Files.copy(path, zos);
+			zos.closeEntry();
+		}
+		return month;
 	}
-
-
+}

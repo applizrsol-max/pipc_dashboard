@@ -42,7 +42,7 @@ public class UploadDownloadController {
 	}
 
 	@GetMapping("/getFileList")
-	public ResponseEntity<Object> getFileList(@RequestParam String type, @RequestParam String name,
+	public ResponseEntity<Object> getFileList(@RequestParam String type, @RequestParam(required = false) String name,
 			@RequestParam String year, @RequestParam(required = false) String month,
 			@RequestParam(required = false) String day) {
 		return ResponseEntity.ok(uploadDownloadBusiness.getFileList(type, name, year, month, day));
