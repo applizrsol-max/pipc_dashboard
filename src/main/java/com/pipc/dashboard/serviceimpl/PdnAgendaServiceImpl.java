@@ -92,7 +92,7 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 		StringBuilder statusMsg = new StringBuilder();
 
 		try {
-			String currentUser = Optional.ofNullable(MDC.get("userId")).orElse("SYSTEM");
+			String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
 
 			for (AgendaPoint point : pdnAgendaRequest.getAgendaPoints()) {
 				for (AgendaDetail detail : point.getDetails()) {
