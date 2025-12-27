@@ -8,6 +8,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
+import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRequest;
+import com.pipc.dashboard.bhusmapadan.response.PraptraMasterDataResponse;
 import com.pipc.dashboard.business.EstablishmentBusiness;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
@@ -16,6 +18,7 @@ import com.pipc.dashboard.establishment.request.AppealWrapper2;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
+import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
 import com.pipc.dashboard.establishment.request.PassportNocRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
@@ -177,6 +180,66 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	@Override
 	public ResponseEntity<InputStreamResource> downloadAppealArj2(String year) throws IOException {
 		return establishmentService.downloadAppealArj2(year);
+	}
+
+	@Override
+	public PraptraMasterDataResponse saveMasterData(PraptraMasterDataRequest request) {
+		return establishmentService.saveMasterData(request);
+	}
+
+	@Override
+	public PraptraMasterDataResponse getMasterData(String year) {
+		return establishmentService.getMasterData(year);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadMasterData(String year) throws IOException {
+		return establishmentService.downloadMasterData(year);
+	}
+
+	@Override
+	public PraptraMasterDataResponse saveCrFileList(PraptraMasterDataRequest request) {
+		return establishmentService.saveCrFileList(request);
+	}
+
+	@Override
+	public PraptraMasterDataResponse getCrFileList(String year) {
+		return establishmentService.getCrFileList(year);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadCrFileList(String year) throws IOException {
+		return establishmentService.downloadCrFileList(year);
+	}
+
+	@Override
+	public PraptraMasterDataResponse saveCrFileRtrList(PraptraMasterDataRequest request) {
+		return establishmentService.saveCrFileRtrList(request);
+	}
+
+	@Override
+	public PraptraMasterDataResponse getCrFileRtrList(String year) {
+		return establishmentService.getCrFileRtrList(year);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadCrFileRtrList(String year) throws IOException {
+		return establishmentService.downloadCrFileRtrList(year);
+	}
+
+	@Override
+	public PraptraMasterDataResponse saveMahaparRegister(MahaparRegisterRequest request) {
+		return establishmentService.saveMahaparRegister(request);
+	}
+
+	@Override
+	public PraptraMasterDataResponse getMahaparRegister(String year) {
+		return establishmentService.getMahaparRegister(year);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadMahaparRegister(String year) throws IOException {
+		return establishmentService.downloadMahaparRegister(year);
 	}
 
 }

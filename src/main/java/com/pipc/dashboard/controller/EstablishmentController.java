@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRequest;
+import com.pipc.dashboard.bhusmapadan.response.PraptraMasterDataResponse;
 import com.pipc.dashboard.business.EstablishmentBusiness;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
@@ -21,6 +23,7 @@ import com.pipc.dashboard.establishment.request.AppealWrapper2;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
+import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
 import com.pipc.dashboard.establishment.request.PassportNocRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
@@ -218,4 +221,81 @@ public class EstablishmentController {
 
 		return establishmentBusiness.downloadAppealArj2(year);
 	}
+
+	@PostMapping("/saveMasterData")
+	public PraptraMasterDataResponse saveMasterData(@RequestBody PraptraMasterDataRequest request) {
+
+		return establishmentBusiness.saveMasterData(request);
+	}
+
+	@GetMapping("/getMasterData")
+	public PraptraMasterDataResponse getMasterData(@RequestParam String year) {
+
+		return establishmentBusiness.getMasterData(year);
+	}
+
+	@GetMapping("/downloadMasterData")
+	public ResponseEntity<InputStreamResource> downloadMasterData(@RequestParam(required = false) String year)
+			throws IOException {
+
+		return establishmentBusiness.downloadMasterData(year);
+	}
+
+	@PostMapping("/saveCrFileList")
+	public PraptraMasterDataResponse saveCrFileList(@RequestBody PraptraMasterDataRequest request) {
+
+		return establishmentBusiness.saveCrFileList(request);
+	}
+
+	@GetMapping("getCrFileList")
+	public PraptraMasterDataResponse getCrFileList(@RequestParam String year) {
+
+		return establishmentBusiness.getCrFileList(year);
+	}
+
+	@GetMapping("/downloadCrFileList")
+	public ResponseEntity<InputStreamResource> downloadCrFileList(@RequestParam(required = false) String year)
+			throws IOException {
+
+		return establishmentBusiness.downloadCrFileList(year);
+	}
+
+	@PostMapping("/saveCrFileRtrList")
+	public PraptraMasterDataResponse saveCrFileRtrList(@RequestBody PraptraMasterDataRequest request) {
+
+		return establishmentBusiness.saveCrFileRtrList(request);
+	}
+
+	@GetMapping("getCrFileRtrList")
+	public PraptraMasterDataResponse getCrFileRtrList(@RequestParam String year) {
+
+		return establishmentBusiness.getCrFileRtrList(year);
+	}
+
+	@GetMapping("/downloadCrFileRtrList")
+	public ResponseEntity<InputStreamResource> downloadCrFileRtrList(@RequestParam(required = false) String year)
+			throws IOException {
+
+		return establishmentBusiness.downloadCrFileRtrList(year);
+	}
+
+	@PostMapping("saveMahaparRegister")
+	public PraptraMasterDataResponse saveMahaparRegister(@RequestBody MahaparRegisterRequest request) {
+
+		return establishmentBusiness.saveMahaparRegister(request);
+	}
+
+	@GetMapping("/getMahaparRegister")
+	public PraptraMasterDataResponse getMahaparRegister(@RequestParam String year) {
+
+		return establishmentBusiness.getMahaparRegister(year);
+	}
+
+	@GetMapping("/downloadMahaparRegister")
+	public ResponseEntity<InputStreamResource> downloadMahaparRegister(@RequestParam(required = false) String year)
+			throws IOException {
+
+		return establishmentBusiness.downloadMahaparRegister(year);
+	}
+
 }

@@ -14,7 +14,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -32,6 +34,7 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.RegionUtil;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -63,6 +66,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRequest;
+import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRowRequest;
+import com.pipc.dashboard.bhusmapadan.response.PraptraMasterDataResponse;
 import com.pipc.dashboard.establishment.repository.AgendaOfficerEntity;
 import com.pipc.dashboard.establishment.repository.AgendaOfficerRepository;
 import com.pipc.dashboard.establishment.repository.AgendaSecBRepository;
@@ -77,6 +83,10 @@ import com.pipc.dashboard.establishment.repository.AppealRequestEntity;
 import com.pipc.dashboard.establishment.repository.AppealRequestRepository;
 import com.pipc.dashboard.establishment.repository.ApprovalDetailsEntity;
 import com.pipc.dashboard.establishment.repository.ApprovalDetailsRepository;
+import com.pipc.dashboard.establishment.repository.CrFileListEntity;
+import com.pipc.dashboard.establishment.repository.CrFileListRepository;
+import com.pipc.dashboard.establishment.repository.CrFileListRtrEntity;
+import com.pipc.dashboard.establishment.repository.CrFileListRtrRepository;
 import com.pipc.dashboard.establishment.repository.EmployeeDetailsEntity;
 import com.pipc.dashboard.establishment.repository.EmployeeDetailsRepository;
 import com.pipc.dashboard.establishment.repository.EmployeePostingEntity;
@@ -87,6 +97,10 @@ import com.pipc.dashboard.establishment.repository.KharchaTapsilEntity;
 import com.pipc.dashboard.establishment.repository.KharchaTapsilRepository;
 import com.pipc.dashboard.establishment.repository.LeaveEntity;
 import com.pipc.dashboard.establishment.repository.LeaveRepository;
+import com.pipc.dashboard.establishment.repository.MahaparRegisterEntity;
+import com.pipc.dashboard.establishment.repository.MahaparRegisterRepository;
+import com.pipc.dashboard.establishment.repository.MasterDataEntity;
+import com.pipc.dashboard.establishment.repository.MasterDataRepository;
 import com.pipc.dashboard.establishment.repository.MedicalBillMasterEntity;
 import com.pipc.dashboard.establishment.repository.MedicalBillMasterRepository;
 import com.pipc.dashboard.establishment.repository.PassportNocEntity;
@@ -111,6 +125,9 @@ import com.pipc.dashboard.establishment.request.AppealWrapper2;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
+import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
+import com.pipc.dashboard.establishment.request.MahaparRegisterRowRequest;
+import com.pipc.dashboard.establishment.request.MahaparRegisterSectionRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillData;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
 import com.pipc.dashboard.establishment.request.PassportNocRequest;
@@ -129,11 +146,13 @@ import com.pipc.dashboard.service.EstablishmentService;
 import com.pipc.dashboard.utility.ApplicationError;
 import com.pipc.dashboard.utility.PdfUtil;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class EstablishmentServiceImpl implements EstablishmentService {
 
 	private final MedicalBillMasterRepository masterRepo;
@@ -155,39 +174,13 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	private final AgendaThirteenRepository agendaThirteenRepository;
 	private final AppealRequestRepository appealRequestRepository;
 	private static final String TEMPLATE = "/templates/medical_bill_template.docx";
+	private final MasterDataRepository masterDataRepository;
+	private final CrFileListRepository crFileListRepository;
+	private final CrFileListRtrRepository crFileListRtrRepository;
+	private final MahaparRegisterRepository mahaparRegisterRepository;
 
 	@Autowired
 	private ObjectMapper objectMapper;
-
-	@Autowired
-	public EstablishmentServiceImpl(MedicalBillMasterRepository masterRepo, ReferenceRepository refRepo,
-			EmployeeDetailsRepository empRepo, ApprovalDetailsRepository apprRepo, KharchaTapsilRepository kharchaRepo,
-			VaidyakKharchaParigananaRepository vaidyaRepo, VaidyakTapshilRepository tapshilRepo,
-			VastavyaDetailsRepository vastavyaRepo, LeaveRepository leaveRepository, AppealRepository appealRepository,
-			EmployeePostingRepository employeePostingRepository,
-			IncomeTaxDeductionRepository incomeTaxDeductionRepository, PassportNocRepository passportNocRepository,
-			AgendaOfficerRepository agendaOfficerRepository, AgendaSecBRepository agendaSecBRepository,
-			AgendaSecDRepository agendaSecDRepository, AgendaThirteenRepository agendaThirteenRepository,
-			AppealRequestRepository appealRequestRepository) {
-		this.apprRepo = apprRepo;
-		this.empRepo = empRepo;
-		this.kharchaRepo = kharchaRepo;
-		this.masterRepo = masterRepo;
-		this.refRepo = refRepo;
-		this.tapshilRepo = tapshilRepo;
-		this.vaidyaRepo = vaidyaRepo;
-		this.vastavyaRepo = vastavyaRepo;
-		this.leaveRepository = leaveRepository;
-		this.appealRepository = appealRepository;
-		this.employeePostingRepository = employeePostingRepository;
-		this.incomeTaxDeductionRepository = incomeTaxDeductionRepository;
-		this.passportNocRepository = passportNocRepository;
-		this.agendaOfficerRepository = agendaOfficerRepository;
-		this.agendaSecBRepository = agendaSecBRepository;
-		this.agendaSecDRepository = agendaSecDRepository;
-		this.agendaThirteenRepository = agendaThirteenRepository;
-		this.appealRequestRepository = appealRequestRepository;
-	}
 
 	@Override
 	@Transactional
@@ -3350,6 +3343,972 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				.contentType(
 						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
 				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	@Transactional
+	public PraptraMasterDataResponse saveMasterData(PraptraMasterDataRequest request) {
+		String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+
+		try {
+			for (PraptraMasterDataRowRequest row : request.getRows()) {
+
+				// 🔴 DELETE
+				if ("D".equalsIgnoreCase(row.getFlag())) {
+
+					if (row.getDeleteId() == null) {
+						throw new RuntimeException("deleteId is mandatory");
+					}
+
+					masterDataRepository.deleteByYearAndDeleteId(request.getYear(), row.getDeleteId());
+					continue;
+				}
+
+				// 🔍 UPDATE / INSERT
+				Optional<MasterDataEntity> existing = masterDataRepository.findByYearAndRowId(request.getYear(),
+						row.getRowId());
+
+				if (existing.isPresent()) {
+					MasterDataEntity e = existing.get();
+					e.setData(row.getData());
+					e.setFlag("U");
+					e.setUpdatedAt(LocalDateTime.now());
+					e.setUpdatedBy(username);
+					masterDataRepository.save(e);
+				} else {
+					MasterDataEntity e = new MasterDataEntity();
+					e.setYear(request.getYear());
+					e.setRowId(row.getRowId());
+					e.setDeleteId(row.getDeleteId());
+					e.setData(row.getData());
+					e.setFlag("C");
+					e.setCreatedAt(LocalDateTime.now());
+					e.setUpdatedAt(LocalDateTime.now());
+					e.setUpdatedBy(username);
+					e.setCreatedBy(username);
+					masterDataRepository.save(e);
+				}
+			}
+
+			response.setMessage("Master Data saved successfully");
+			response.setData(List.of());
+			response.setErrorDetails(new ApplicationError("200", "Success"));
+			return response;
+
+		} catch (Exception e) {
+			response.setMessage("Failed to save Master Data");
+			response.setData(null);
+			response.setErrorDetails(new ApplicationError("500", e.getMessage()));
+			return response;
+		}
+	}
+
+	@Override
+	public PraptraMasterDataResponse getMasterData(String year) {
+		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+
+		List<Map<String, Object>> list = new ArrayList<>();
+
+		for (MasterDataEntity e : masterDataRepository.findAllByYearOrderByRowId(year)) {
+			Map<String, Object> m = new LinkedHashMap<>();
+			m.put("rowId", e.getRowId());
+			m.put("deleteId", e.getDeleteId());
+			m.put("data", e.getData());
+			list.add(m);
+		}
+
+		response.setMessage("Master Data fetched");
+		response.setData(list);
+		response.setErrorDetails(new ApplicationError("200", "Success"));
+		return response;
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadMasterData(String year) throws IOException {
+
+		List<MasterDataEntity> list = masterDataRepository.findAllByYearOrderByRowId(year);
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet("विवरणपत्र");
+		sheet.setZoom(70);
+
+		// ======================= FONT =======================
+		XSSFFont boldFont = wb.createFont();
+		boldFont.setBold(true);
+
+		// ======================= STYLES =====================
+		XSSFCellStyle titleStyle = wb.createCellStyle();
+		titleStyle.setFont(boldFont);
+		titleStyle.setAlignment(HorizontalAlignment.CENTER);
+		titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		XSSFCellStyle centerStyle = wb.createCellStyle();
+		centerStyle.setAlignment(HorizontalAlignment.CENTER);
+		centerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		XSSFCellStyle headerTop = wb.createCellStyle();
+		headerTop.setFont(boldFont);
+		headerTop.setWrapText(true);
+		headerTop.setAlignment(HorizontalAlignment.CENTER);
+		headerTop.setVerticalAlignment(VerticalAlignment.CENTER);
+		headerTop.setBorderTop(BorderStyle.THIN);
+		headerTop.setBorderLeft(BorderStyle.THIN);
+		headerTop.setBorderRight(BorderStyle.THIN);
+
+		XSSFCellStyle headerBottom = wb.createCellStyle();
+		headerBottom.cloneStyleFrom(headerTop);
+		headerBottom.setBorderBottom(BorderStyle.THIN);
+
+		XSSFCellStyle headerFull = wb.createCellStyle();
+		headerFull.cloneStyleFrom(headerBottom);
+		headerFull.setBorderTop(BorderStyle.THIN);
+
+		XSSFCellStyle dataStyle = wb.createCellStyle();
+		dataStyle.setWrapText(true);
+		dataStyle.setAlignment(HorizontalAlignment.CENTER);
+		dataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		dataStyle.setBorderTop(BorderStyle.THIN);
+		dataStyle.setBorderBottom(BorderStyle.THIN);
+		dataStyle.setBorderLeft(BorderStyle.THIN);
+		dataStyle.setBorderRight(BorderStyle.THIN);
+
+		// ======================= BORDER HELPER ======================
+		BiConsumer<CellRangeAddress, CellStyle> applyBorder = (region, style) -> {
+			for (int r = region.getFirstRow(); r <= region.getLastRow(); r++) {
+				Row row = sheet.getRow(r);
+				if (row == null)
+					row = sheet.createRow(r);
+				for (int c = region.getFirstColumn(); c <= region.getLastColumn(); c++) {
+					Cell cell = row.getCell(c);
+					if (cell == null)
+						cell = row.createCell(c);
+					cell.setCellStyle(style);
+				}
+			}
+		};
+
+		// ======================= ROW 1–2 ======================
+		Row r1 = sheet.createRow(0);
+		r1.createCell(0).setCellValue("पुणे पाटबंधारे प्रकल्प मंडळ, पुणे 01");
+		r1.getCell(0).setCellStyle(titleStyle);
+
+		CellRangeAddress regTitle = new CellRangeAddress(0, 1, 0, 27);
+		sheet.addMergedRegion(regTitle);
+		applyBorder.accept(regTitle, titleStyle);
+
+		// ======================= ROW 3 ======================
+		Row r3 = sheet.createRow(2);
+		r3.createCell(0).setCellValue("विवरणपत्र");
+		r3.getCell(0).setCellStyle(centerStyle);
+
+		CellRangeAddress regSubTitle = new CellRangeAddress(2, 2, 0, 27);
+		sheet.addMergedRegion(regSubTitle);
+		applyBorder.accept(regSubTitle, centerStyle);
+
+		// ======================= ROW 4 ======================
+		Row r4 = sheet.createRow(3);
+
+		// LEFT aligned style
+		XSSFCellStyle leftStyle = wb.createCellStyle();
+		leftStyle.setAlignment(HorizontalAlignment.LEFT);
+		leftStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		r4.createCell(1).setCellValue(
+				"विभागाचे/उपविभागाचे नाव - कार्यकारी अभियंता, पाटबंधारे प्रकल्प अन्वेष्ण विभाग (भिमा उपखोरे) पुणे 11");
+		r4.getCell(1).setCellStyle(leftStyle);
+
+		// 🔥 Merge from B to AC (column 1 to 27)
+		CellRangeAddress regDept = new CellRangeAddress(3, 3, 1, 27);
+		sheet.addMergedRegion(regDept);
+		applyBorder.accept(regDept, leftStyle);
+
+		// ======================= HEADER ROWS ======================
+		Row h1 = sheet.createRow(5);
+		h1.setHeightInPoints(90);
+
+		Row h2 = sheet.createRow(6);
+		h2.setHeightInPoints(60);
+
+		String[] mainHeaders = { "अ. क्र.", "कर्मचाऱ्‍याचे/अधिकाऱ्याचे  नाव", "पदनाम",
+				"सेवेत नियुक्ती सरळसेवा/दिव्यांग/खेळाडू /प्रकल्पग्रस्त/अनुकंपा", "जन्मदिनांक", "सेवानिवृत्ती दिनांक",
+				"जातीचा प्रवर्ग (खुला/इमाव/अजा/अज) व जात वैधता झाली आहे काय",
+				"सेवेत मूळ नेमणुकीचा दिनांक व मूळ नियुक्तीचे पदनाम (RT/CRT नमूद करावे)",
+				"सध्याचे पदावर कार्यरत असलेला दिनांक व पदनाम",
+				"कर्मचाऱ्‍याचे/अधिकाऱ्यांची मूळ नियुक्तीपासून बदली झाली असल्यास त्याचा तपशील", "", "कार्यालयाचे नाव",
+				"स्थायीत्व प्रमाणपत्र", "खात्याची परीक्षा उत्तीर्ण आहे किंवा कसे?",
+				"हिंदी/मराठी भाषा परीक्षा उत्तीर्ण/सूट आहे काय?", "",
+				"विभागीय चौकशी प्रस्तावित / चालू असल्यास त्याचा तपशिल", "यापूर्वी नियमित पदोन्नती नाकारली किंवा कसे?",
+				"संगणक परिक्षा उत्तीर्ण", "50/55 पुनर्विलोकन झाले आहे किंवा कसे ?",
+				"मत्ता व दायित्व सादर केले किंवा कसे ?",
+				"सेवांतर्गत आश्वासित प्रगती योजनेचा पहिला लाभ अनुज्ञेय केलेचा दिनांक व पद",
+				"सुधारित सेवांतर्गत आश्वासित प्रगती योजनेचा दुसरा लाभ अनुज्ञेय केलेचा दिनांक व पदनाम",
+				"सेवांतर्गत आश्वासित प्रगती योजनेंतर्गत पहिला /दुसरा लाभ मंजूरीनंतर पदोन्नती मिळाली असल्यास पदोन्नतीचे पदनाम व दिनांक",
+				"सुधारित सेवांतर्गत आश्वासित प्रगती योजना /  तीन लाभांची सुधारित सेवांतर्गत आश्वासित प्रगती योजनेचा लाभास पात्र होत असल्याचा दिनांक",
+				"DCPS ची नोंद", "वेतन पडताळणी झाली आहे का ? असल्यास दिनांक", "शेरा" };
+
+		for (int i = 0; i < mainHeaders.length; i++) {
+			Cell cell = h1.createCell(i);
+			cell.setCellValue(mainHeaders[i]);
+			cell.setCellStyle(headerTop);
+
+			if (i == 9 || i == 10 || i == 14 || i == 15)
+				continue;
+
+			CellRangeAddress region = new CellRangeAddress(5, 6, i, i);
+			sheet.addMergedRegion(region);
+			applyBorder.accept(region, headerTop);
+		}
+
+		// parent header colspan
+		CellRangeAddress badli = new CellRangeAddress(5, 5, 9, 10);
+		sheet.addMergedRegion(badli);
+		applyBorder.accept(badli, headerTop);
+
+		CellRangeAddress lang = new CellRangeAddress(5, 5, 14, 15);
+		sheet.addMergedRegion(lang);
+		applyBorder.accept(lang, headerTop);
+
+		// sub headers
+		h2.createCell(9).setCellValue("पासून");
+		h2.createCell(10).setCellValue("पर्यंत");
+		h2.createCell(14).setCellValue("हिंदी");
+		h2.createCell(15).setCellValue("मराठी");
+
+		h2.getCell(9).setCellStyle(headerBottom);
+		h2.getCell(10).setCellStyle(headerBottom);
+		h2.getCell(14).setCellStyle(headerBottom);
+		h2.getCell(15).setCellStyle(headerBottom);
+
+		// ======================= COLUMN NUMBERS ======================
+		Row r8 = sheet.createRow(7);
+		for (int i = 0; i < 28; i++) {
+			Cell c = r8.createCell(i);
+			c.setCellValue(i + 1);
+			c.setCellStyle(headerFull);
+		}
+
+		// ======================= DATA ======================
+		int rowIdx = 8;
+
+		for (MasterDataEntity e : list) {
+
+			JsonNode d = e.getData();
+
+			String[] pasunArr = d.path("sevaTapshilPasun").asText("").split("\\s+");
+			String[] paryantArr = d.path("sevaTapshilParyant").asText("").split("\\s+");
+			String[] karyalayArr = d.path("karyalayNav").asText("").trim().split("\\s{3,}");
+
+			int blockSize = Math.max(Math.max(pasunArr.length, paryantArr.length), karyalayArr.length);
+
+			int startRow = rowIdx;
+
+			for (int i = 0; i < blockSize; i++) {
+				Row row = sheet.createRow(rowIdx++);
+
+				row.createCell(9).setCellValue(i < pasunArr.length ? pasunArr[i] : "");
+				row.createCell(10).setCellValue(i < paryantArr.length ? paryantArr[i] : "");
+				row.createCell(11).setCellValue(i < karyalayArr.length ? karyalayArr[i] : "");
+
+				for (int c = 0; c < 28; c++) {
+					Cell cell = row.getCell(c);
+					if (cell == null)
+						cell = row.createCell(c);
+					cell.setCellStyle(dataStyle);
+				}
+			}
+
+			int endRow = startRow + blockSize - 1;
+			Row fr = sheet.getRow(startRow);
+
+			fr.getCell(0).setCellValue(d.path("srNo").asText(""));
+			fr.getCell(1).setCellValue(d.path("adhikariNav").asText(""));
+			fr.getCell(2).setCellValue(d.path("padnaam").asText(""));
+			fr.getCell(3).setCellValue(d.path("sevetNiyukti").asText(""));
+			fr.getCell(4).setCellValue(d.path("janmTarikh").asText(""));
+			fr.getCell(5).setCellValue(d.path("sevaNivruttiTarikh").asText(""));
+			fr.getCell(6).setCellValue(d.path("jatichaPravarg").asText(""));
+			fr.getCell(7).setCellValue(d.path("sevetMulNemnukichaDinank").asText(""));
+			fr.getCell(8).setCellValue(d.path("sadyacheyPadavarDinank").asText(""));
+			fr.getCell(12).setCellValue(d.path("statyitvaPraanPatra").asText(""));
+			fr.getCell(13).setCellValue(d.path("khtyachiParikshaUtrinAheKa").asText(""));
+			fr.getCell(14).setCellValue(d.path("hindiPariksha").asText(""));
+			fr.getCell(15).setCellValue(d.path("marathiPariksha").asText(""));
+			fr.getCell(16).setCellValue(d.path("vibhagiyaChouksi").asText(""));
+			fr.getCell(17).setCellValue(d.path("yapurviNiyamitPadonnatiKasey").asText(""));
+			fr.getCell(18).setCellValue(d.path("sangnakParikshaUtrin").asText(""));
+			fr.getCell(19).setCellValue(d.path("purnavilokan5050Jhaley").asText(""));
+			fr.getCell(20).setCellValue(d.path("mattaVaDaitvaSadarKasey").asText(""));
+			fr.getCell(21).setCellValue(d.path("sevaantrgatAshvashitPragatiYojnachaLabh").asText(""));
+			fr.getCell(22).setCellValue(d.path("sudhariSevaAntargatKelechaDinank").asText(""));
+			fr.getCell(23).setCellValue(d.path("sevaAntargatAshvashitPrgatiYojnaLabh").asText(""));
+			fr.getCell(24).setCellValue(d.path("sudharitSevantargatAshvashitPrgatiYojna").asText(""));
+			fr.getCell(25).setCellValue(d.path("dcpsChiNond").asText(""));
+			fr.getCell(26).setCellValue(d.path("vetanPadtaliniJhali").asText(""));
+			fr.getCell(27).setCellValue(d.path("shera").asText(""));
+
+			for (int c = 0; c < 28; c++) {
+
+				// ❌ DO NOT MERGE split columns
+				if (c == 9 || c == 10 || c == 11)
+					continue;
+
+				// ❌ DO NOT MERGE if only one row
+				if (startRow == endRow)
+					continue;
+
+				CellRangeAddress region = new CellRangeAddress(startRow, endRow, c, c);
+
+				sheet.addMergedRegion(region);
+				applyBorder.accept(region, dataStyle);
+			}
+
+		}
+
+		for (int i = 0; i < 28; i++) {
+			sheet.setColumnWidth(i, 5000);
+		}
+
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		return ResponseEntity.ok()
+				.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=MasterData_" + year + ".xlsx")
+				.contentType(MediaType.APPLICATION_OCTET_STREAM)
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	@Override
+	public PraptraMasterDataResponse saveCrFileList(PraptraMasterDataRequest request) {
+		String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+
+		try {
+			for (PraptraMasterDataRowRequest r : request.getRows()) {
+
+				// 🔴 HARD DELETE
+				if ("D".equalsIgnoreCase(r.getFlag())) {
+					crFileListRepository.deleteByYearAndDeleteId(request.getYear(), r.getDeleteId());
+					continue;
+				}
+
+				// SAVE / UPDATE
+				Optional<CrFileListEntity> opt = crFileListRepository.findByYearAndRowId(request.getYear(),
+						r.getRowId());
+
+				CrFileListEntity e;
+
+				if (opt.isPresent()) {
+					// UPDATE
+					e = opt.get();
+					e.setFlag("U");
+					e.setUpdatedAt(LocalDateTime.now());
+					e.setUpdatedBy(username);
+				} else {
+					// CREATE
+					e = new CrFileListEntity();
+					e.setYear(request.getYear());
+					e.setRowId(r.getRowId());
+					e.setDeleteId(r.getDeleteId());
+					e.setFlag("C");
+					e.setCreatedAt(LocalDateTime.now());
+					e.setCreatedBy(username);
+					e.setUpdatedAt(LocalDateTime.now());
+					e.setUpdatedBy(username);
+				}
+
+				e.setData(r.getData());
+				crFileListRepository.save(e);
+			}
+
+			response.setMessage("CrFileList processed successfully");
+			response.setData(List.of());
+			response.setErrorDetails(new ApplicationError("200", "Success"));
+
+		} catch (Exception ex) {
+			response.setMessage("Failed to process CrFileList");
+			response.setData(null);
+			response.setErrorDetails(new ApplicationError("500", ex.getMessage()));
+		}
+
+		return response;
+
+	}
+
+	@Override
+	public PraptraMasterDataResponse getCrFileList(String year) {
+		List<CrFileListEntity> list = crFileListRepository.findAllByYearOrderByRowId(year);
+
+		List<Map<String, Object>> data = list.stream()
+				.map(e -> Map.of("rowId", e.getRowId(), "deleteId", e.getDeleteId(), "data", e.getData())).toList();
+
+		PraptraMasterDataResponse res = new PraptraMasterDataResponse();
+		res.setMessage("Success");
+		res.setData(data);
+		res.setErrorDetails(new ApplicationError("200", "Fetched successfully"));
+		return res;
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadCrFileList(String year) throws IOException {
+
+		List<CrFileListEntity> list = crFileListRepository.findAllByYearOrderByRowId(year);
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet("CR File List");
+
+		// ================= FONT =================
+		XSSFFont boldFont = wb.createFont();
+		boldFont.setBold(true);
+
+		// ================= STYLES =================
+		XSSFCellStyle headerStyle = wb.createCellStyle();
+		headerStyle.setFont(boldFont);
+		headerStyle.setAlignment(HorizontalAlignment.CENTER);
+		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		headerStyle.setBorderTop(BorderStyle.THIN);
+		headerStyle.setBorderBottom(BorderStyle.THIN);
+		headerStyle.setBorderLeft(BorderStyle.THIN);
+		headerStyle.setBorderRight(BorderStyle.THIN);
+
+		XSSFCellStyle dataStyle = wb.createCellStyle();
+		dataStyle.setAlignment(HorizontalAlignment.CENTER);
+		dataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		dataStyle.setBorderTop(BorderStyle.THIN);
+		dataStyle.setBorderBottom(BorderStyle.THIN);
+		dataStyle.setBorderLeft(BorderStyle.THIN);
+		dataStyle.setBorderRight(BorderStyle.THIN);
+		dataStyle.setWrapText(true);
+		// ---------- ROW 1 : TITLE ----------
+		Row titleRow = sheet.createRow(0);
+
+		Cell titleCell = titleRow.createCell(0);
+		titleCell.setCellValue("कार्यरत अधिकारी व कर्मचारी यांची धारिका यादी");
+		titleCell.setCellStyle(headerStyle);
+
+		// merge A1 to E1 (0–4)
+		CellRangeAddress titleRegion = new CellRangeAddress(0, 0, 0, 4);
+		sheet.addMergedRegion(titleRegion);
+
+		// apply border + style to merged region
+		for (int c = 0; c <= 4; c++) {
+			Cell cell = titleRow.getCell(c);
+			if (cell == null)
+				cell = titleRow.createCell(c);
+			cell.setCellStyle(headerStyle);
+		}
+
+		// ================= HEADER ROW =================
+		Row header = sheet.createRow(2);
+
+		String[] headers = { "अ. क्र.", "अधिकारी / कर्मचाऱ्याचे नाव", "पदनाम", "धारिका", "कालावधी" };
+
+		for (int i = 0; i < headers.length; i++) {
+			Cell c = header.createCell(i);
+			c.setCellValue(headers[i]);
+			c.setCellStyle(headerStyle);
+			sheet.setColumnWidth(i, 6000);
+		}
+
+		// ================= DATA ROWS =================
+		int rowIdx = 3;
+
+		for (CrFileListEntity e : list) {
+
+			JsonNode d = e.getData();
+			Row row = sheet.createRow(rowIdx++);
+
+			row.createCell(0).setCellValue(d.path("srNo").asText(""));
+			row.createCell(1).setCellValue(d.path("adhikariNav").asText(""));
+			row.createCell(2).setCellValue(d.path("padnaam").asText(""));
+			row.createCell(3).setCellValue(d.path("dharika").asText(""));
+			row.createCell(4).setCellValue(d.path("kalavdhi").asText(""));
+
+			for (int c = 0; c < 5; c++) {
+				row.getCell(c).setCellStyle(dataStyle);
+			}
+		}
+
+		// ================= RESPONSE =================
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		return ResponseEntity.ok()
+				.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=CrFileList_" + year + ".xlsx")
+				.contentType(MediaType.APPLICATION_OCTET_STREAM)
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	@Transactional
+	@Override
+	public PraptraMasterDataResponse saveCrFileRtrList(PraptraMasterDataRequest request) {
+		String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+
+		try {
+			for (PraptraMasterDataRowRequest r : request.getRows()) {
+
+				// 🔴 HARD DELETE
+				if ("D".equalsIgnoreCase(r.getFlag())) {
+					crFileListRtrRepository.deleteByYearAndDeleteId(request.getYear(), r.getDeleteId());
+					continue;
+				}
+
+				// SAVE / UPDATE
+				Optional<CrFileListRtrEntity> opt = crFileListRtrRepository.findByYearAndRowId(request.getYear(),
+						r.getRowId());
+
+				CrFileListRtrEntity e;
+
+				if (opt.isPresent()) {
+					// UPDATE
+					e = opt.get();
+					e.setFlag("U");
+					e.setUpdatedAt(LocalDateTime.now());
+					e.setUpdatedBy(username);
+				} else {
+					// CREATE
+					e = new CrFileListRtrEntity();
+					e.setYear(request.getYear());
+					e.setRowId(r.getRowId());
+					e.setDeleteId(r.getDeleteId());
+					e.setFlag("C");
+					e.setCreatedAt(LocalDateTime.now());
+					e.setCreatedBy(username);
+					e.setUpdatedAt(LocalDateTime.now());
+					e.setUpdatedBy(username);
+				}
+
+				e.setData(r.getData());
+				crFileListRtrRepository.save(e);
+			}
+
+			response.setMessage("CrFileList processed successfully");
+			response.setData(List.of());
+			response.setErrorDetails(new ApplicationError("200", "Success"));
+
+		} catch (Exception ex) {
+			response.setMessage("Failed to process CrFileList");
+			response.setData(null);
+			response.setErrorDetails(new ApplicationError("500", ex.getMessage()));
+		}
+
+		return response;
+	}
+
+	@Override
+	public PraptraMasterDataResponse getCrFileRtrList(String year) {
+		List<CrFileListRtrEntity> list = crFileListRtrRepository.findAllByYearOrderByRowId(year);
+
+		List<Map<String, Object>> data = list.stream()
+				.map(e -> Map.of("rowId", e.getRowId(), "deleteId", e.getDeleteId(), "data", e.getData())).toList();
+
+		PraptraMasterDataResponse res = new PraptraMasterDataResponse();
+		res.setMessage("Success");
+		res.setData(data);
+		res.setErrorDetails(new ApplicationError("200", "Fetched successfully"));
+		return res;
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadCrFileRtrList(String year) throws IOException {
+		List<CrFileListRtrEntity> list = crFileListRtrRepository.findAllByYearOrderByRowId(year);
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet("CR File Rtr List");
+
+		// ================= FONT =================
+		XSSFFont boldFont = wb.createFont();
+		boldFont.setBold(true);
+
+		// ================= STYLES =================
+		XSSFCellStyle headerStyle = wb.createCellStyle();
+		headerStyle.setFont(boldFont);
+		headerStyle.setAlignment(HorizontalAlignment.CENTER);
+		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		headerStyle.setBorderTop(BorderStyle.THIN);
+		headerStyle.setBorderBottom(BorderStyle.THIN);
+		headerStyle.setBorderLeft(BorderStyle.THIN);
+		headerStyle.setBorderRight(BorderStyle.THIN);
+
+		XSSFCellStyle dataStyle = wb.createCellStyle();
+		dataStyle.setAlignment(HorizontalAlignment.CENTER);
+		dataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		dataStyle.setBorderTop(BorderStyle.THIN);
+		dataStyle.setBorderBottom(BorderStyle.THIN);
+		dataStyle.setBorderLeft(BorderStyle.THIN);
+		dataStyle.setBorderRight(BorderStyle.THIN);
+		dataStyle.setWrapText(true);
+		// ---------- ROW 1 : TITLE ----------
+		Row titleRow = sheet.createRow(0);
+
+		Cell titleCell = titleRow.createCell(0);
+		titleCell.setCellValue("सेवानिवृत्त अधिकारी व कर्मचारी यांची धारिका यादी");
+		titleCell.setCellStyle(headerStyle);
+
+		// merge A1 to E1 (0–4)
+		CellRangeAddress titleRegion = new CellRangeAddress(0, 0, 0, 4);
+		sheet.addMergedRegion(titleRegion);
+
+		// apply border + style to merged region
+		for (int c = 0; c <= 4; c++) {
+			Cell cell = titleRow.getCell(c);
+			if (cell == null)
+				cell = titleRow.createCell(c);
+			cell.setCellStyle(headerStyle);
+		}
+
+		// ================= HEADER ROW =================
+		Row header = sheet.createRow(2);
+
+		String[] headers = { "अ. क्र.", "अधिकारी / कर्मचाऱ्याचे नाव", "पदनाम", "धारिका", "कालावधी" };
+
+		for (int i = 0; i < headers.length; i++) {
+			Cell c = header.createCell(i);
+			c.setCellValue(headers[i]);
+			c.setCellStyle(headerStyle);
+			sheet.setColumnWidth(i, 6000);
+		}
+
+		// ================= DATA ROWS =================
+		int rowIdx = 3;
+
+		for (CrFileListRtrEntity e : list) {
+
+			JsonNode d = e.getData();
+			Row row = sheet.createRow(rowIdx++);
+
+			row.createCell(0).setCellValue(d.path("srNo").asText(""));
+			row.createCell(1).setCellValue(d.path("adhikariNav").asText(""));
+			row.createCell(2).setCellValue(d.path("padnaam").asText(""));
+			row.createCell(3).setCellValue(d.path("dharika").asText(""));
+			row.createCell(4).setCellValue(d.path("kalavdhi").asText(""));
+
+			for (int c = 0; c < 5; c++) {
+				row.getCell(c).setCellStyle(dataStyle);
+			}
+		}
+
+		// ================= RESPONSE =================
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		return ResponseEntity.ok()
+				.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=CrFileRtrList_" + year + ".xlsx")
+				.contentType(MediaType.APPLICATION_OCTET_STREAM)
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	@Transactional
+	@Override
+	public PraptraMasterDataResponse saveMahaparRegister(MahaparRegisterRequest request) {
+
+		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+
+		try {
+			String year = request.getYear();
+			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+			if (request.getSections() == null || request.getSections().isEmpty()) {
+				throw new IllegalArgumentException("sections cannot be empty");
+			}
+
+			for (MahaparRegisterSectionRequest section : request.getSections()) {
+
+				Long sectionId = section.getSectionId(); // 0 = independent
+				String sectionName = section.getSectionName();
+
+				if (section.getRows() == null)
+					continue;
+
+				for (MahaparRegisterRowRequest row : section.getRows()) {
+
+					/* ------------ HARD DELETE ------------ */
+					if ("D".equalsIgnoreCase(row.getFlag())) {
+
+						if (row.getDeleteId() == null) {
+							throw new IllegalArgumentException("deleteId is mandatory for deletion");
+						}
+
+						mahaparRegisterRepository.deleteByYearAndDeleteId(year, row.getDeleteId());
+						continue;
+					}
+
+					upsertEntity(year, sectionId, sectionName, row, username);
+				}
+			}
+
+			response.setMessage("Mahapar Register saved successfully");
+			response.setData(List.of());
+			response.setErrorDetails(new ApplicationError("200", "Success"));
+
+		} catch (Exception e) {
+			response.setMessage("Failed to save Mahapar Register");
+			response.setData(null);
+			response.setErrorDetails(new ApplicationError("500", e.getMessage()));
+		}
+
+		return response;
+	}
+
+	private void upsertEntity(String year, Long sectionId, String sectionName, MahaparRegisterRowRequest row,
+			String username) {
+
+		Optional<MahaparRegisterEntity> opt = mahaparRegisterRepository.findByYearAndSectionIdAndRowId(year, sectionId,
+				row.getRowId());
+
+		MahaparRegisterEntity entity;
+
+		if (opt.isPresent()) {
+			/* -------- UPDATE -------- */
+			entity = opt.get();
+			entity.setFlag("U");
+			entity.setUpdatedAt(LocalDateTime.now());
+			entity.setUpdatedBy(username);
+
+		} else {
+			/* -------- CREATE -------- */
+			entity = new MahaparRegisterEntity();
+			entity.setYear(year);
+			entity.setSectionId(sectionId); // 0 allowed
+			entity.setSectionName(sectionName);
+			entity.setRowId(row.getRowId());
+			entity.setDeleteId(row.getDeleteId());
+			entity.setFlag("C");
+			entity.setCreatedAt(LocalDateTime.now());
+			entity.setCreatedBy(username);
+			entity.setUpdatedAt(LocalDateTime.now());
+			entity.setUpdatedBy(username);
+		}
+
+		entity.setData(row.getData());
+		mahaparRegisterRepository.save(entity);
+	}
+
+	@Override
+	public PraptraMasterDataResponse getMahaparRegister(String year) {
+
+		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+
+		try {
+			List<MahaparRegisterEntity> entities = mahaparRegisterRepository
+					.findAllByYearOrderBySectionIdAscRowIdAsc(year);
+
+			MahaparRegisterRequest result = new MahaparRegisterRequest();
+			result.setYear(year);
+
+			Map<Long, MahaparRegisterSectionRequest> sectionMap = new LinkedHashMap<>();
+
+			for (MahaparRegisterEntity e : entities) {
+
+				MahaparRegisterRowRequest row = new MahaparRegisterRowRequest();
+				row.setRowId(e.getRowId());
+				row.setDeleteId(e.getDeleteId());
+				row.setFlag(e.getFlag());
+				row.setData(e.getData());
+
+				MahaparRegisterSectionRequest section = sectionMap.computeIfAbsent(e.getSectionId(), k -> {
+					MahaparRegisterSectionRequest s = new MahaparRegisterSectionRequest();
+					s.setSectionId(e.getSectionId()); // 0 or >0
+					s.setSectionName(e.getSectionName());
+					s.setRows(new ArrayList<>());
+					return s;
+				});
+
+				section.getRows().add(row);
+			}
+
+			result.setSections(new ArrayList<>(sectionMap.values()));
+
+			response.setMessage("Fetched successfully");
+			response.setData(List.of(Map.of("request", result)));
+			response.setErrorDetails(new ApplicationError("200", "Success"));
+
+		} catch (Exception e) {
+			response.setMessage("Failed to fetch Mahapar Register");
+			response.setData(null);
+			response.setErrorDetails(new ApplicationError("500", e.getMessage()));
+		}
+
+		return response;
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadMahaparRegister(String year) throws IOException {
+
+		List<MahaparRegisterEntity> list = mahaparRegisterRepository.findAllByYearOrderBySectionIdAscRowIdAsc(year);
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet("कार्य मूल्यमापन");
+
+		/* ===================== STYLES ===================== */
+
+		XSSFFont boldFont = wb.createFont();
+		boldFont.setBold(true);
+
+		XSSFCellStyle centerBold = wb.createCellStyle();
+		centerBold.setFont(boldFont);
+		centerBold.setAlignment(HorizontalAlignment.CENTER);
+		centerBold.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		XSSFCellStyle headerStyle = wb.createCellStyle();
+		headerStyle.setFont(boldFont);
+		headerStyle.setAlignment(HorizontalAlignment.CENTER);
+		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		headerStyle.setBorderTop(BorderStyle.THIN);
+		headerStyle.setBorderBottom(BorderStyle.THIN);
+		headerStyle.setBorderLeft(BorderStyle.THIN);
+		headerStyle.setBorderRight(BorderStyle.THIN);
+
+		XSSFCellStyle dataStyle = wb.createCellStyle();
+		dataStyle.setAlignment(HorizontalAlignment.CENTER);
+		dataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		dataStyle.setBorderTop(BorderStyle.THIN);
+		dataStyle.setBorderBottom(BorderStyle.THIN);
+		dataStyle.setBorderLeft(BorderStyle.THIN);
+		dataStyle.setBorderRight(BorderStyle.THIN);
+		dataStyle.setWrapText(true);
+		XSSFCellStyle leftBold = wb.createCellStyle();
+		leftBold.setFont(boldFont);
+		leftBold.setAlignment(HorizontalAlignment.LEFT);
+		leftBold.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		int rowIdx = 0;
+
+		/*
+		 * ================================================== FIRST TABLE HEADER
+		 * (INDEPENDENT) ==================================================
+		 */
+
+		rowIdx = writeMainHeader(sheet, rowIdx, "पुणे पाटबंधारे प्रकल्प मंडळ, पुणे-01",
+				"मंडळ कार्यालय महापार प्रणालीमध्ये भरण्यात आलेल्या कार्यमुल्यमापन अहवालाची यादी", "सन " + year,
+				centerBold);
+
+		rowIdx = writeColumnHeader(sheet, rowIdx, headerStyle);
+
+		/*
+		 * ================================================== DATA PROCESSING
+		 * ==================================================
+		 */
+
+		Long currentSectionId = null;
+		boolean sectionHeaderPrinted = false;
+		boolean firstSectionStarted = false;
+
+		for (MahaparRegisterEntity e : list) {
+
+			/* ---------- SWITCH FROM INDEPENDENT → SECTION TABLE ---------- */
+			if (currentSectionId == null && e.getSectionId() != 0) {
+
+				rowIdx += 2; // spacing
+
+				rowIdx = writeMainHeader(sheet, rowIdx, "पुणे पाटबंधारे प्रकल्प मंडळ, पुणे-01",
+						"मंडळांतर्गत विभागीय कार्यालयात महापार प्रणालीमध्ये भरण्यात आलेल्या कार्यमुल्यमापन अहवालाची यादी",
+						"सन " + year, centerBold);
+				rowIdx++;
+				sectionHeaderPrinted = true;
+				currentSectionId = -1L; // force section detection
+			}
+
+			// ---------- NEW SECTION ----------
+			if (e.getSectionId() != 0 && !Objects.equals(currentSectionId, e.getSectionId())) {
+
+				// ✅ if this is NOT the very first section → leave one empty row
+				if (firstSectionStarted) {
+					rowIdx++; // blank row between sections
+				}
+
+				firstSectionStarted = true;
+
+				Row secRow = sheet.createRow(rowIdx++);
+
+				// Column A → sectionId (CENTER)
+				secRow.createCell(0).setCellValue(e.getSectionId());
+				secRow.getCell(0).setCellStyle(centerBold);
+
+				// Column B → sectionName (LEFT)
+				secRow.createCell(1).setCellValue(e.getSectionName());
+				secRow.getCell(1).setCellStyle(leftBold);
+
+				// Merge B–F
+				sheet.addMergedRegion(new CellRangeAddress(secRow.getRowNum(), secRow.getRowNum(), 1, 5));
+
+				// Column header after section title
+				rowIdx = writeColumnHeader(sheet, rowIdx, headerStyle);
+
+				currentSectionId = e.getSectionId();
+			}
+
+			/* ---------- DATA ROW ---------- */
+
+			JsonNode d = e.getData();
+			Row r = sheet.createRow(rowIdx++);
+
+			r.createCell(0).setCellValue(d.path("srNo").asText(""));
+			r.createCell(1).setCellValue(d.path("adhikariNav").asText(""));
+			r.createCell(2).setCellValue(d.path("padnaam").asText(""));
+			r.createCell(3).setCellValue(d.path("kalavadhi").asText(""));
+			r.createCell(4).setCellValue(d.path("keleliKaryavahi").asText(""));
+			r.createCell(5).setCellValue(d.path("shera").asText(""));
+
+			for (int i = 0; i < 6; i++) {
+				r.getCell(i).setCellStyle(dataStyle);
+			}
+		}
+
+		/* ===================== WIDTH ===================== */
+
+		sheet.setColumnWidth(0, 2500);
+		sheet.setColumnWidth(1, 8000);
+		sheet.setColumnWidth(2, 6000);
+		sheet.setColumnWidth(3, 6000);
+		sheet.setColumnWidth(4, 9000);
+		sheet.setColumnWidth(5, 5000);
+
+		/* ===================== RESPONSE ===================== */
+
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		return ResponseEntity.ok()
+				.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=MahaparRegister_" + year + ".xlsx")
+				.contentType(MediaType.APPLICATION_OCTET_STREAM)
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	private int writeMainHeader(XSSFSheet sheet, int rowIdx, String l1, String l2, String l3, CellStyle style) {
+		Row r1 = sheet.createRow(rowIdx++);
+		r1.createCell(0).setCellValue(l1);
+		r1.getCell(0).setCellStyle(style);
+		sheet.addMergedRegion(new CellRangeAddress(r1.getRowNum(), r1.getRowNum(), 0, 5));
+
+		Row r2 = sheet.createRow(rowIdx++);
+		r2.createCell(0).setCellValue(l2);
+		r2.getCell(0).setCellStyle(style);
+		sheet.addMergedRegion(new CellRangeAddress(r2.getRowNum(), r2.getRowNum(), 0, 5));
+
+		Row r3 = sheet.createRow(rowIdx++);
+		r3.createCell(0).setCellValue(l3);
+		r3.getCell(0).setCellStyle(style);
+		sheet.addMergedRegion(new CellRangeAddress(r3.getRowNum(), r3.getRowNum(), 0, 5));
+
+		return rowIdx;
+	}
+
+	private int writeColumnHeader(XSSFSheet sheet, int rowIdx, CellStyle headerStyle) {
+		Row h = sheet.createRow(rowIdx++);
+		String[] cols = { "अ.क्र.", "अधिकाऱ्याचे नांव", "पदनाम", "कालावधी", "केलेली कार्यवाही", "शेरा" };
+
+		for (int i = 0; i < cols.length; i++) {
+			Cell c = h.createCell(i);
+			c.setCellValue(cols[i]);
+			c.setCellStyle(headerStyle);
+		}
+		return rowIdx;
 	}
 
 }

@@ -6,6 +6,8 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 
+import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRequest;
+import com.pipc.dashboard.bhusmapadan.response.PraptraMasterDataResponse;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
@@ -13,6 +15,7 @@ import com.pipc.dashboard.establishment.request.AppealWrapper2;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.LeaveRequest;
+import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
 import com.pipc.dashboard.establishment.request.MedicalBillRequest;
 import com.pipc.dashboard.establishment.request.PassportNocRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
@@ -69,7 +72,8 @@ public interface EstablishmentBusiness {
 
 	AgendaSecResponse getAgendaSecByYearAndTargetDate(String year, String targetDate, String section);
 
-	ResponseEntity<InputStreamResource> downloadAgendaSecExcel(String year, String targetDate, String section) throws Exception;
+	ResponseEntity<InputStreamResource> downloadAgendaSecExcel(String year, String targetDate, String section)
+			throws Exception;
 
 	ThirteenResponse saveOrUpdateAnukampa(ThirteenRequest req);
 
@@ -82,5 +86,29 @@ public interface EstablishmentBusiness {
 	AppealResponse getAppealData2(String year);
 
 	ResponseEntity<InputStreamResource> downloadAppealArj2(String year) throws IOException;
+
+	PraptraMasterDataResponse saveMasterData(PraptraMasterDataRequest request);
+
+	PraptraMasterDataResponse getMasterData(String year);
+
+	ResponseEntity<InputStreamResource> downloadMasterData(String year) throws IOException;
+
+	PraptraMasterDataResponse saveCrFileList(PraptraMasterDataRequest request);
+
+	PraptraMasterDataResponse getCrFileList(String year);
+
+	ResponseEntity<InputStreamResource> downloadCrFileList(String year) throws IOException;
+
+	PraptraMasterDataResponse saveCrFileRtrList(PraptraMasterDataRequest request);
+
+	PraptraMasterDataResponse getCrFileRtrList(String year);
+
+	ResponseEntity<InputStreamResource> downloadCrFileRtrList(String year) throws IOException;
+
+	PraptraMasterDataResponse getMahaparRegister(String year);
+
+	PraptraMasterDataResponse saveMahaparRegister(MahaparRegisterRequest request);
+
+	ResponseEntity<InputStreamResource> downloadMahaparRegister(String year) throws IOException;
 
 }
