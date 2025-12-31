@@ -292,10 +292,28 @@ public class EstablishmentController {
 	}
 
 	@GetMapping("/downloadMahaparRegister")
-	public ResponseEntity<InputStreamResource> downloadMahaparRegister(@RequestParam(required = false) String year)
-			throws IOException {
+	public ResponseEntity<InputStreamResource> downloadMahaparRegister(@RequestParam String year) throws IOException {
 
 		return establishmentBusiness.downloadMahaparRegister(year);
+	}
+
+	@PostMapping("/saveKaryaratGopniyaAhwal")
+	public PraptraMasterDataResponse saveKaryaratGopniyaAhwal(@RequestBody MahaparRegisterRequest request) {
+
+		return establishmentBusiness.saveKaryaratGopniyaAhwal(request);
+	}
+
+	@GetMapping("/getKaryaratGopniyaAhwal")
+	public PraptraMasterDataResponse getKaryaratGopniyaAhwal(@RequestParam String year, @RequestParam String type) {
+
+		return establishmentBusiness.getKaryaratGopniyaAhwal(year, type);
+	}
+
+	@GetMapping("/downloadKaryaratGopniyaAhwal")
+	public ResponseEntity<InputStreamResource> downloadKaryaratGopniyaAhwal(@RequestParam String year, String type)
+			throws IOException {
+
+		return establishmentBusiness.downloadKaryaratGopniyaAhwal(year, type);
 	}
 
 }

@@ -7,6 +7,7 @@ import lombok.Data;
 @Data
 public class MahaparRegisterRequest {
 	private String year;
+	private String type;
 
 	private List<MahaparRegisterSectionRequest> sections;
 }

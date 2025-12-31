@@ -242,4 +242,20 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 		return establishmentService.downloadMahaparRegister(year);
 	}
 
+	@Override
+	public PraptraMasterDataResponse saveKaryaratGopniyaAhwal(MahaparRegisterRequest request) {
+		return establishmentService.saveKaryaratGopniyaAhwal(request);
+	}
+
+	@Override
+	public PraptraMasterDataResponse getKaryaratGopniyaAhwal(String year, String type) {
+		return establishmentService.getKaryaratGopniyaAhwal(year, type);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadKaryaratGopniyaAhwal(String year, String type)
+			throws IOException {
+		return establishmentService.downloadKaryaratGopniyaAhwal(year, type);
+	}
+
 }

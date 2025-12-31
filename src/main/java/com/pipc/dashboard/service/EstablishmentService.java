@@ -111,4 +111,10 @@ public interface EstablishmentService {
 
 	ResponseEntity<InputStreamResource> downloadMahaparRegister(String year) throws IOException;
 
+	PraptraMasterDataResponse saveKaryaratGopniyaAhwal(MahaparRegisterRequest request);
+
+	PraptraMasterDataResponse getKaryaratGopniyaAhwal(String year, String type);
+
+	ResponseEntity<InputStreamResource> downloadKaryaratGopniyaAhwal(String year, String type) throws IOException;
+
 }

@@ -93,6 +93,8 @@ import com.pipc.dashboard.establishment.repository.EmployeePostingEntity;
 import com.pipc.dashboard.establishment.repository.EmployeePostingRepository;
 import com.pipc.dashboard.establishment.repository.IncomeTaxDeductionEntity;
 import com.pipc.dashboard.establishment.repository.IncomeTaxDeductionRepository;
+import com.pipc.dashboard.establishment.repository.KaryaratGopniyaAhwalEntity;
+import com.pipc.dashboard.establishment.repository.KaryaratGopniyaAhwalRepository;
 import com.pipc.dashboard.establishment.repository.KharchaTapsilEntity;
 import com.pipc.dashboard.establishment.repository.KharchaTapsilRepository;
 import com.pipc.dashboard.establishment.repository.LeaveEntity;
@@ -107,6 +109,8 @@ import com.pipc.dashboard.establishment.repository.PassportNocEntity;
 import com.pipc.dashboard.establishment.repository.PassportNocRepository;
 import com.pipc.dashboard.establishment.repository.ReferenceEntity;
 import com.pipc.dashboard.establishment.repository.ReferenceRepository;
+import com.pipc.dashboard.establishment.repository.RtrGopniyaAhwal;
+import com.pipc.dashboard.establishment.repository.RtrGopniyaAhwalRepository;
 import com.pipc.dashboard.establishment.repository.VaidyakExcludedDetailsEntity;
 import com.pipc.dashboard.establishment.repository.VaidyakKharchaParigananaEntity;
 import com.pipc.dashboard.establishment.repository.VaidyakKharchaParigananaRepository;
@@ -178,7 +182,8 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	private final CrFileListRepository crFileListRepository;
 	private final CrFileListRtrRepository crFileListRtrRepository;
 	private final MahaparRegisterRepository mahaparRegisterRepository;
-
+	private final KaryaratGopniyaAhwalRepository karyaratGopniyaAhwalRepository;
+	private final RtrGopniyaAhwalRepository rtrGopniyaAhwalRepository;
 	@Autowired
 	private ObjectMapper objectMapper;
 
@@ -4302,6 +4307,606 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	private int writeColumnHeader(XSSFSheet sheet, int rowIdx, CellStyle headerStyle) {
 		Row h = sheet.createRow(rowIdx++);
 		String[] cols = { "अ.क्र.", "अधिकाऱ्याचे नांव", "पदनाम", "कालावधी", "केलेली कार्यवाही", "शेरा" };
+
+		for (int i = 0; i < cols.length; i++) {
+			Cell c = h.createCell(i);
+			c.setCellValue(cols[i]);
+			c.setCellStyle(headerStyle);
+		}
+		return rowIdx;
+	}
+
+	@Transactional
+	@Override
+	public PraptraMasterDataResponse saveKaryaratGopniyaAhwal(MahaparRegisterRequest request) {
+
+		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		if (!request.getType().equalsIgnoreCase("Retired")) {
+
+			try {
+				String year = request.getYear();
+
+				if (request.getSections() == null || request.getSections().isEmpty()) {
+					response.setMessage("No sections found");
+					response.setData(List.of());
+					response.setErrorDetails(new ApplicationError("400", "Sections are empty"));
+					return response;
+				}
+
+				for (MahaparRegisterSectionRequest div : request.getSections()) {
+
+					if (div.getRows() == null || div.getRows().isEmpty()) {
+						continue;
+					}
+
+					for (MahaparRegisterRowRequest row : div.getRows()) {
+
+						// ✅ HARD DELETE (YEAR + DIVISION + DELETE_ID)
+						if ("D".equalsIgnoreCase(row.getFlag())) {
+							karyaratGopniyaAhwalRepository.deleteByYearAndDivisionIdAndDeleteId(year,
+									div.getSectionId(), row.getDeleteId());
+							continue;
+						}
+
+						Optional<KaryaratGopniyaAhwalEntity> opt = karyaratGopniyaAhwalRepository
+								.findByYearAndDivisionIdAndRowId(year, div.getSectionId(), row.getRowId());
+
+						KaryaratGopniyaAhwalEntity entity;
+
+						if (opt.isPresent()) {
+							// -------- UPDATE --------
+							entity = opt.get();
+							entity.setFlag("U");
+							entity.setUpdatedAt(LocalDateTime.now());
+							entity.setUpdatedBy(user);
+						} else {
+							// -------- CREATE --------
+							entity = new KaryaratGopniyaAhwalEntity();
+							entity.setYear(year);
+							entity.setDivisionId(div.getSectionId());
+							entity.setDivisionName(div.getSectionName());
+							entity.setRowId(row.getRowId());
+							entity.setDeleteId(row.getDeleteId());
+							entity.setFlag("C");
+							entity.setCreatedAt(LocalDateTime.now());
+							entity.setCreatedBy(user);
+							entity.setUpdatedAt(LocalDateTime.now());
+							entity.setUpdatedBy(user);
+						}
+
+						entity.setData(row.getData());
+						karyaratGopniyaAhwalRepository.save(entity);
+					}
+				}
+
+				response.setMessage("Karyarat Gopniya Ahwal saved successfully");
+				response.setData(List.of());
+				response.setErrorDetails(new ApplicationError("200", "Success"));
+
+			} catch (Exception e) {
+				response.setMessage("Failed to save Karyarat Gopniya Ahwal");
+				response.setData(null);
+				response.setErrorDetails(new ApplicationError("500", e.getMessage()));
+			}
+		} else {
+			try {
+				String year = request.getYear();
+
+				if (request.getSections() == null || request.getSections().isEmpty()) {
+					response.setMessage("No sections found");
+					response.setData(List.of());
+					response.setErrorDetails(new ApplicationError("400", "Sections are empty"));
+					return response;
+				}
+
+				for (MahaparRegisterSectionRequest div : request.getSections()) {
+
+					if (div.getRows() == null || div.getRows().isEmpty()) {
+						continue;
+					}
+
+					for (MahaparRegisterRowRequest row : div.getRows()) {
+
+						// ✅ HARD DELETE (YEAR + DIVISION + DELETE_ID)
+						if ("D".equalsIgnoreCase(row.getFlag())) {
+							rtrGopniyaAhwalRepository.deleteByYearAndDivisionIdAndDeleteId(year, div.getSectionId(),
+									row.getDeleteId());
+							continue;
+						}
+
+						Optional<RtrGopniyaAhwal> opt = rtrGopniyaAhwalRepository.findByYearAndDivisionIdAndRowId(year,
+								div.getSectionId(), row.getRowId());
+
+						RtrGopniyaAhwal entity;
+
+						if (opt.isPresent()) {
+							// -------- UPDATE --------
+							entity = opt.get();
+							entity.setFlag("U");
+							entity.setUpdatedAt(LocalDateTime.now());
+							entity.setUpdatedBy(user);
+						} else {
+							// -------- CREATE --------
+							entity = new RtrGopniyaAhwal();
+							entity.setYear(year);
+							entity.setDivisionId(div.getSectionId());
+							entity.setDivisionName(div.getSectionName());
+							entity.setRowId(row.getRowId());
+							entity.setDeleteId(row.getDeleteId());
+							entity.setFlag("C");
+							entity.setCreatedAt(LocalDateTime.now());
+							entity.setCreatedBy(user);
+							entity.setUpdatedAt(LocalDateTime.now());
+							entity.setUpdatedBy(user);
+						}
+
+						entity.setData(row.getData());
+						rtrGopniyaAhwalRepository.save(entity);
+					}
+				}
+
+				response.setMessage("Retired Gopniya Ahwal saved successfully");
+				response.setData(List.of());
+				response.setErrorDetails(new ApplicationError("200", "Success"));
+
+			} catch (Exception e) {
+				response.setMessage("Failed to save Retired Gopniya Ahwal");
+				response.setData(null);
+				response.setErrorDetails(new ApplicationError("500", e.getMessage()));
+			}
+
+		}
+
+		return response;
+	}
+
+	@Override
+	public PraptraMasterDataResponse getKaryaratGopniyaAhwal(String year, String type) {
+
+		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+
+		if (!type.equalsIgnoreCase("Retired")) {
+
+			try {
+				// ✅ DB level sorting: divisionId ASC, rowId ASC
+				List<KaryaratGopniyaAhwalEntity> entities = karyaratGopniyaAhwalRepository
+						.findAllByYearOrderByDivisionIdAscRowIdAsc(year);
+
+				// -------- BUILD SAME REQUEST STRUCTURE BACK --------
+				MahaparRegisterRequest result = new MahaparRegisterRequest();
+				result.setYear(year);
+
+				// divisionId → section mapping
+				Map<Long, MahaparRegisterSectionRequest> divisionMap = new LinkedHashMap<>();
+
+				for (KaryaratGopniyaAhwalEntity e : entities) {
+
+					// ---------- ROW ----------
+					MahaparRegisterRowRequest row = new MahaparRegisterRowRequest();
+					row.setRowId(e.getRowId());
+					row.setDeleteId(e.getDeleteId());
+					row.setFlag(e.getFlag());
+					row.setData(e.getData());
+
+					// ---------- DIVISION / SECTION ----------
+					MahaparRegisterSectionRequest section = divisionMap.computeIfAbsent(e.getDivisionId(), k -> {
+						MahaparRegisterSectionRequest s = new MahaparRegisterSectionRequest();
+						s.setSectionId(e.getDivisionId());
+						s.setSectionName(e.getDivisionName());
+						s.setRows(new ArrayList<>());
+						return s;
+					});
+
+					section.getRows().add(row);
+				}
+
+				result.setSections(new ArrayList<>(divisionMap.values()));
+
+				response.setMessage("Fetched successfully");
+				response.setData(List.of(Map.of("request", result)));
+				response.setErrorDetails(new ApplicationError("200", "Success"));
+
+			} catch (Exception e) {
+				response.setMessage("Failed to fetch Karyarat Gopniya Ahwal");
+				response.setData(null);
+				response.setErrorDetails(new ApplicationError("500", e.getMessage()));
+			}
+		} else {
+			try {
+				// ✅ DB level sorting: divisionId ASC, rowId ASC
+				List<RtrGopniyaAhwal> entities = rtrGopniyaAhwalRepository
+						.findAllByYearOrderByDivisionIdAscRowIdAsc(year);
+
+				// -------- BUILD SAME REQUEST STRUCTURE BACK --------
+				MahaparRegisterRequest result = new MahaparRegisterRequest();
+				result.setYear(year);
+
+				// divisionId → section mapping
+				Map<Long, MahaparRegisterSectionRequest> divisionMap = new LinkedHashMap<>();
+
+				for (RtrGopniyaAhwal e : entities) {
+
+					// ---------- ROW ----------
+					MahaparRegisterRowRequest row = new MahaparRegisterRowRequest();
+					row.setRowId(e.getRowId());
+					row.setDeleteId(e.getDeleteId());
+					row.setFlag(e.getFlag());
+					row.setData(e.getData());
+
+					// ---------- DIVISION / SECTION ----------
+					MahaparRegisterSectionRequest section = divisionMap.computeIfAbsent(e.getDivisionId(), k -> {
+						MahaparRegisterSectionRequest s = new MahaparRegisterSectionRequest();
+						s.setSectionId(e.getDivisionId());
+						s.setSectionName(e.getDivisionName());
+						s.setRows(new ArrayList<>());
+						return s;
+					});
+
+					section.getRows().add(row);
+				}
+
+				result.setSections(new ArrayList<>(divisionMap.values()));
+
+				response.setMessage("Fetched successfully");
+				response.setData(List.of(Map.of("request", result)));
+				response.setErrorDetails(new ApplicationError("200", "Success"));
+
+			} catch (Exception e) {
+				response.setMessage("Failed to fetch Retired Gopniya Ahwal");
+				response.setData(null);
+				response.setErrorDetails(new ApplicationError("500", e.getMessage()));
+			}
+		}
+
+		return response;
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadKaryaratGopniyaAhwal(String year, String type)
+			throws IOException {
+
+		if (!type.equalsIgnoreCase("Retired")) {
+
+			List<KaryaratGopniyaAhwalEntity> list = karyaratGopniyaAhwalRepository
+					.findAllByYearOrderByDivisionIdAscRowIdAsc(year);
+
+			XSSFWorkbook wb = new XSSFWorkbook();
+			XSSFSheet sheet = wb.createSheet("कार्यरत गोपनीय अहवाल");
+
+			/* ===================== STYLES ===================== */
+
+			XSSFFont boldFont = wb.createFont();
+			boldFont.setBold(true);
+
+			XSSFCellStyle centerBold = wb.createCellStyle();
+			centerBold.setFont(boldFont);
+			centerBold.setAlignment(HorizontalAlignment.CENTER);
+			centerBold.setVerticalAlignment(VerticalAlignment.CENTER);
+
+			XSSFCellStyle headerStyle = wb.createCellStyle();
+			headerStyle.setFont(boldFont);
+			headerStyle.setAlignment(HorizontalAlignment.CENTER);
+			headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+			headerStyle.setBorderTop(BorderStyle.THIN);
+			headerStyle.setBorderBottom(BorderStyle.THIN);
+			headerStyle.setBorderLeft(BorderStyle.THIN);
+			headerStyle.setBorderRight(BorderStyle.THIN);
+			headerStyle.setWrapText(true);
+
+			XSSFCellStyle dataStyle = wb.createCellStyle();
+			dataStyle.setAlignment(HorizontalAlignment.CENTER);
+			dataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+			dataStyle.setBorderTop(BorderStyle.THIN);
+			dataStyle.setBorderBottom(BorderStyle.THIN);
+			dataStyle.setBorderLeft(BorderStyle.THIN);
+			dataStyle.setBorderRight(BorderStyle.THIN);
+			dataStyle.setWrapText(true);
+
+			int rowIdx = 0;
+			Long currentDivisionId = null;
+			boolean firstDivision = true;
+
+			/* ===================== DATA ===================== */
+
+			for (KaryaratGopniyaAhwalEntity e : list) {
+
+				// ---------- NEW DIVISION ----------
+				if (!Objects.equals(currentDivisionId, e.getDivisionId())) {
+
+					if (!firstDivision) {
+						rowIdx++; // 🔥 blank row after each division
+					}
+					firstDivision = false;
+
+					// ---------- DIVISION NAME (CENTER, MERGED) ----------
+					Row divRow = sheet.createRow(rowIdx++);
+					Cell divCell = divRow.createCell(0);
+					divCell.setCellValue(e.getDivisionName());
+					divCell.setCellStyle(centerBold);
+
+					// Merge A–F
+					sheet.addMergedRegion(new CellRangeAddress(divRow.getRowNum(), divRow.getRowNum(), 0, 5));
+
+					// ---------- GAP ROW ----------
+					rowIdx++;
+
+					// ---------- COLUMN HEADER ----------
+					rowIdx = writeColumnHeaderForKaryarat(sheet, rowIdx, headerStyle);
+
+					currentDivisionId = e.getDivisionId();
+				}
+
+				// ---------- DATA ROW ----------
+				JsonNode d = e.getData();
+				Row r = sheet.createRow(rowIdx++);
+
+				r.createCell(0).setCellValue(d.path("srNo").asText(""));
+				r.createCell(1).setCellValue(d.path("nav").asText(""));
+				r.createCell(2).setCellValue(d.path("padnaam").asText(""));
+				r.createCell(3).setCellValue(d.path("mulGopniyaAhval").asText(""));
+				r.createCell(4).setCellValue(d.path("dusraGopniyaAhval").asText(""));
+				r.createCell(5).setCellValue(d.path("sthiti").asText(""));
+
+				for (int i = 0; i < 6; i++) {
+					r.getCell(i).setCellStyle(dataStyle);
+				}
+			}
+			/* ===================== FOOTER ===================== */
+
+			// Blank row
+			rowIdx++;
+
+			// ---------- ORDER TEXT ----------
+			/* ===================== FOOTER ===================== */
+
+			// Blank row
+			rowIdx++;
+
+			// ---------- ORDER TEXT ----------
+			Row orderRow = sheet.createRow(rowIdx++);
+
+			/* 🔥 IMPORTANT: increase row height */
+			orderRow.setHeightInPoints(80); // <-- THIS FIXES CUTTING (60–100 adjust if needed)
+
+			Cell orderCell = orderRow.createCell(1); // Column B
+
+			orderCell.setCellValue("मंडळ कार्यालयाचे कार्यालयीन आदेश क्र. 40 जा.क्र. पुपाप्रमं/आ 1/872 दि. 29/02/2024 "
+					+ "अन्वये अनु. क्र. 1 ते 35 सौ. माधवी राहुल ढेंबरे, प्रथम लिपीक यांचेकडे "
+					+ "हस्तांतरित करण्यात येत आहे.");
+
+			XSSFCellStyle orderStyle = wb.createCellStyle();
+			orderStyle.setAlignment(HorizontalAlignment.CENTER);
+			orderStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+			orderStyle.setWrapText(true);
+
+			orderCell.setCellStyle(orderStyle);
+
+			// Merge B to F
+			sheet.addMergedRegion(new CellRangeAddress(orderRow.getRowNum(), orderRow.getRowNum(), 1, 5));
+
+			// Blank row
+			rowIdx++;
+
+			/* ---------- SIGNATURE ROW ---------- */
+			Row signRow = sheet.createRow(rowIdx++);
+
+			// LEFT SIGNATURE (Column B)
+			Cell leftSign = signRow.createCell(1);
+			leftSign.setCellValue("कार्यभार देणार\n" + "(संदीप चं. अमृतकर)\n" + "व.लि.");
+
+			XSSFCellStyle signLeftStyle = wb.createCellStyle();
+			signLeftStyle.setAlignment(HorizontalAlignment.CENTER);
+			signLeftStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+			signLeftStyle.setWrapText(true);
+
+			leftSign.setCellStyle(signLeftStyle);
+
+			// RIGHT SIGNATURE (Column E)
+			Cell rightSign = signRow.createCell(4);
+			rightSign.setCellValue("कार्यभार घेणार\n" + "(माधवी रा. ढेंबरे)\n" + "प्रथम लिपीक");
+
+			XSSFCellStyle signRightStyle = wb.createCellStyle();
+			signRightStyle.setAlignment(HorizontalAlignment.CENTER);
+			signRightStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+			signRightStyle.setWrapText(true);
+
+			rightSign.setCellStyle(signRightStyle);
+
+			/* ===================== COLUMN WIDTH ===================== */
+
+			sheet.setColumnWidth(0, 2500);
+			sheet.setColumnWidth(1, 7000);
+			sheet.setColumnWidth(2, 6000);
+			sheet.setColumnWidth(3, 9000);
+			sheet.setColumnWidth(4, 9000);
+			sheet.setColumnWidth(5, 6000);
+
+			/* ===================== RESPONSE ===================== */
+
+			ByteArrayOutputStream out = new ByteArrayOutputStream();
+			wb.write(out);
+			wb.close();
+
+			return ResponseEntity.ok()
+					.header(HttpHeaders.CONTENT_DISPOSITION,
+							"attachment; filename=KaryaratGopniyaAhwal_" + year + ".xlsx")
+					.contentType(MediaType.APPLICATION_OCTET_STREAM)
+					.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+		} else {
+			List<RtrGopniyaAhwal> list = rtrGopniyaAhwalRepository.findAllByYearOrderByDivisionIdAscRowIdAsc(year);
+
+			XSSFWorkbook wb = new XSSFWorkbook();
+			XSSFSheet sheet = wb.createSheet("कार्यरत गोपनीय अहवाल");
+
+			/* ===================== STYLES ===================== */
+
+			XSSFFont boldFont = wb.createFont();
+			boldFont.setBold(true);
+
+			XSSFCellStyle centerBold = wb.createCellStyle();
+			centerBold.setFont(boldFont);
+			centerBold.setAlignment(HorizontalAlignment.CENTER);
+			centerBold.setVerticalAlignment(VerticalAlignment.CENTER);
+
+			XSSFCellStyle headerStyle = wb.createCellStyle();
+			headerStyle.setFont(boldFont);
+			headerStyle.setAlignment(HorizontalAlignment.CENTER);
+			headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+			headerStyle.setBorderTop(BorderStyle.THIN);
+			headerStyle.setBorderBottom(BorderStyle.THIN);
+			headerStyle.setBorderLeft(BorderStyle.THIN);
+			headerStyle.setBorderRight(BorderStyle.THIN);
+			headerStyle.setWrapText(true);
+
+			XSSFCellStyle dataStyle = wb.createCellStyle();
+			dataStyle.setAlignment(HorizontalAlignment.CENTER);
+			dataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+			dataStyle.setBorderTop(BorderStyle.THIN);
+			dataStyle.setBorderBottom(BorderStyle.THIN);
+			dataStyle.setBorderLeft(BorderStyle.THIN);
+			dataStyle.setBorderRight(BorderStyle.THIN);
+			dataStyle.setWrapText(true);
+
+			int rowIdx = 0;
+			Long currentDivisionId = null;
+			boolean firstDivision = true;
+
+			/* ===================== DATA ===================== */
+
+			for (RtrGopniyaAhwal e : list) {
+
+				// ---------- NEW DIVISION ----------
+				if (!Objects.equals(currentDivisionId, e.getDivisionId())) {
+
+					if (!firstDivision) {
+						rowIdx++; // 🔥 blank row after each division
+					}
+					firstDivision = false;
+
+					// ---------- DIVISION NAME (CENTER, MERGED) ----------
+					Row divRow = sheet.createRow(rowIdx++);
+					Cell divCell = divRow.createCell(0);
+					divCell.setCellValue(e.getDivisionName());
+					divCell.setCellStyle(centerBold);
+
+					// Merge A–F
+					sheet.addMergedRegion(new CellRangeAddress(divRow.getRowNum(), divRow.getRowNum(), 0, 5));
+
+					// ---------- GAP ROW ----------
+					rowIdx++;
+
+					// ---------- COLUMN HEADER ----------
+					rowIdx = writeColumnHeaderForKaryarat(sheet, rowIdx, headerStyle);
+
+					currentDivisionId = e.getDivisionId();
+				}
+
+				// ---------- DATA ROW ----------
+				JsonNode d = e.getData();
+				Row r = sheet.createRow(rowIdx++);
+
+				r.createCell(0).setCellValue(d.path("srNo").asText(""));
+				r.createCell(1).setCellValue(d.path("nav").asText(""));
+				r.createCell(2).setCellValue(d.path("padnaam").asText(""));
+				r.createCell(3).setCellValue(d.path("mulGopniyaAhval").asText(""));
+				r.createCell(4).setCellValue(d.path("dusraGopniyaAhval").asText(""));
+				r.createCell(5).setCellValue(d.path("sthiti").asText(""));
+
+				for (int i = 0; i < 6; i++) {
+					r.getCell(i).setCellStyle(dataStyle);
+				}
+			}
+			/* ===================== FOOTER ===================== */
+
+			// Blank row
+			rowIdx++;
+
+			// ---------- ORDER TEXT ----------
+			/* ===================== FOOTER ===================== */
+
+			// Blank row
+			rowIdx++;
+
+			// ---------- ORDER TEXT ----------
+			Row orderRow = sheet.createRow(rowIdx++);
+
+			/* 🔥 IMPORTANT: increase row height */
+			orderRow.setHeightInPoints(80); // <-- THIS FIXES CUTTING (60–100 adjust if needed)
+
+			Cell orderCell = orderRow.createCell(1); // Column B
+
+			orderCell.setCellValue("मंडळ कार्यालयाचे कार्यालयीन आदेश क्र. 40 जा.क्र. पुपाप्रमं/आ 1/872 दि. 29/02/2024 "
+					+ "अन्वये अनु. क्र. 1 ते 35 सौ. माधवी राहुल ढेंबरे, प्रथम लिपीक यांचेकडे "
+					+ "हस्तांतरित करण्यात येत आहे.");
+
+			XSSFCellStyle orderStyle = wb.createCellStyle();
+			orderStyle.setAlignment(HorizontalAlignment.CENTER);
+			orderStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+			orderStyle.setWrapText(true);
+
+			orderCell.setCellStyle(orderStyle);
+
+			// Merge B to F
+			sheet.addMergedRegion(new CellRangeAddress(orderRow.getRowNum(), orderRow.getRowNum(), 1, 5));
+
+			// Blank row
+			rowIdx++;
+
+			/* ---------- SIGNATURE ROW ---------- */
+			Row signRow = sheet.createRow(rowIdx++);
+
+			// LEFT SIGNATURE (Column B)
+			Cell leftSign = signRow.createCell(1);
+			leftSign.setCellValue("कार्यभार देणार\n" + "(संदीप चं. अमृतकर)\n" + "व.लि.");
+
+			XSSFCellStyle signLeftStyle = wb.createCellStyle();
+			signLeftStyle.setAlignment(HorizontalAlignment.CENTER);
+			signLeftStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+			signLeftStyle.setWrapText(true);
+
+			leftSign.setCellStyle(signLeftStyle);
+
+			// RIGHT SIGNATURE (Column E)
+			Cell rightSign = signRow.createCell(4);
+			rightSign.setCellValue("कार्यभार घेणार\n" + "(माधवी रा. ढेंबरे)\n" + "प्रथम लिपीक");
+
+			XSSFCellStyle signRightStyle = wb.createCellStyle();
+			signRightStyle.setAlignment(HorizontalAlignment.CENTER);
+			signRightStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+			signRightStyle.setWrapText(true);
+
+			rightSign.setCellStyle(signRightStyle);
+
+			/* ===================== COLUMN WIDTH ===================== */
+
+			sheet.setColumnWidth(0, 2500);
+			sheet.setColumnWidth(1, 7000);
+			sheet.setColumnWidth(2, 6000);
+			sheet.setColumnWidth(3, 9000);
+			sheet.setColumnWidth(4, 9000);
+			sheet.setColumnWidth(5, 6000);
+
+			/* ===================== RESPONSE ===================== */
+
+			ByteArrayOutputStream out = new ByteArrayOutputStream();
+			wb.write(out);
+			wb.close();
+
+			return ResponseEntity.ok()
+					.header(HttpHeaders.CONTENT_DISPOSITION,
+							"attachment; filename=RetiredGopniyaAhwal" + year + ".xlsx")
+					.contentType(MediaType.APPLICATION_OCTET_STREAM)
+					.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+
+		}
+	}
+
+	private int writeColumnHeaderForKaryarat(XSSFSheet sheet, int rowIdx, CellStyle headerStyle) {
+		Row h = sheet.createRow(rowIdx++);
+		String[] cols = { "अनु क्र", "नाव", "पदनाम", "मूळ गोपनीय अहवाल", "दुय्यम गोपनीय अहवाल",
+				"कार्यरत/बदली/सेवानिवृत्त" };
 
 		for (int i = 0; i < cols.length; i++) {
 			Cell c = h.createCell(i);
