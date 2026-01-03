@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.ZipOutputStream;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.MDC;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,42 +20,56 @@ import com.pipc.dashboard.utility.ApplicationError;
 import com.pipc.dashboard.utility.BaseResponse;
 
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 @RequestMapping("/pipc/dashboard/uploadDownload")
+@RequiredArgsConstructor
 public class UploadDownloadController {
 
 	private final UploadDownloadBusiness uploadDownloadBusiness;
 
-	@Autowired
-	public UploadDownloadController(UploadDownloadBusiness uploadDownloadBusiness) {
-		this.uploadDownloadBusiness = uploadDownloadBusiness;
-	}
-
+	/*
+	 * ========================= UPLOAD FILE =========================
+	 */
 	@PostMapping("/uploadFile")
-	public BaseResponse uploadFile(@RequestParam("file") MultipartFile file, @RequestParam("name") String name,
-			@RequestParam("date") String date, @RequestParam("type") String type) throws IOException {
+	public BaseResponse uploadFile(@RequestParam MultipartFile file, @RequestParam String name,
+			@RequestParam String date, @RequestParam String type) throws IOException {
+
+		log.info("Upload file | type={} | corrId={}", type, MDC.get("correlationId"));
 
 		uploadDownloadBusiness.saveFile(file, name, date, type);
-
 		return new BaseResponse(new ApplicationError("200", "File uploaded successfully"));
 	}
 
+	/*
+	 * ========================= GET FILE LIST =========================
+	 */
 	@GetMapping("/getFileList")
 	public ResponseEntity<Object> getFileList(@RequestParam String type, @RequestParam(required = false) String name,
 			@RequestParam String year, @RequestParam(required = false) String month,
 			@RequestParam(required = false) String day) {
+
+		log.debug("Get file list | type={} year={} | corrId={}", type, year, MDC.get("correlationId"));
+
 		return ResponseEntity.ok(uploadDownloadBusiness.getFileList(type, name, year, month, day));
 	}
 
+	/*
+	 * ========================= DOWNLOAD FILE / ZIP =========================
+	 */
 	@SkipLogging
 	@GetMapping("/downloadFile")
 	public void downloadFile(@RequestParam(required = false) Long id, @RequestParam(required = false) String type,
 			@RequestParam(required = false) String year, @RequestParam(required = false) String month,
 			HttpServletResponse response) throws Exception {
 
-		// ---------------- SINGLE FILE ----------------
+		// -------- SINGLE FILE --------
 		if (id != null) {
+
+			log.info("Download single file | id={} | corrId={}", id, MDC.get("correlationId"));
 
 			Resource resource = uploadDownloadBusiness.getSingleFile(id);
 
@@ -68,10 +82,12 @@ public class UploadDownloadController {
 			return;
 		}
 
-		// ---------------- BULK ZIP ----------------
+		// -------- BULK ZIP --------
 		if (year != null && type != null) {
 
 			String zipName = type + "_" + year + (month != null ? "_" + month : "") + ".zip";
+
+			log.info("Download ZIP | {} | corrId={}", zipName, MDC.get("correlationId"));
 
 			response.setContentType("application/zip");
 			response.setHeader("Content-Disposition", "attachment; filename=\"" + zipName + "\"");
@@ -83,8 +99,7 @@ public class UploadDownloadController {
 			return;
 		}
 
-		// ---------------- INVALID ----------------
+		// -------- INVALID REQUEST --------
 		response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid parameters for download");
 	}
-
 }

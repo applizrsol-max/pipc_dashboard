@@ -1,6 +1,7 @@
 package com.pipc.dashboard.service;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
@@ -20,9 +21,9 @@ public interface PdnAgendaService {
 
 	NrldResponse saveOrUpdateNrld(NrldRequest nrldRequest);
 
-	Page<PdnAgendaEntity> getPDNAgenda(String projectYear, String projectName, int page, int size);
+	List<PdnAgendaEntity> getPDNAgenda(String projectYear);
 
-	Page<NrldEntity> getNrldByYear(String year, String damName, int page, int size);
+	List<NrldEntity> getNrldByYear(String year);
 
 	ResponseEntity<InputStreamResource> generateNrldExcel(String year) throws IOException;
 

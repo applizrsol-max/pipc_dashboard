@@ -1,7 +1,8 @@
 package com.pipc.dashboard.controller;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.List;
+
+import org.slf4j.MDC;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -21,67 +22,92 @@ import com.pipc.dashboard.pdn.request.PdnAgendaRequest;
 import com.pipc.dashboard.pdn.response.NrldResponse;
 import com.pipc.dashboard.pdn.response.PdnAgendaResponse;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestController
 @RequestMapping("/pipc/dashboard/pdn")
+@RequiredArgsConstructor
 public class PdnAgendaNrldController {
-	private Logger log = LoggerFactory.getLogger(LoginController.class);
 
 	private final PdnAgendaBusiness pdnAgendaBusiness;
 
-	public PdnAgendaNrldController(PdnAgendaBusiness pdnAgendaBusiness) {
-		this.pdnAgendaBusiness = pdnAgendaBusiness;
-	}
+	/*
+	 * ========================= PDN AGENDA =========================
+	 */
 
 	@PostMapping("/saveOrUpdatePdnAgenda")
 	public PdnAgendaResponse saveOrUpdatePdnAgenda(@RequestBody PdnAgendaRequest pdnAgendaRequest) {
+
+		log.info("Save/Update PDN Agenda | corrId={}", MDC.get("correlationId"));
 		return pdnAgendaBusiness.saveOrUpdatePdnAgenda(pdnAgendaRequest);
 	}
 
+	@GetMapping("/getPDNAgendaByProjectYear")
+	public List<PdnAgendaEntity> getPDNAgendaByProjectYear(@RequestParam String projectYear) {
+
+		log.debug("Get PDN Agenda | year={} | corrId={}", projectYear, MDC.get("correlationId"));
+
+		return pdnAgendaBusiness.getPDNAgenda(projectYear);
+	}
+
+	@GetMapping("/downloadPdnAgendaData")
+	public ResponseEntity<InputStreamResource> downloadPdnAgendaData(@RequestParam String year) throws Exception {
+
+		log.info("Download PDN Agenda Excel | corrId={}", MDC.get("correlationId"));
+		return pdnAgendaBusiness.downloadPdnAgendaData(year);
+	}
+
+	/*
+	 * ========================= NRLD =========================
+	 */
+
 	@PostMapping("/saveOrUpdateNrld")
 	public NrldResponse saveOrUpdateNrld(@RequestBody NrldRequest nrldRequest) {
+
+		log.info("Save/Update NRLD | corrId={}", MDC.get("correlationId"));
 		return pdnAgendaBusiness.saveOrUpdateNrld(nrldRequest);
 	}
 
-	@GetMapping("/getPDNAgendaByProjectYear")
-	public Page<PdnAgendaEntity> getPDNAgendaByProjectYear(@RequestParam String projectYear,
-			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size,
-			@RequestParam(required = false) String projectName) {
-
-		return pdnAgendaBusiness.getPDNAgenda(projectYear, projectName, page, size);
-	}
-
 	@GetMapping("/getNrldByYearAndDam")
-	public Page<NrldEntity> getNrldByYearAndDam(@RequestParam String year, @RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "10") int size, @RequestParam(required = false) String damName) {
+	public List<NrldEntity> getNrldByYearAndDam(@RequestParam String year) {
 
-		return pdnAgendaBusiness.getNrldByYear(year, damName, page, size);
+		log.debug("Get NRLD | year={} | corrId={}", year, MDC.get("correlationId"));
+
+		return pdnAgendaBusiness.getNrldByYear(year);
 	}
 
 	@GetMapping("/downloadNrldData")
 	public ResponseEntity<InputStreamResource> downloadNrldExcel(@RequestParam String year) throws Exception {
+
+		log.info("Download NRLD Excel | corrId={}", MDC.get("correlationId"));
 		return pdnAgendaBusiness.generateNrldExcel(year);
 	}
 
-	@GetMapping("/downloadPdnAgendaData")
-	public ResponseEntity<InputStreamResource> downloadPdnAgendaData(@RequestParam("year") String year)
-			throws Exception {
-		return pdnAgendaBusiness.downloadPdnAgendaData(year);
-	}
+	/*
+	 * ========================= ICC CAPACITY =========================
+	 */
 
 	@PostMapping("/saveOrUpdateIccCap")
 	public NrldResponse saveOrUpdateIccCap(@RequestBody IrrigationSaveRequest req) {
+
+		log.info("Save/Update ICC Cap | corrId={}", MDC.get("correlationId"));
 		return pdnAgendaBusiness.saveOrUpdateIccCap(req);
 	}
 
 	@GetMapping("/getIccCapData")
 	public NrldResponse getIccCapData(@RequestParam String year, @RequestParam String date) {
 
+		log.debug("Get ICC Cap | year={} | corrId={}", year, MDC.get("correlationId"));
 		return pdnAgendaBusiness.getIccCapData(year, date);
 	}
 
 	@GetMapping("/downloadIccData")
 	public ResponseEntity<InputStreamResource> downloadIccData(@RequestParam String year, @RequestParam String date)
 			throws Exception {
+
+		log.info("Download ICC Excel | corrId={}", MDC.get("correlationId"));
 		return pdnAgendaBusiness.downloadIccData(year, date);
 	}
 }

@@ -34,8 +34,9 @@ public interface DamSafetyRepository extends JpaRepository<DamSafetyEntity, Long
 
 	Optional<DamSafetyEntity> findByDeleteIdAndYearAndMonthAndProjectNameAndMetaId(Long deleteId, String year,
 			String month, String projectName, Long id);
-	Optional<DamSafetyEntity> findByDeleteIdAndYearAndMonthAndProjectName(Long deleteId, String year,
-			String month, String projectName);
+
+	Optional<DamSafetyEntity> findByDeleteIdAndYearAndMonthAndProjectName(Long deleteId, String year, String month,
+			String projectName);
 
 	List<DamSafetyEntity> findByMetaIdOrderByRowIdAsc(Long id);
 

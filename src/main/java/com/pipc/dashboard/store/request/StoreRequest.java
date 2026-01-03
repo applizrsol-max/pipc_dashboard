@@ -6,6 +6,7 @@ import lombok.Data;
 
 @Data
 public class StoreRequest {
+	private String year;
 	private List<DepartmentSection> departments;
 	private Integer ekunEkandar;
 }

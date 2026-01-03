@@ -3,8 +3,6 @@ package com.pipc.dashboard.store.repository;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -14,46 +12,63 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface StoreRepository extends JpaRepository<StoreEntity, Long> {
 
-	// 🔹 Find single department record (for JSON update or check)
+	// ---------------- BASIC ----------------
 	List<StoreEntity> findByDepartmentName(String departmentName);
+
+	Optional<StoreEntity> findByDepartmentNameAndRowId(String departmentName, Integer rowId);
+
+	Optional<StoreEntity> findByDepartmentNameAndRowIdAndYear(String departmentName, Integer rowId, String year);
+
+	Optional<StoreEntity> findByDepartmentNameAndDeleteIdAndYear(String departmentName, Long deleteId, String year);
+
+	List<StoreEntity> findAllByDepartmentNameAndYear(String departmentName, String year);
+
+	List<StoreEntity> findByDepartmentNameAndYearOrderByRowIdAsc(String dept, String year);
+
+	// ❗ FIXED: year parameter mandatory
+	List<StoreEntity> findByYear(String year);
+
+	// ---------------- DISTINCT ----------------
+	@Query("SELECT DISTINCT s.departmentName FROM StoreEntity s ORDER BY s.departmentName")
+	List<String> findDistinctDepartmentNames();
+
+	@Query("""
+			    SELECT DISTINCT s.departmentName
+			    FROM StoreEntity s
+			    WHERE s.year = :year
+			    ORDER BY s.departmentName
+			""")
+	List<String> findDistinctDepartmentNamesByYear(@Param("year") String year);
+
+	// ---------------- EKUN (DEPT LEVEL) ----------------
+	@Query("""
+			    SELECT s
+			    FROM StoreEntity s
+			    WHERE s.departmentName = :deptName
+			      AND s.year = :year
+			      AND s.ekun IS NOT NULL
+			""")
+	Optional<StoreEntity> findExistingEkunForDeptAndYear(@Param("deptName") String deptName,
+			@Param("year") String year);
+
+	// ---------------- EKUN EKANDAR (OVERALL) ----------------
+	@Query("""
+			    SELECT s
+			    FROM StoreEntity s
+			    WHERE s.year = :year
+			      AND s.ekunEkandar IS NOT NULL
+			""")
+	Optional<StoreEntity> findExistingEkunEkandarByYear(@Param("year") String year);
 
 	@Modifying
 	@Query("""
 			    UPDATE StoreEntity s
-			    SET s.ekunEkandar = :total,
-			        s.updatedAt = CURRENT_TIMESTAMP,
-			        s.updatedBy = :updatedBy,
-			        s.flag = CASE WHEN s.flag = 'C' THEN 'U' ELSE s.flag END
-			    WHERE s.ekunEkandar IS NULL OR s.ekunEkandar <> :total
+			       SET s.ekunEkandar = :ekunEkandar,
+			           s.updatedBy = :updatedBy,
+			           s.updatedAt = CURRENT_TIMESTAMP,
+			           s.flag = 'U'
+			     WHERE s.year = :year
 			""")
-	void updateEkunEkandarAndTimestamp(@Param("total") Integer total, @Param("updatedBy") String updatedBy);
-
-	// 🔹 Get latest ekunEkandar
-	@Query("SELECT MAX(s.ekunEkandar) FROM StoreEntity s")
-	Integer findCurrentEkunEkandar();
-
-	// 🔹 Find by combination (used for update checks)
-	Optional<StoreEntity> findByDepartmentNameAndEkunEkandarAndRowId(String departmentName, Integer ekunEkandar,
-			Integer rowId);
-
-	Optional<StoreEntity> findByDepartmentNameAndRowIdAndEkunAndEkunEkandar(String departmentName, Integer rowId,
-			Integer ekun, Integer ekunEkandar);
-
-	Optional<StoreEntity> findByDepartmentNameAndRowId(String departmentName, Integer rowId);
-
-	@Query("SELECT DISTINCT s.ekun FROM StoreEntity s WHERE s.departmentName = :departmentName")
-	Optional<Integer> findExistingEkunForDept(@Param("departmentName") String departmentName);
-
-	List<StoreEntity> findAllByDepartmentName(String departmentName);
-
-	@Query("SELECT DISTINCT s.ekunEkandar FROM StoreEntity s WHERE s.ekunEkandar IS NOT NULL")
-	Optional<Integer> findExistingEkunEkandar();
-
-	@Query("SELECT DISTINCT s.departmentName FROM StoreEntity s ORDER BY s.departmentName")
-	List<String> findDistinctDepartmentNames();
-
-	Page<StoreEntity> findByDepartmentName(String departmentName, Pageable pageable);
-
-	Optional<StoreEntity> findByDepartmentNameAndDeleteId(String departmentName, Long deleteId);
-
+	int updateEkunEkandarAndTimestampByYear(@Param("ekunEkandar") Integer ekunEkandar,
+			@Param("updatedBy") String updatedBy, @Param("year") String year);
 }

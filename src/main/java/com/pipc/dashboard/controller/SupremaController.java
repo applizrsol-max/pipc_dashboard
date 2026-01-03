@@ -1,12 +1,12 @@
 package com.pipc.dashboard.controller;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.List;
+
+import org.slf4j.MDC;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,33 +18,47 @@ import com.pipc.dashboard.suprama.repository.SupremaEntity;
 import com.pipc.dashboard.suprama.request.SupremaRequest;
 import com.pipc.dashboard.suprama.response.SupremaResponse;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestController
 @RequestMapping("/pipc/dashboard/suprema")
-
+@RequiredArgsConstructor
 public class SupremaController {
-
-	private Logger log = LoggerFactory.getLogger(LoginController.class);
 
 	private final SupremaBusiness supremaBusiness;
 
-	public SupremaController(SupremaBusiness supremaBusiness) {
-		this.supremaBusiness = supremaBusiness;
-	}
-
+	/*
+	 * ========================= SAVE / UPDATE SUPREMA =========================
+	 */
 	@PostMapping("/saveOrUpdateSuprema")
 	public SupremaResponse saveOrUpdateSuprema(@RequestBody SupremaRequest supremaRequest) {
+
+		log.info("Save/Update Suprema | corrId={}", MDC.get("correlationId"));
 		return supremaBusiness.saveOrUpdateSuprema(supremaRequest);
 	}
 
+	/*
+	 * ========================= GET SUPREMA (PAGINATED) =========================
+	 */
 	@GetMapping("/getSuprema")
-	public Page<SupremaEntity> getSuprema(@RequestParam String projectYear, @RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "10") int size) {
-		return supremaBusiness.getSupremaByProjectYear(projectYear, page, size);
+	public List<SupremaEntity> getSuprema(@RequestParam String projectYear) {
+
+		log.debug("Get Suprema | projectYear={} | corrId={}", projectYear, MDC.get("correlationId"));
+
+		return supremaBusiness.getSupremaByProjectYear(projectYear);
 	}
 
+	/*
+	 * ========================= DOWNLOAD SUPREMA EXCEL =========================
+	 */
 	@GetMapping("/downloadSupremaExcel")
 	public ResponseEntity<InputStreamResource> downloadSupremaExcel(@RequestParam("year") String year)
 			throws Exception {
+
+		log.info("Download Suprema Excel | year={} | corrId={}", year, MDC.get("correlationId"));
+
 		return supremaBusiness.downloadSupremaExcel(year);
 	}
 }

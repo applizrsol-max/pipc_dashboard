@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -23,9 +24,6 @@ import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -40,7 +38,9 @@ import com.pipc.dashboard.utility.ApplicationError;
 
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 public class KraServiceImpl implements KraService {
 
@@ -56,90 +56,96 @@ public class KraServiceImpl implements KraService {
 	@Override
 	@Transactional
 	public KraResponse saveOrUpdateKra(KraRequest request) {
+
 		KraResponse kraResponse = new KraResponse();
 		ApplicationError error = new ApplicationError();
 		StringBuilder msg = new StringBuilder();
 
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+		final LocalDateTime now = LocalDateTime.now();
+		final ObjectMapper mapper = this.objectMapper;
+
+		log.info("START saveOrUpdateKra | kraPeriod={} | user={} | corrId={}", request.getKraPeriod(), user, corrId);
+
 		try {
-			String userFromMDC = MDC.get("user");
-			if (userFromMDC == null)
-				userFromMDC = "SYSTEM";
-			final String currentUser = userFromMDC;
-			ObjectMapper mapper = this.objectMapper;
-			LocalDateTime now = LocalDateTime.now();
 
 			for (Map<String, Object> rowData : request.getKraData()) {
+
 				Integer rowId = (Integer) rowData.get("rowId");
-				Object deleteIdObj = rowData.get("deleteId");
-				Long deleteId = null;
-				if (deleteIdObj != null) {
-					if (deleteIdObj instanceof Integer) {
-						deleteId = ((Integer) deleteIdObj).longValue();
-					} else if (deleteIdObj instanceof Long) {
-						deleteId = (Long) deleteIdObj;
-					} else if (deleteIdObj instanceof String) {
-						deleteId = Long.parseLong((String) deleteIdObj);
-					}
-				}
-				if (rowId == null)
+				if (rowId == null) {
 					continue;
+				}
 
-				// Extract flag for deletion check
-				String flag = (String) rowData.getOrDefault("flag", "");
-				Optional<KraEntity> existingOpt = kraRepository.findByKraPeriodAndRowId(request.getKraPeriod(), rowId);
-				Optional<KraEntity> existingOptDelId = kraRepository.findByKraPeriodAndDeleteId(request.getKraPeriod(),
-						deleteId);
+				// 🔹 Safe deleteId conversion
+				Long deleteId = null;
+				Object deleteIdObj = rowData.get("deleteId");
+				if (deleteIdObj instanceof Number) {
+					deleteId = ((Number) deleteIdObj).longValue();
+				} else if (deleteIdObj instanceof String && !((String) deleteIdObj).isBlank()) {
+					deleteId = Long.parseLong((String) deleteIdObj);
+				}
 
-				// ✅ 1️⃣ Handle DELETE logic
-				if ("D".equalsIgnoreCase(flag)) {
-					if (existingOptDelId.isPresent()) {
-						kraRepository.delete(existingOptDelId.get());
+				String flag = String.valueOf(rowData.getOrDefault("flag", "")).trim().toUpperCase();
+
+				Optional<KraEntity> existingByRow = kraRepository.findByKraPeriodAndRowId(request.getKraPeriod(),
+						rowId);
+
+				Optional<KraEntity> existingByDeleteId = (deleteId != null)
+						? kraRepository.findByKraPeriodAndDeleteId(request.getKraPeriod(), deleteId)
+						: Optional.empty();
+
+				// ================= DELETE =================
+				if ("D".equals(flag)) {
+
+					if (existingByDeleteId.isPresent()) {
+						kraRepository.delete(existingByDeleteId.get());
 						msg.append("Deleted deleteId: ").append(deleteId).append(" | ");
 					} else {
 						msg.append("Delete requested but deleteId not found: ").append(deleteId).append(" | ");
 					}
-					continue; // skip further processing for this row
+					continue;
 				}
 
-				// ✅ 2️⃣ Handle Create / Update logic
+				// ================= CREATE / UPDATE =================
 				JsonNode incomingNode = mapper.valueToTree(rowData);
 
-				if (existingOpt.isPresent()) {
-					KraEntity existing = existingOpt.get();
-					boolean entityChanged = false;
+				if (existingByRow.isPresent()) {
+
+					KraEntity existing = existingByRow.get();
+					boolean changed = false;
 
 					JsonNode existingNode = existing.getKraRow() == null ? mapper.createObjectNode()
 							: existing.getKraRow();
 
-					if (!existingNode.toString().equals(incomingNode.toString())) {
+					if (!existingNode.equals(incomingNode)) {
 						existing.setKraRow(incomingNode);
-						entityChanged = true;
+						changed = true;
 					}
 
-					if (existing.getTitle() == null ? request.getTitle() != null
-							: !existing.getTitle().equals(request.getTitle())) {
+					if (!Objects.equals(existing.getTitle(), request.getTitle())) {
 						existing.setTitle(request.getTitle());
-						entityChanged = true;
+						changed = true;
 					}
 
-					if (existing.getReference() == null ? request.getReference() != null
-							: !existing.getReference().equals(request.getReference())) {
+					if (!Objects.equals(existing.getReference(), request.getReference())) {
 						existing.setReference(request.getReference());
-						entityChanged = true;
+						changed = true;
 					}
 
-					if (entityChanged) {
-						existing.setUpdatedBy(currentUser);
+					if (changed) {
+						existing.setUpdatedBy(user);
 						existing.setUpdatedAt(now);
 						existing.setFlag("U");
 						kraRepository.save(existing);
 						msg.append("Updated rowId: ").append(rowId).append(" | ");
 					} else {
-						entityManager.detach(existing);
+						entityManager.detach(existing); // 🔒 keep existing behavior
 						msg.append("No change for rowId: ").append(rowId).append(" | ");
 					}
 
 				} else {
+
 					KraEntity entity = new KraEntity();
 					entity.setTitle(request.getTitle());
 					entity.setKraPeriod(request.getKraPeriod());
@@ -147,11 +153,12 @@ public class KraServiceImpl implements KraService {
 					entity.setKraRow(incomingNode);
 					entity.setRowId(rowId);
 					entity.setDeleteId(deleteId);
-					entity.setCreatedBy(currentUser);
+					entity.setCreatedBy(user);
 					entity.setCreatedAt(now);
-					entity.setUpdatedBy(currentUser);
+					entity.setUpdatedBy(user);
 					entity.setUpdatedAt(now);
 					entity.setFlag("C");
+
 					kraRepository.save(entity);
 					msg.append("Created rowId: ").append(rowId).append(" | ");
 				}
@@ -162,41 +169,62 @@ public class KraServiceImpl implements KraService {
 			kraResponse.setErrorDetails(error);
 			kraResponse.setMessage(msg.toString());
 
+			log.info("SUCCESS saveOrUpdateKra | kraPeriod={} | message={} | corrId={}", request.getKraPeriod(), msg,
+					corrId);
+
 		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdateKra | kraPeriod={} | corrId={}", request.getKraPeriod(), corrId, e);
+
 			error.setErrorCode("1");
-			error.setErrorDescription("Error while saving: " + e.getMessage());
+			error.setErrorDescription("Error while saving KRA: " + e.getMessage());
 			kraResponse.setErrorDetails(error);
 			kraResponse.setMessage("Operation failed.");
-			throw new RuntimeException("KRA save failed due to an exception.", e);
 		}
 
 		return kraResponse;
 	}
 
 	@Override
-	public KraResponse getKraByPeriod(String kraPeriod, int page, int size) {
+	public KraResponse getKraByPeriod(String kraPeriod) {
+
 		KraResponse kraResponse = new KraResponse();
 		ApplicationError error = new ApplicationError();
 
-		try {
-			Pageable pageable = PageRequest.of(page, size);
-			Page<KraEntity> kraPage = kraRepository.findByKraPeriod(kraPeriod, pageable);
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
 
-			// ✅ Sort by rowId ascending before mapping
-			List<JsonNode> kraData = kraPage.getContent().stream().sorted(Comparator.comparingLong(e -> e.getRowId())) // <--
-																														// Sort
-																														// by
-																														// rowId
+		log.info("START getKraByPeriod | kraPeriod={} | user={} | corrId={}", kraPeriod, user, corrId);
+
+		try {
+
+			// 🔹 Single DB call (no pagination)
+			List<KraEntity> entities = kraRepository.findByKraPeriod(kraPeriod);
+
+			if (entities == null || entities.isEmpty()) {
+
+				log.warn("No KRA data found | kraPeriod={} | corrId={}", kraPeriod, corrId);
+
+				ObjectNode emptyNode = objectMapper.createObjectNode();
+				emptyNode.put("kraPeriod", kraPeriod);
+				emptyNode.set("kraData", objectMapper.createArrayNode());
+
+				kraResponse.setResponseData(emptyNode);
+				error.setErrorCode("0");
+				error.setErrorDescription("Success");
+				kraResponse.setErrorDetails(error);
+				kraResponse.setMessage("No data found");
+
+				return kraResponse;
+			}
+
+			// 🔹 Sort by rowId ASC and map to JSON
+			List<JsonNode> kraData = entities.stream().sorted(Comparator.comparingLong(KraEntity::getRowId))
 					.map(KraEntity::getKraRow).collect(Collectors.toList());
 
-			ObjectMapper mapper = this.objectMapper;
-			ObjectNode responseNode = mapper.createObjectNode();
+			ObjectNode responseNode = objectMapper.createObjectNode();
 			responseNode.put("kraPeriod", kraPeriod);
-			responseNode.put("page", kraPage.getNumber());
-			responseNode.put("size", kraPage.getSize());
-			responseNode.put("totalPages", kraPage.getTotalPages());
-			responseNode.put("totalElements", kraPage.getTotalElements());
-			responseNode.set("kraData", mapper.valueToTree(kraData));
+			responseNode.set("kraData", objectMapper.valueToTree(kraData));
 
 			kraResponse.setResponseData(responseNode);
 			error.setErrorCode("0");
@@ -204,14 +232,21 @@ public class KraServiceImpl implements KraService {
 			kraResponse.setErrorDetails(error);
 			kraResponse.setMessage("Fetched successfully");
 
+			log.info("SUCCESS getKraByPeriod | kraPeriod={} | records={} | corrId={}", kraPeriod, kraData.size(),
+					corrId);
+
+			return kraResponse;
+
 		} catch (Exception e) {
+
+			log.error("ERROR getKraByPeriod | kraPeriod={} | corrId={}", kraPeriod, corrId, e);
+
 			error.setErrorCode("1");
 			error.setErrorDescription("Error fetching KRA: " + e.getMessage());
 			kraResponse.setErrorDetails(error);
 			kraResponse.setMessage("Operation failed.");
+			return kraResponse;
 		}
-
-		return kraResponse;
 	}
 
 	@Override
@@ -371,7 +406,4 @@ public class KraServiceImpl implements KraService {
 		}
 	}
 
-	private String getValue(JsonNode node, String key) {
-		return node != null && node.has(key) && !node.get(key).isNull() ? node.get(key).asText() : "";
-	}
 }

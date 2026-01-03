@@ -27,8 +27,6 @@ import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.MDC;
 import org.springframework.core.io.InputStreamResource;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -53,6 +51,9 @@ import com.pipc.dashboard.service.AcountService;
 import com.pipc.dashboard.utility.ApplicationError;
 import com.pipc.dashboard.utility.JsonUtils;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 @Transactional
 public class AccountServiceImpl implements AcountService {
@@ -67,6 +68,8 @@ public class AccountServiceImpl implements AcountService {
 
 	@Override
 	public AccountsResponse saveOrUpdateAccounts(AccountsRequest request) {
+		log.info("SaveOrUpdateAccounts started | year={} | corrId={}", request.getAccountsYear(),
+				MDC.get("correlationId"));
 
 		AccountsResponse response = new AccountsResponse();
 		ApplicationError error = new ApplicationError();
@@ -173,6 +176,7 @@ public class AccountServiceImpl implements AcountService {
 			error.setErrorDescription("✅ Saved Successfully → " + actionSummary);
 
 		} catch (Exception e) {
+			log.error("Error saving accounts | corrId={}", MDC.get("correlationId"), e);
 			error.setErrorCode("1");
 			error.setErrorDescription("❌ Error while saving: " + e.getMessage());
 			e.printStackTrace();
@@ -183,75 +187,9 @@ public class AccountServiceImpl implements AcountService {
 	}
 
 	@Override
-	public Map<String, Object> getAllAccounts(int page, int size) {
-		Page<AccountsEntity> pagedRecords = accountRepo.findAll(PageRequest.of(page, size));
-
-		Map<String, Object> groupedData = new LinkedHashMap<>();
-
-		for (AccountsEntity entity : pagedRecords.getContent()) {
-			String category = entity.getCategoryName();
-			JsonNode dataNode = entity.getAccountsData();
-
-			// 🟩 Ekun (summary) data
-			if ("E".equalsIgnoreCase(entity.getRecordType())) {
-				groupedData.put("ekun" + capitalize(category), dataNode);
-			}
-			// 🟦 Regular (row-wise) data
-			else {
-				groupedData.computeIfAbsent(category, k -> new ArrayList<JsonNode>());
-				((List<JsonNode>) groupedData.get(category)).add(dataNode);
-			}
-		}
-
-		// Optional: include pagination metadata
-		groupedData.put("_pageInfo", Map.of("currentPage", pagedRecords.getNumber() + 1, "totalPages",
-				pagedRecords.getTotalPages(), "totalRecords", pagedRecords.getTotalElements()));
-
-		return groupedData;
-	}
-
-	@Override
-	public Map<String, Object> getAllAccountsByYear(int page, int size, String year) {
-
-		Page<AccountsEntity> pagedRecords = accountRepo.findByProjectYear(year, PageRequest.of(page, size));
-
-		Map<String, Object> groupedData = new LinkedHashMap<>();
-
-		for (AccountsEntity entity : pagedRecords.getContent()) {
-			String category = entity.getCategoryName();
-			JsonNode dataNode = entity.getAccountsData();
-
-			groupedData.computeIfAbsent(category, k -> new ArrayList<JsonNode>());
-			((List<JsonNode>) groupedData.get(category)).add(dataNode);
-
-		}
-
-		// 🧩 Pagination info at end of map
-		Map<String, Object> pageInfo = Map.of("currentPage", pagedRecords.getNumber() + 1, "pageSize",
-				pagedRecords.getSize(), "totalPages", pagedRecords.getTotalPages(), "totalRecords",
-				pagedRecords.getTotalElements());
-
-		groupedData.put("_pageInfo", pageInfo);
-		groupedData.put("_year", year);
-
-		return groupedData;
-	}
-
-	private String capitalize(String str) {
-		if (str == null || str.isEmpty())
-			return str;
-		return Character.toUpperCase(str.charAt(0)) + str.substring(1);
-	}
-
-	@Override
-	public ByteArrayInputStream generateMarathiExcelForYear(String year) throws IOException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
 	@Transactional(readOnly = true)
 	public ResponseEntity<InputStreamResource> downloadAccountsReport(String year) throws IOException {
+		log.debug("Fetching accounts by year={} | corrId={}", year, MDC.get("correlationId"));
 
 		// === FIXED CATEGORY ORDER ===
 		List<String> CATEGORY_ORDER = Arrays.asList("majorProjects", "expansionAndImprovement", "damSafety",
@@ -464,12 +402,31 @@ public class AccountServiceImpl implements AcountService {
 
 	@Override
 	public Map<String, Object> getAllAccountsByYear(String year) {
-		// TODO Auto-generated method stub
-		return null;
+		log.debug("Fetching accounts by year={} | corrId={}", year, MDC.get("correlationId"));
+
+		// 🔹 DB se year ke basis par rowId ASC order me data
+		List<AccountsEntity> records = accountRepo.findByProjectYearOrderByRowIdAsc(year);
+
+		// 🔹 Same structure as your original code
+		Map<String, Object> groupedData = new LinkedHashMap<>();
+
+		for (AccountsEntity entity : records) {
+
+			String category = entity.getCategoryName();
+			JsonNode dataNode = entity.getAccountsData();
+
+			((ArrayNode) groupedData.computeIfAbsent(category, k -> new ArrayList<JsonNode>())).add(dataNode);
+		}
+
+		// 🔹 Keep year (same as earlier, only _pageInfo removed)
+		groupedData.put("_year", year);
+
+		return groupedData;
 	}
 
 	@Override
 	public PendingParaResponse savePendingPara(PendingParaRequest request) {
+		log.info("SavePendingPara | year={} | corrId={}", request.getYear(), MDC.get("correlationId"));
 
 		PendingParaResponse response = new PendingParaResponse();
 		ApplicationError error = new ApplicationError();
@@ -530,6 +487,7 @@ public class AccountServiceImpl implements AcountService {
 			response.setErrorDetails(error);
 
 		} catch (Exception e) {
+			log.error("PendingPara error | corrId={}", MDC.get("correlationId"), e);
 			error.setErrorCode("500");
 			error.setErrorDescription(e.getMessage());
 			response.setErrorDetails(error);
@@ -540,6 +498,8 @@ public class AccountServiceImpl implements AcountService {
 
 	@Override
 	public PendingParaResponse getAllPendingPara(Integer year) {
+		log.debug("Fetching Pending Para by year={} | corrId={}", year, MDC.get("correlationId"));
+
 		PendingParaResponse res = new PendingParaResponse();
 		ApplicationError error = new ApplicationError();
 
@@ -558,125 +518,122 @@ public class AccountServiceImpl implements AcountService {
 
 	@Override
 	public ResponseEntity<InputStreamResource> downloadPendingPara(Integer year) throws IOException {
+		log.debug("Fetching Pending Para by year={} | corrId={}", year, MDC.get("correlationId"));
 
-	    List<PendingParaEntity> list = pendingParaRepo.findAllByYear(year);
+		List<PendingParaEntity> list = pendingParaRepo.findAllByYear(year);
 
-	    XSSFWorkbook workbook = new XSSFWorkbook();
-	    XSSFSheet sheet = workbook.createSheet("Pending Paras");
+		XSSFWorkbook workbook = new XSSFWorkbook();
+		XSSFSheet sheet = workbook.createSheet("Pending Paras");
 
-	    // ---------------- TITLE STYLE ----------------
-	    CellStyle titleStyle = workbook.createCellStyle();
-	    XSSFFont titleFont = workbook.createFont();
-	    titleFont.setFontHeight(16);
-	    titleFont.setBold(true);
-	    titleStyle.setFont(titleFont);
-	    titleStyle.setAlignment(HorizontalAlignment.CENTER);
-	    titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		// ---------------- TITLE STYLE ----------------
+		CellStyle titleStyle = workbook.createCellStyle();
+		XSSFFont titleFont = workbook.createFont();
+		titleFont.setFontHeight(16);
+		titleFont.setBold(true);
+		titleStyle.setFont(titleFont);
+		titleStyle.setAlignment(HorizontalAlignment.CENTER);
+		titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
 
-	    // ---------------- HEADER STYLE ----------------
-	    CellStyle headerStyle = workbook.createCellStyle();
-	    XSSFFont headerFont = workbook.createFont();
-	    headerFont.setBold(true);
-	    headerStyle.setFont(headerFont);
-	    headerStyle.setAlignment(HorizontalAlignment.CENTER);
-	    headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-	    headerStyle.setBorderBottom(BorderStyle.THIN);
-	    headerStyle.setBorderTop(BorderStyle.THIN);
-	    headerStyle.setBorderLeft(BorderStyle.THIN);
-	    headerStyle.setBorderRight(BorderStyle.THIN);
+		// ---------------- HEADER STYLE ----------------
+		CellStyle headerStyle = workbook.createCellStyle();
+		XSSFFont headerFont = workbook.createFont();
+		headerFont.setBold(true);
+		headerStyle.setFont(headerFont);
+		headerStyle.setAlignment(HorizontalAlignment.CENTER);
+		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		headerStyle.setBorderBottom(BorderStyle.THIN);
+		headerStyle.setBorderTop(BorderStyle.THIN);
+		headerStyle.setBorderLeft(BorderStyle.THIN);
+		headerStyle.setBorderRight(BorderStyle.THIN);
 
-	    // ---------------- ROW STYLE ----------------
-	    CellStyle rowStyle = workbook.createCellStyle();
-	    rowStyle.setBorderBottom(BorderStyle.THIN);
-	    rowStyle.setBorderTop(BorderStyle.THIN);
-	    rowStyle.setBorderLeft(BorderStyle.THIN);
-	    rowStyle.setBorderRight(BorderStyle.THIN);
-	    rowStyle.setAlignment(HorizontalAlignment.LEFT);
+		// ---------------- ROW STYLE ----------------
+		CellStyle rowStyle = workbook.createCellStyle();
+		rowStyle.setBorderBottom(BorderStyle.THIN);
+		rowStyle.setBorderTop(BorderStyle.THIN);
+		rowStyle.setBorderLeft(BorderStyle.THIN);
+		rowStyle.setBorderRight(BorderStyle.THIN);
+		rowStyle.setAlignment(HorizontalAlignment.LEFT);
 
-	    // ---------------- COLUMN HEADER TITLES ----------------
-	    String[] columns = {
-	            "Sr. No.", "Para No/Year", "Division/Project", "Para In Brief",
-	            "EE", "SE", "CE", "ED", "Reference of Report Sent", "Pending With"
-	    };
+		// ---------------- COLUMN HEADER TITLES ----------------
+		String[] columns = { "Sr. No.", "Para No/Year", "Division/Project", "Para In Brief", "EE", "SE", "CE", "ED",
+				"Reference of Report Sent", "Pending With" };
 
-	    int totalColumns = columns.length;
+		int totalColumns = columns.length;
 
-	    // ---------------- TITLE ROW (MERGED + STYLED) ----------------
-	    Row titleRow = sheet.createRow(0);
-	    Cell titleCell = titleRow.createCell(0);
-	    titleCell.setCellValue("Abstract of Pending Paras");
-	    titleCell.setCellStyle(titleStyle);
+		// ---------------- TITLE ROW (MERGED + STYLED) ----------------
+		Row titleRow = sheet.createRow(0);
+		Cell titleCell = titleRow.createCell(0);
+		titleCell.setCellValue("Abstract of Pending Paras");
+		titleCell.setCellStyle(titleStyle);
 
-	    // Merge across all columns
-	    sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, totalColumns - 1));
+		// Merge across all columns
+		sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, totalColumns - 1));
 
-	    // Adjust height
-	    titleRow.setHeight((short) 500);
+		// Adjust height
+		titleRow.setHeight((short) 500);
 
-	    // ---------------- HEADER ROW ----------------
-	    Row headerRow = sheet.createRow(1);
+		// ---------------- HEADER ROW ----------------
+		Row headerRow = sheet.createRow(1);
 
-	    for (int i = 0; i < totalColumns; i++) {
-	        Cell cell = headerRow.createCell(i);
-	        cell.setCellValue(columns[i]);
-	        cell.setCellStyle(headerStyle);
-	    }
+		for (int i = 0; i < totalColumns; i++) {
+			Cell cell = headerRow.createCell(i);
+			cell.setCellValue(columns[i]);
+			cell.setCellStyle(headerStyle);
+		}
 
-	    // ---------------- INSERT DATA ROWS ----------------
-	    int rowIndex = 2;
+		// ---------------- INSERT DATA ROWS ----------------
+		int rowIndex = 2;
 
-	    for (PendingParaEntity entity : list) {
+		for (PendingParaEntity entity : list) {
 
-	        JsonNode data = entity.getData();
-	        Row row = sheet.createRow(rowIndex++);
+			JsonNode data = entity.getData();
+			Row row = sheet.createRow(rowIndex++);
 
-	        writeCell(row, 0, data.get("srNo").asInt(), rowStyle);
-	        writeCell(row, 1, data.get("paraNoYear").asText(), rowStyle);
-	        writeCell(row, 2, data.get("divisionProject").asText(), rowStyle);
-	        writeCell(row, 3, data.get("paraInBrief").asText(), rowStyle);
-	        writeCell(row, 4, data.get("ee").asText(), rowStyle);
-	        writeCell(row, 5, data.get("se").asText(), rowStyle);
-	        writeCell(row, 6, data.get("ce").asText(), rowStyle);
-	        writeCell(row, 7, data.get("ed").asText(), rowStyle);
-	        writeCell(row, 8, data.get("referenceReportSent").asText(), rowStyle);
-	        writeCell(row, 9, data.get("pendingWith").asText(), rowStyle);
-	    }
+			writeCell(row, 0, data.get("srNo").asInt(), rowStyle);
+			writeCell(row, 1, data.get("paraNoYear").asText(), rowStyle);
+			writeCell(row, 2, data.get("divisionProject").asText(), rowStyle);
+			writeCell(row, 3, data.get("paraInBrief").asText(), rowStyle);
+			writeCell(row, 4, data.get("ee").asText(), rowStyle);
+			writeCell(row, 5, data.get("se").asText(), rowStyle);
+			writeCell(row, 6, data.get("ce").asText(), rowStyle);
+			writeCell(row, 7, data.get("ed").asText(), rowStyle);
+			writeCell(row, 8, data.get("referenceReportSent").asText(), rowStyle);
+			writeCell(row, 9, data.get("pendingWith").asText(), rowStyle);
+		}
 
-	    // ---------------- AUTO SIZE ----------------
-	    for (int i = 0; i < totalColumns; i++) {
-	        sheet.autoSizeColumn(i);
-	    }
+		// ---------------- AUTO SIZE ----------------
+		for (int i = 0; i < totalColumns; i++) {
+			sheet.autoSizeColumn(i);
+		}
 
-	    // ---------------- WRITE STREAM ----------------
-	    ByteArrayOutputStream out = new ByteArrayOutputStream();
-	    workbook.write(out);
-	    workbook.close();
+		// ---------------- WRITE STREAM ----------------
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		workbook.write(out);
+		workbook.close();
 
-	    ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+		ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
 
-	    // ---------------- SEND RESPONSE FROM SERVICE ----------------
-	    HttpHeaders headers = new HttpHeaders();
-	    headers.add("Content-Disposition", "attachment; filename=pending_paras.xlsx");
+		// ---------------- SEND RESPONSE FROM SERVICE ----------------
+		HttpHeaders headers = new HttpHeaders();
+		headers.add("Content-Disposition", "attachment; filename=pending_paras.xlsx");
 
-	    return ResponseEntity.ok()
-	            .headers(headers)
-	            .contentType(MediaType.parseMediaType(
-	                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-	            .body(new InputStreamResource(in));
+		return ResponseEntity.ok().headers(headers)
+				.contentType(
+						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(new InputStreamResource(in));
 	}
 
 	// --- HELPER METHODS ---
 	private void writeCell(Row row, int col, String value, CellStyle style) {
-	    Cell cell = row.createCell(col);
-	    cell.setCellValue(value);
-	    cell.setCellStyle(style);
+		Cell cell = row.createCell(col);
+		cell.setCellValue(value);
+		cell.setCellStyle(style);
 	}
 
 	private void writeCell(Row row, int col, int value, CellStyle style) {
-	    Cell cell = row.createCell(col);
-	    cell.setCellValue(value);
-	    cell.setCellStyle(style);
+		Cell cell = row.createCell(col);
+		cell.setCellValue(value);
+		cell.setCellStyle(style);
 	}
-
 
 }

@@ -27,6 +27,13 @@ public class LoggingAuditEntity {
 
 	@Column(columnDefinition = "TEXT")
 	private String requestUrl;
+	
+	@Column(name = "correlation_id")
+	private String correlationId;
+
+	@Column(name = "business_correlation_id")
+	private String businessCorrelationId;
+
 
 	// Request JSON
 	@JdbcTypeCode(SqlTypes.JSON)

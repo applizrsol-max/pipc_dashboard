@@ -1,7 +1,6 @@
 package com.pipc.dashboard.controller;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,34 +14,45 @@ import com.pipc.dashboard.business.StoreBusiness;
 import com.pipc.dashboard.store.request.StoreRequest;
 import com.pipc.dashboard.store.response.StoreResponse;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestController
 @RequestMapping("/pipc/dashboard/store")
-
+@RequiredArgsConstructor
 public class StoreController {
-
-	private Logger log = LoggerFactory.getLogger(LoginController.class);
 
 	private final StoreBusiness storeBusiness;
 
-	public StoreController(StoreBusiness storeBusiness) {
-		this.storeBusiness = storeBusiness;
-	}
-
+	/*
+	 * ========================= SAVE / UPDATE STORE =========================
+	 */
 	@PostMapping("/saveOrUpdateStore")
 	public StoreResponse saveOrUpdateStore(@RequestBody StoreRequest storeRequest) {
+
+		log.info("Save/Update Store | corrId={}", MDC.get("correlationId"));
 		return storeBusiness.saveOrUpdateStore(storeRequest);
 	}
 
+	/*
+	 * ========================= GET STORE DATA =========================
+	 */
 	@GetMapping("/getStoreData")
-	public StoreResponse getAllStores(@RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "10") int size) {
+	public StoreResponse getAllStores(@RequestParam String year) {
 
-		return storeBusiness.getStores(page, size);
+		log.debug("Get Store Data | page={} size={} | corrId={}", year, MDC.get("correlationId"));
+
+		return storeBusiness.getStores(year);
 	}
 
+	/*
+	 * ========================= DOWNLOAD STORE DATA =========================
+	 */
 	@GetMapping("/downloadStoreData")
-	public ResponseEntity<InputStreamResource> downloadStoreData() throws Exception {
-		return storeBusiness.downloadStoreData();
-	}
+	public ResponseEntity<InputStreamResource> downloadStoreData(@RequestParam String year) throws Exception {
 
+		log.info("Download Store Data | corrId={}", MDC.get("correlationId"));
+		return storeBusiness.downloadStoreData(year);
+	}
 }

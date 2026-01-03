@@ -41,12 +41,7 @@ import org.apache.poi.xssf.usermodel.XSSFRichTextString;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.MDC;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -102,196 +97,159 @@ import com.pipc.dashboard.drawing.response.TenderBhamaResponse;
 import com.pipc.dashboard.service.DrawingService;
 import com.pipc.dashboard.utility.ApplicationError;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class DrawingServiceImpl implements DrawingService {
-	@Autowired
-	private DamSafetyRepository damRepository;
+	private final DamSafetyRepository damRepository;
+	private final DamMetaRepository damMetaRepository;
+	private final DamInspectionRepository damInspectionRepository;
+	private final DamNalikaRepository damNalikaRepository;
+	private final PralambitBhusampadanRepository pralambitBhusampadanRepository;
+	private final SinchanKshamataRepository sinchanKshamataRepository;
+	private final TenderBhamaRepository tenderBhamaRerpository;
+	private final TenderTargetRepository tenderTargetRepository;
+	private final TenderPlanRepository tenderPlanRepository;
+	private final TenderSummaryRepository tenderSummaryRepository;
+	private final ObjectMapper objectMapper;
 
-	@Autowired
-	private DamMetaRepository damMetaRepository;
-	@Autowired
-	private DamInspectionRepository damInspectionRepository;
-
-	@Autowired
-	private ObjectMapper objectMapper;
-	@Autowired
-	private DamNalikaRepository damNalikaRepository;
-
-	@Autowired
-	private PralambitBhusampadanRepository pralambitBhusampadanRepository;
-	@Autowired
-	private SinchanKshamataRepository sinchanKshamataRepository;
-	@Autowired
-	private TenderBhamaRepository tenderBhamaRerpository;
-	@Autowired
-	private TenderTargetRepository tenderTargetRepository;
-	@Autowired
-	private TenderPlanRepository tenderPlanRepository;
-	@Autowired
-	private TenderSummaryRepository tenderSummaryRepository;
-
-	@Transactional
 	@Override
-	public DamSafetyResponse saveOrUpdateDamSafety(DamSafetyRequest damSafetyRequest) {
+	@Transactional
+	public DamSafetyResponse saveOrUpdateDamSafety(DamSafetyRequest request) {
 
 		DamSafetyResponse response = new DamSafetyResponse();
 		ApplicationError error = new ApplicationError();
 
-		StringBuilder log = new StringBuilder();
-		int updated = 0, created = 0, deleted = 0;
-		String userFromMDC = MDC.get("user");
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START saveOrUpdateDamSafety | corrId={}", corrId);
+
+		int created = 0, updated = 0, deleted = 0;
+		StringBuilder auditLog = new StringBuilder();
 
 		try {
-			// ---------- META HANDLING ----------
-			DamMetaEntity savedMeta;
 
-			if (damSafetyRequest.getDamMetaData() != null) {
-				String title = damSafetyRequest.getDamMetaData().getTitle();
-				String period = damSafetyRequest.getDamMetaData().getPeriod();
-				String unit = damSafetyRequest.getDamMetaData().getUnit();
-
-				Optional<DamMetaEntity> existingMetaOpt = damMetaRepository.findByTitleAndPeriod(title, period);
-
-				if (existingMetaOpt.isPresent()) {
-					DamMetaEntity meta = existingMetaOpt.get();
-					boolean changed = !Objects.equals(meta.getUnit(), unit);
-					if (changed) {
-						meta.setUnit(unit);
-						meta.setUpdatedAt(LocalDateTime.now());
-						meta.setUpdatedBy(userFromMDC);
-						damMetaRepository.save(meta);
-						log.append("Updated Meta: [Title=").append(title).append(", Period=").append(period)
-								.append("]. ");
-					}
-					savedMeta = meta;
-				} else {
-					DamMetaEntity meta = new DamMetaEntity();
-					meta.setTitle(title);
-					meta.setPeriod(period);
-					meta.setUnit(unit);
-					meta.setCreatedAt(LocalDateTime.now());
-					meta.setUpdatedAt(LocalDateTime.now());
-					meta.setCreatedBy(userFromMDC);
-					meta.setUpdatedBy(userFromMDC);
-					damMetaRepository.save(meta);
-					savedMeta = meta;
-					log.append("Created new Meta: [Title=").append(title).append(", Period=").append(period)
-							.append("]. ");
-				}
-			} else {
-				response.setMessage("Meta information missing in request.");
+			// ---------- META ----------
+			if (request.getDamMetaData() == null) {
 				error.setErrorCode("META_MISSING");
-				error.setErrorDescription("Meta section is required for Dam Safety request.");
+				error.setErrorDescription("Meta section is required");
 				response.setErrorDetails(error);
+				response.setMessage("Meta information missing");
 				return response;
 			}
 
-			// ---------- ROW HANDLING ----------
-			for (DamDynamicRow row : damSafetyRequest.getRows()) {
+			String title = request.getDamMetaData().getTitle();
+			String period = request.getDamMetaData().getPeriod();
+			String unit = request.getDamMetaData().getUnit();
+
+			DamMetaEntity meta = damMetaRepository.findByTitleAndPeriod(title, period).orElseGet(() -> {
+				DamMetaEntity m = new DamMetaEntity();
+				m.setTitle(title);
+				m.setPeriod(period);
+				m.setUnit(unit);
+				m.setCreatedBy(user);
+				m.setUpdatedBy(user);
+				m.setCreatedAt(LocalDateTime.now());
+				m.setUpdatedAt(LocalDateTime.now());
+				return damMetaRepository.save(m);
+			});
+
+			// ---------- ROWS ----------
+			for (DamDynamicRow row : request.getRows()) {
 
 				if (row.getRowId() == null || row.getYear() == null || row.getMonth() == null)
 					continue;
 
-				String projectName = (row.getData() != null) ? (String) row.getData().get("projectName") : null;
+				String projectName = row.getData() == null ? null : (String) row.getData().get("projectName");
 
-				// ---------- DELETE ----------
+				// DELETE
 				if ("D".equalsIgnoreCase(row.getFlag())) {
 					damRepository.findByDeleteIdAndYearAndMonthAndProjectName(row.getDeleteId(), row.getYear(),
-							row.getMonth(), projectName).ifPresent(entity -> {
-								damRepository.delete(entity);
-							});
+							row.getMonth(), projectName).ifPresent(damRepository::delete);
 					deleted++;
-					log.append("Deleted deleteId ").append(row.getDeleteId()).append(", project '").append(projectName)
-							.append(". ");
 					continue;
 				}
 
-				// ---------- CREATE or UPDATE ----------
-				Optional<DamSafetyEntity> existingOpt = damRepository.findByRowIdAndYearAndMonthAndProjectNameAndMetaId(
-						row.getRowId(), row.getYear(), row.getMonth(), projectName, savedMeta.getId());
+				JsonNode json = objectMapper.valueToTree(row.getData());
 
-				JsonNode incomingJson;
-				try {
-					incomingJson = objectMapper.valueToTree(row.getData());
-				} catch (Exception e) {
-					incomingJson = objectMapper.createObjectNode();
-				}
+				Optional<DamSafetyEntity> existing = damRepository.findByRowIdAndYearAndMonthAndProjectNameAndMetaId(
+						row.getRowId(), row.getYear(), row.getMonth(), projectName, meta.getId());
 
-				if (existingOpt.isPresent()) {
-					DamSafetyEntity entity = existingOpt.get();
-
-					boolean changed = !Objects.equals(entity.getData(), incomingJson)
-							|| !Objects.equals(entity.getYear(), row.getYear())
-							|| !Objects.equals(entity.getMonth(), row.getMonth())
-							|| !Objects.equals(entity.getProjectName(), projectName);
-
-					if (changed) {
-						entity.setData(incomingJson);
-						entity.setYear(row.getYear());
-						entity.setMonth(row.getMonth());
-						entity.setProjectName(projectName);
-						entity.setUpdatedBy(userFromMDC);
-						entity.setUpdatedAt(LocalDateTime.now());
-						entity.setFlag("U");
-						damRepository.save(entity);
+				if (existing.isPresent()) {
+					DamSafetyEntity e = existing.get();
+					if (!Objects.equals(e.getData(), json)) {
+						e.setData(json);
+						e.setUpdatedBy(user);
+						e.setUpdatedAt(LocalDateTime.now());
+						e.setFlag("U");
+						damRepository.save(e);
 						updated++;
-						log.append("Updated rowId ").append(row.getRowId()).append(", project '").append(projectName)
-								.append("' for metaId ").append(savedMeta.getId()).append(". ");
 					}
-
 				} else {
-					DamSafetyEntity entity = new DamSafetyEntity();
-					entity.setDeleteId(row.getDeleteId());
-					entity.setRowId(row.getRowId());
-					entity.setYear(row.getYear());
-					entity.setMonth(row.getMonth());
-					entity.setProjectName(projectName);
-					entity.setData(incomingJson);
-					entity.setMeta(savedMeta);
-					entity.setCreatedBy(userFromMDC);
-					entity.setUpdatedBy(userFromMDC);
-					entity.setCreatedAt(LocalDateTime.now());
-					entity.setUpdatedAt(LocalDateTime.now());
-					entity.setFlag("C");
-					damRepository.save(entity);
+					DamSafetyEntity e = new DamSafetyEntity();
+					e.setRowId(row.getRowId());
+					e.setDeleteId(row.getDeleteId());
+					e.setYear(row.getYear());
+					e.setMonth(row.getMonth());
+					e.setProjectName(projectName);
+					e.setMeta(meta);
+					e.setData(json);
+					e.setFlag("C");
+					e.setCreatedBy(user);
+					e.setUpdatedBy(user);
+					e.setCreatedAt(LocalDateTime.now());
+					e.setUpdatedAt(LocalDateTime.now());
+					damRepository.save(e);
 					created++;
-					log.append("Created rowId ").append(row.getRowId()).append(", project '").append(projectName)
-							.append("' for metaId ").append(savedMeta.getId()).append(". ");
 				}
 			}
 
-			// ---------- SUCCESS RESPONSE ----------
-			response.setMessage(String.format("Processed: %d updated, %d created, %d deleted. %s", updated, created,
-					deleted, log.toString()));
-
+			response.setMessage(String.format("Created=%d Updated=%d Deleted=%d", created, updated, deleted));
 			error.setErrorCode("SUCCESS");
-			error.setErrorDescription("Data saved or updated successfully.");
+			error.setErrorDescription("Processed successfully");
 			response.setErrorDetails(error);
+
+			log.info("SUCCESS saveOrUpdateDamSafety | created={} updated={} deleted={} | corrId={}", created, updated,
+					deleted, corrId);
 
 			return response;
 
 		} catch (Exception e) {
-			// ---------- ERROR HANDLING ----------
-			ApplicationError err = new ApplicationError();
-			err.setErrorCode("DAM_SAVE_ERROR");
-			err.setErrorDescription(e.getMessage());
-			response.setMessage("Error while saving Dam Safety Data.");
-			response.setErrorDetails(err);
+
+			log.error("ERROR saveOrUpdateDamSafety | corrId={}", corrId, e);
+			error.setErrorCode("DAM_SAVE_ERROR");
+			error.setErrorDescription(e.getMessage());
+			response.setErrorDetails(error);
+			response.setMessage("Error while saving Dam Safety data");
 			return response;
 		}
 	}
 
 	@Override
-	public DamSafetyResponse getDamSafetyData(String year, int page, int size) {
+	public DamSafetyResponse getDamSafetyData(String year) {
+
 		DamSafetyResponse response = new DamSafetyResponse();
 		ApplicationError error = new ApplicationError();
 
+		final String corrId = MDC.get("correlationId");
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		log.info("START getDamSafetyData | year={} | user={} | corrId={}", year, user, corrId);
+
 		try {
-			Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
+
+			// 🔹 Fetch meta data for year
 			List<DamMetaEntity> metaList = damMetaRepository.findByPeriodContaining(year);
 
 			if (metaList.isEmpty()) {
+
+				log.warn("No DamSafety meta found | year={} | corrId={}", year, corrId);
+
 				response.setMessage("No records found for year: " + year);
 				error.setErrorCode("NO_DATA_FOUND");
 				error.setErrorDescription("No dam safety data found for the given year.");
@@ -299,12 +257,14 @@ public class DrawingServiceImpl implements DrawingService {
 				return response;
 			}
 
-			List<Object> metaResponses = new ArrayList<>();
+			List<Object> metaResponses = new ArrayList<>(metaList.size());
 
 			for (DamMetaEntity meta : metaList) {
-				Page<DamSafetyEntity> rowsPage = damRepository.findByMetaId(meta.getId(), pageable);
 
-				List<Map<String, Object>> rowList = rowsPage.getContent().stream().map(entity -> {
+				// 🔹 Fetch ALL rows (no pagination)
+				List<DamSafetyEntity> rows = damRepository.findByMetaIdOrderByRowIdAsc(meta.getId());
+
+				List<Map<String, Object>> rowList = rows.stream().map(entity -> {
 					Map<String, Object> rowMap = new LinkedHashMap<>();
 					rowMap.put("rowId", entity.getRowId());
 					rowMap.put("year", entity.getYear());
@@ -313,19 +273,21 @@ public class DrawingServiceImpl implements DrawingService {
 					rowMap.put("flag", entity.getFlag());
 					rowMap.put("deleteId", entity.getDeleteId());
 					return rowMap;
-				}).collect(Collectors.toList());
+				}).toList();
 
-				Map<String, Object> metaBlock = new LinkedHashMap<>();
 				Map<String, Object> metaData = new LinkedHashMap<>();
 				metaData.put("title", meta.getTitle());
 				metaData.put("period", meta.getPeriod());
 				metaData.put("unit", meta.getUnit());
 
+				Map<String, Object> metaBlock = new LinkedHashMap<>();
 				metaBlock.put("meta", metaData);
 				metaBlock.put("rows", rowList);
-				metaBlock.put("totalElements", rowsPage.getTotalElements());
-				metaBlock.put("totalPages", rowsPage.getTotalPages());
-				metaBlock.put("pageNumber", rowsPage.getNumber());
+
+				// 🔹 Keep these fields (same keys, pagination removed)
+				metaBlock.put("totalElements", rowList.size());
+				metaBlock.put("totalPages", 1);
+				metaBlock.put("pageNumber", 0);
 
 				metaResponses.add(metaBlock);
 			}
@@ -336,7 +298,13 @@ public class DrawingServiceImpl implements DrawingService {
 			error.setErrorDescription("Data fetched successfully.");
 			response.setErrorDetails(error);
 
+			log.info("SUCCESS getDamSafetyData | year={} | metaCount={} | corrId={}", year, metaResponses.size(),
+					corrId);
+
 		} catch (Exception e) {
+
+			log.error("ERROR getDamSafetyData | year={} | corrId={}", year, corrId, e);
+
 			error.setErrorCode("DAM_FETCH_ERROR");
 			error.setErrorDescription(e.getMessage());
 			response.setMessage("Error fetching Dam Safety Data.");
@@ -352,57 +320,69 @@ public class DrawingServiceImpl implements DrawingService {
 
 		DamInspectionResponse response = new DamInspectionResponse();
 		ApplicationError error = new ApplicationError();
-		StringBuilder log = new StringBuilder();
-		String user = MDC.get("user");
+
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START saveOrUpdateDamInspection | title={} | period={} | user={} | corrId={}", request.getTitle(),
+				request.getPeriod(), user, corrId);
+
 		int created = 0, updated = 0, deleted = 0;
+		StringBuilder auditLog = new StringBuilder();
 
 		try {
-			String title = request.getTitle();
-			String period = request.getPeriod();
+			final String title = request.getTitle();
+			final String period = request.getPeriod();
 
 			for (Map.Entry<String, DepartmentData> deptEntry : request.getDepartments().entrySet()) {
-				String deptKey = deptEntry.getKey();
-				DepartmentData deptData = deptEntry.getValue();
+
+				final String deptKey = deptEntry.getKey();
+				final DepartmentData deptData = deptEntry.getValue();
 
 				for (InspectionRow row : deptData.getRows()) {
-					if (row.getRowId() == null || row.getYear() == null || row.getDeleteId() == null)
+
+					if (row.getRowId() == null || row.getYear() == null || row.getDeleteId() == null) {
 						continue;
+					}
 
-					Optional<DamInspectionEntity> existingOpt = damInspectionRepository
-							.findByTitleAndDepartmentKeyAndRowIdAndYearAndMonthAndPeriod(title, deptKey, row.getRowId(),
-									row.getYear(), row.getMonth(), period);
+					final String flag = row.getFlag() == null ? "" : row.getFlag().trim().toUpperCase();
 
-					Optional<DamInspectionEntity> existingOptForDel = damInspectionRepository
-							.findByTitleAndDepartmentKeyAndDeleteIdAndYearAndMonthAndPeriod(title, deptKey,
-									row.getDeleteId(), row.getYear(), row.getMonth(), period);
 					JsonNode jsonData = objectMapper.valueToTree(row.getData());
-					String flag = row.getFlag() == null ? "" : row.getFlag().trim().toUpperCase();
 
-					// --- DELETE ---
+					// ---------- DELETE ----------
 					if ("D".equals(flag)) {
-						existingOptForDel.ifPresent(entity -> {
-							damInspectionRepository.delete(entity);
-							log.append("Deleted deleteId ").append(row.getDeleteId()).append(" from dept ")
-									.append(deptKey).append(". ");
-						});
+
+						damInspectionRepository.findByTitleAndDepartmentKeyAndDeleteIdAndYearAndMonthAndPeriod(title,
+								deptKey, row.getDeleteId(), row.getYear(), row.getMonth(), period).ifPresent(entity -> {
+									damInspectionRepository.delete(entity);
+									auditLog.append("Deleted deleteId ").append(row.getDeleteId()).append(" from dept ")
+											.append(deptKey).append(". ");
+								});
+
 						deleted++;
 						continue;
 					}
 
-					// --- UPDATE ---
+					// ---------- UPDATE / CREATE ----------
+					Optional<DamInspectionEntity> existingOpt = damInspectionRepository
+							.findByTitleAndDepartmentKeyAndRowIdAndYearAndMonthAndPeriod(title, deptKey, row.getRowId(),
+									row.getYear(), row.getMonth(), period);
+
 					if (existingOpt.isPresent()) {
+						// UPDATE
 						DamInspectionEntity entity = existingOpt.get();
 						entity.setData(jsonData);
 						entity.setUpdatedBy(user);
 						entity.setUpdatedAt(LocalDateTime.now());
 						entity.setFlag("U");
+
 						damInspectionRepository.save(entity);
+
 						updated++;
-						log.append("Updated row ").append(row.getRowId()).append(" from dept ").append(deptKey)
+						auditLog.append("Updated row ").append(row.getRowId()).append(" from dept ").append(deptKey)
 								.append(". ");
-					}
-					// --- CREATE ---
-					else {
+					} else {
+						// CREATE
 						DamInspectionEntity entity = new DamInspectionEntity();
 						entity.setTitle(title);
 						entity.setPeriod(period);
@@ -414,26 +394,34 @@ public class DrawingServiceImpl implements DrawingService {
 						entity.setMonth(row.getMonth());
 						entity.setData(jsonData);
 						entity.setFlag("C");
-						entity.setCreatedAt(LocalDateTime.now());
-						entity.setUpdatedAt(LocalDateTime.now());
 						entity.setCreatedBy(user);
 						entity.setUpdatedBy(user);
+						entity.setCreatedAt(LocalDateTime.now());
+						entity.setUpdatedAt(LocalDateTime.now());
+
 						damInspectionRepository.save(entity);
+
 						created++;
-						log.append("Created row ").append(row.getRowId()).append(" in dept ").append(deptKey)
+						auditLog.append("Created row ").append(row.getRowId()).append(" in dept ").append(deptKey)
 								.append(". ");
 					}
 				}
 			}
 
 			response.setMessage(String.format("Processed: %d created, %d updated, %d deleted. %s", created, updated,
-					deleted, log.toString()));
+					deleted, auditLog));
 
 			error.setErrorCode("INSPECTION_SAVE_SUCCESS");
 			error.setErrorDescription("Data processed successfully.");
 			response.setErrorDetails(error);
 
+			log.info("SUCCESS saveOrUpdateDamInspection | created={} updated={} deleted={} | corrId={}", created,
+					updated, deleted, corrId);
+
 		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdateDamInspection | corrId={}", corrId, e);
+
 			error.setErrorCode("INSPECTION_SAVE_ERROR");
 			error.setErrorDescription(e.getMessage());
 			response.setMessage("Error while saving Dam Inspection data.");
@@ -444,69 +432,54 @@ public class DrawingServiceImpl implements DrawingService {
 	}
 
 	@Override
-	public DamInspectionResponse getDamInspectionData(String year, String period, String departmentKey, int page,
-			int size) {
+	public DamInspectionResponse getDamInspectionData(String year) {
+
 		DamInspectionResponse response = new DamInspectionResponse();
 		ApplicationError error = new ApplicationError();
 
+		final String corrId = MDC.get("correlationId");
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		log.info("START getDamInspectionData | year={} | user={} | corrId={}", year, user, corrId);
+
 		try {
-			List<Map<String, Object>> finalDataList = new ArrayList<>();
 
-			// ✅ Case 1: Specific department
-			if (departmentKey != null && !departmentKey.isEmpty()) {
-				Pageable pageable = PageRequest.of(page, size, Sort.by("updatedAt").descending());
-				Page<DamInspectionEntity> pageResult = damInspectionRepository.findByYearAndPeriodAndDepartmentKey(year,
-						period, departmentKey, pageable);
+			// 🔹 Fetch all inspection records for year ordered by rowId ASC
+			List<DamInspectionEntity> entities = damInspectionRepository.findByYearOrderByRowIdAsc(year);
 
-				for (DamInspectionEntity entity : pageResult.getContent()) {
-					finalDataList.add(mapEntityToRecord(entity));
-				}
+			if (entities == null || entities.isEmpty()) {
 
-			} else {
-				// ✅ Case 2: No department filter → fetch all departments
-				List<String> departments = damInspectionRepository.findDistinctDepartmentKeys(year, period);
-				if (departments == null || departments.isEmpty()) {
-					response.setMessage("No departments found for given year and period.");
-					response.setData(Collections.emptyList());
+				log.warn("No DamInspection data found | year={} | corrId={}", year, corrId);
 
-					error.setErrorCode("NO_DEPARTMENT");
-					error.setErrorDescription("No department data found.");
-					response.setErrorDetails(error);
-					return response;
-				}
+				response.setMessage("No records found for year: " + year);
+				response.setData(Collections.emptyList());
 
-				int perDeptLimit = Math.max(1, size / departments.size()); // at least 1 record per department
-
-				for (String dept : departments) {
-					Pageable pageable = PageRequest.of(page, perDeptLimit, Sort.by("updatedAt").descending());
-					Page<DamInspectionEntity> deptPage = damInspectionRepository
-							.findByYearAndPeriodAndDepartmentKey(year, period, dept, pageable);
-
-					for (DamInspectionEntity entity : deptPage.getContent()) {
-						finalDataList.add(mapEntityToRecord(entity));
-					}
-				}
+				error.setErrorCode("NO_DATA_FOUND");
+				error.setErrorDescription("No dam inspection data found.");
+				response.setErrorDetails(error);
+				return response;
 			}
 
-			// ✅ Sort all fetched records by updatedAt (latest first)
-			finalDataList.sort((a, b) -> {
-				Object valA = a.get("updatedAt");
-				Object valB = b.get("updatedAt");
-				if (valA instanceof Comparable && valB instanceof Comparable) {
-					return ((Comparable) valB).compareTo(valA);
-				}
-				return 0;
-			});
+			List<Map<String, Object>> finalDataList = new ArrayList<>(entities.size());
 
-			// ✅ Fill response
+			for (DamInspectionEntity entity : entities) {
+				finalDataList.add(mapEntityToRecord(entity));
+			}
+
 			response.setData(finalDataList);
-			response.setMessage("Data fetched successfully for year " + year + " and period " + period);
+			response.setMessage("Data fetched successfully for year " + year);
 
 			error.setErrorCode("INSPECTION_FETCH_SUCCESS");
 			error.setErrorDescription("Data fetched successfully.");
 			response.setErrorDetails(error);
 
+			log.info("SUCCESS getDamInspectionData | year={} | records={} | corrId={}", year, finalDataList.size(),
+					corrId);
+
 		} catch (Exception e) {
+
+			log.error("ERROR getDamInspectionData | year={} | corrId={}", year, corrId, e);
+
 			error.setErrorCode("INSPECTION_FETCH_ERROR");
 			error.setErrorDescription(e.getMessage());
 			response.setMessage("Error fetching Dam Inspection data.");
@@ -538,115 +511,158 @@ public class DrawingServiceImpl implements DrawingService {
 		return record;
 	}
 
+	@Transactional
 	@Override
 	public DamNalikaResponse saveOrUpdateNalika(DamNalikaRequest request) {
+
 		DamNalikaResponse response = new DamNalikaResponse();
 		ApplicationError error = new ApplicationError();
 
-		String user = MDC.get("user");
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START saveOrUpdateNalika | title={} | period={} | year={} | month={} | user={} | corrId={}",
+				request.getTitle(), request.getPeriod(), request.getYear(), request.getMonth(), user, corrId);
+
 		int created = 0, updated = 0, deleted = 0;
-		StringBuilder log = new StringBuilder();
+		StringBuilder auditLog = new StringBuilder();
 
 		try {
+
 			for (Map.Entry<String, NalikaDepartmentData> deptEntry : request.getDepartments().entrySet()) {
-				String deptKey = deptEntry.getKey();
-				NalikaDepartmentData deptData = deptEntry.getValue();
+
+				final String deptKey = deptEntry.getKey();
+				final NalikaDepartmentData deptData = deptEntry.getValue();
 
 				for (NalikaRow row : deptData.getRows()) {
-					if (row.getRowId() == null)
-						continue;
-					if (row.getDeleteId() == null)
-						continue;
 
+					if (row.getRowId() == null || row.getDeleteId() == null) {
+						continue;
+					}
+
+					final String flag = row.getFlag() == null ? "" : row.getFlag().trim().toUpperCase();
+
+					JsonNode jsonData = objectMapper.valueToTree(row); // ✔ same as original
+
+					// ---------- DELETE ----------
+					if ("D".equals(flag)) {
+
+						damNalikaRepository
+								.findByDepartmentKeyAndDeleteIdAndYearAndMonthAndPeriod(deptKey, row.getDeleteId(),
+										request.getYear(), request.getMonth(), request.getPeriod())
+								.ifPresent(entity -> {
+									damNalikaRepository.delete(entity); // hard delete (same logic)
+									auditLog.append("Deleted row ").append(row.getDeleteId()).append(" from dept ")
+											.append(deptKey).append(". ");
+								});
+
+						deleted++;
+						continue;
+					}
+
+					// ---------- UPDATE / CREATE ----------
 					Optional<DamNalikaEntity> existingOpt = damNalikaRepository
 							.findByDepartmentKeyAndRowIdAndYearAndMonthAndPeriod(deptKey, row.getRowId(),
 									request.getYear(), request.getMonth(), request.getPeriod());
 
-					Optional<DamNalikaEntity> existingOptDel = damNalikaRepository
-							.findByDepartmentKeyAndDeleteIdAndYearAndMonthAndPeriod(deptKey, row.getDeleteId(),
-									request.getYear(), request.getMonth(), request.getPeriod());
-
-					String flag = row.getFlag() == null ? "" : row.getFlag().trim().toUpperCase();
-					JsonNode jsonData = objectMapper.valueToTree(row); // ✅ Fixed
-
-					// ---------- DELETE ----------
-					if ("D".equals(flag)) {
-						existingOptDel.ifPresent(entity -> {
-							damNalikaRepository.delete(entity); // ✅ Hard delete (as per previous logic)
-						});
-						deleted++;
-						log.append("Deleted row ").append(row.getDeleteId()).append(" from dept ").append(deptKey)
-								.append(". ");
-						continue;
-					}
-
-					// ---------- UPDATE ----------
 					if (existingOpt.isPresent()) {
+						// UPDATE
 						DamNalikaEntity entity = existingOpt.get();
 						entity.setData(jsonData);
 						entity.setUpdatedBy(user);
 						entity.setUpdatedAt(LocalDateTime.now());
 						entity.setFlag("U");
-						damNalikaRepository.save(entity);
-						updated++;
-						continue;
-					}
 
-					// ---------- CREATE ----------
-					DamNalikaEntity entity = new DamNalikaEntity();
-					entity.setTitle(request.getTitle());
-					entity.setPeriod(request.getPeriod());
-					entity.setDepartmentKey(deptKey);
-					entity.setDepartmentName(deptData.getDepartmentName());
-					entity.setRowId(row.getRowId());
-					entity.setDeleteId(row.getDeleteId());
-					entity.setYear(request.getYear());
-					entity.setMonth(request.getMonth());
-					entity.setData(jsonData);
-					entity.setFlag("C");
-					entity.setCreatedAt(LocalDateTime.now());
-					entity.setUpdatedAt(LocalDateTime.now());
-					entity.setCreatedBy(user);
-					entity.setUpdatedBy(user);
-					damNalikaRepository.save(entity);
-					created++;
+						damNalikaRepository.save(entity);
+
+						updated++;
+						auditLog.append("Updated row ").append(row.getRowId()).append(" from dept ").append(deptKey)
+								.append(". ");
+					} else {
+						// CREATE
+						DamNalikaEntity entity = new DamNalikaEntity();
+						entity.setTitle(request.getTitle());
+						entity.setPeriod(request.getPeriod());
+						entity.setDepartmentKey(deptKey);
+						entity.setDepartmentName(deptData.getDepartmentName());
+						entity.setRowId(row.getRowId());
+						entity.setDeleteId(row.getDeleteId());
+						entity.setYear(request.getYear());
+						entity.setMonth(request.getMonth());
+						entity.setData(jsonData);
+						entity.setFlag("C");
+						entity.setCreatedBy(user);
+						entity.setUpdatedBy(user);
+						entity.setCreatedAt(LocalDateTime.now());
+						entity.setUpdatedAt(LocalDateTime.now());
+
+						damNalikaRepository.save(entity);
+
+						created++;
+						auditLog.append("Created row ").append(row.getRowId()).append(" in dept ").append(deptKey)
+								.append(". ");
+					}
 				}
 			}
 
 			response.setMessage(String.format("Processed: %d created, %d updated, %d deleted. %s", created, updated,
-					deleted, log.toString()));
+					deleted, auditLog));
+
 			error.setErrorCode("NALIKA_SAVE_SUCCESS");
 			error.setErrorDescription("Data processed successfully.");
 			response.setErrorDetails(error);
+
+			log.info("SUCCESS saveOrUpdateNalika | created={} updated={} deleted={} | corrId={}", created, updated,
+					deleted, corrId);
+
 			return response;
 
 		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdateNalika | corrId={}", corrId, e);
+
 			error.setErrorCode("NALIKA_SAVE_ERROR");
 			error.setErrorDescription(e.getMessage());
 			response.setMessage("Error while saving Nalika data.");
 			response.setErrorDetails(error);
+
 			return response;
 		}
 	}
 
 	@Override
-	public DamNalikaResponse getNalikaByPeriod(String period, String departmentKey, int page, int size) {
+	public DamNalikaResponse getNalikaByPeriod(String period) {
+
 		DamNalikaResponse response = new DamNalikaResponse();
 		ApplicationError error = new ApplicationError();
 
-		try {
-			Pageable pageable = PageRequest.of(page, size);
-			Page<DamNalikaEntity> entityPage;
+		final String corrId = MDC.get("correlationId");
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
 
-			if (departmentKey != null && !departmentKey.isEmpty()) {
-				entityPage = damNalikaRepository.findByPeriodAndDepartment(period, departmentKey, pageable);
-			} else {
-				entityPage = damNalikaRepository.findByPeriod(period, pageable);
+		log.info("START getNalikaByPeriod | period={} | user={} | corrId={}", period, user, corrId);
+
+		try {
+
+			// 🔹 Fetch all Nalika records for period ordered by rowId ASC
+			List<DamNalikaEntity> entities = damNalikaRepository.findByPeriodOrderByRowIdAsc(period);
+
+			if (entities == null || entities.isEmpty()) {
+
+				log.warn("No Nalika data found | period={} | corrId={}", period, corrId);
+
+				response.setMessage("No Nalika data found for period: " + period);
+				response.setData(Collections.emptyList());
+
+				error.setErrorCode("NO_DATA_FOUND");
+				error.setErrorDescription("No Nalika data found.");
+				response.setErrorDetails(error);
+				return response;
 			}
 
-			List<Map<String, Object>> resultList = new ArrayList<>();
+			List<Map<String, Object>> resultList = new ArrayList<>(entities.size());
 
-			for (DamNalikaEntity entity : entityPage.getContent()) {
+			for (DamNalikaEntity entity : entities) {
+
 				Map<String, Object> map = new LinkedHashMap<>();
 				map.put("id", entity.getId());
 				map.put("title", entity.getTitle());
@@ -660,12 +676,9 @@ public class DrawingServiceImpl implements DrawingService {
 				map.put("flag", entity.getFlag());
 				map.put("createdAt", entity.getCreatedAt());
 				map.put("updatedAt", entity.getUpdatedAt());
+
 				resultList.add(map);
 			}
-
-			/* 🔥 Department-wise + RowId sorting */
-			resultList.sort(Comparator.comparing((Map<String, Object> m) -> m.get("departmentKey").toString())
-					.thenComparingInt(m -> Integer.parseInt(m.get("rowId").toString())));
 
 			response.setMessage("Nalika data fetched successfully");
 			response.setData(resultList);
@@ -674,13 +687,21 @@ public class DrawingServiceImpl implements DrawingService {
 			error.setErrorDescription("Data fetched successfully");
 			response.setErrorDetails(error);
 
+			log.info("SUCCESS getNalikaByPeriod | period={} | records={} | corrId={}", period, resultList.size(),
+					corrId);
+
 			return response;
 
 		} catch (Exception e) {
+
+			log.error("ERROR getNalikaByPeriod | period={} | corrId={}", period, corrId, e);
+
 			error.setErrorCode("NALIKA_GET_ERROR");
 			error.setErrorDescription(e.getMessage());
 			response.setMessage("Error fetching Nalika data");
 			response.setErrorDetails(error);
+			response.setData(Collections.emptyList());
+
 			return response;
 		}
 	}
@@ -688,55 +709,77 @@ public class DrawingServiceImpl implements DrawingService {
 	@Override
 	@Transactional
 	public PralambitBhusampadanResponse saveOrUpdatePralambitBhusampadan(PralambitBhusampadanRequest req) {
+
 		PralambitBhusampadanResponse resp = new PralambitBhusampadanResponse();
 		ApplicationError err = new ApplicationError();
 
-		String user = MDC.get("user");
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START saveOrUpdatePralambitBhusampadan | period={} | title={} | user={} | corrId={}", req.getPeriod(),
+				req.getTitle(), user, corrId);
+
 		int created = 0, updated = 0, deleted = 0;
 
 		try {
+
 			for (PralambitBhusampadanRow row : req.getData()) {
 
-				String overallFlag = row.getOverallflag() == null ? "" : row.getOverallflag().trim().toUpperCase();
+				final String overallFlag = row.getOverallflag() == null ? ""
+						: row.getOverallflag().trim().toUpperCase();
 
-				// 🔹 CASE 1: Delete all records if overallflag = "D"
+				// ---------- CASE 1: DELETE ALL (overall) ----------
 				if ("D".equals(overallFlag) && row.getOveralldeleteId() != 0) {
+
 					pralambitBhusampadanRepository.deleteByCustomOverAllDeleteId(row.getOveralldeleteId());
+
 					deleted++;
+
+					log.debug("Deleted all records | overallDeleteId={} | corrId={}", row.getOveralldeleteId(), corrId);
 					continue;
 				}
 
-				// 🔹 CASE 2: Process individual subjects
+				// ---------- CASE 2: PROCESS INDIVIDUAL SUBJECTS ----------
 				for (PralambitVishay v : row.getPralambitVishay()) {
-					String flag = v.getFlag() == null ? "" : v.getFlag().trim().toUpperCase();
 
-					// 🧹 Delete a specific item by its deleteId
+					final String flag = v.getFlag() == null ? "" : v.getFlag().trim().toUpperCase();
+
+					// ---------- DELETE SINGLE ----------
 					if ("D".equals(flag) && v.getDeleteId() != 0) {
+
 						pralambitBhusampadanRepository.deleteByCustomDeleteId(v.getDeleteId());
+
 						deleted++;
+
+						log.debug("Deleted subject | deleteId={} | corrId={}", v.getDeleteId(), corrId);
 						continue;
 					}
 
 					JsonNode json = objectMapper.valueToTree(v);
 
-					// 🔍 Check if record already exists
 					Optional<PralambitBhusampadanEntity> existingOpt = pralambitBhusampadanRepository
 							.findByPeriodAndKramankAndSubIdAndStar(req.getPeriod(), row.getKramank(), v.getSubId(),
 									row.getStar());
 
+					// ---------- UPDATE ----------
 					if (existingOpt.isPresent()) {
+
 						PralambitBhusampadanEntity e = existingOpt.get();
+
 						if (!Objects.equals(e.getData(), json)) {
 							e.setData(json);
 							e.setUpdatedBy(user);
 							e.setUpdatedAt(LocalDateTime.now());
 							e.setFlag("U");
+
 							pralambitBhusampadanRepository.save(e);
 							updated++;
 						}
-					} else {
-						// 🆕 Create new record
+					}
+					// ---------- CREATE ----------
+					else {
 						PralambitBhusampadanEntity e = new PralambitBhusampadanEntity();
+
 						e.setTitle(req.getTitle());
 						e.setPeriod(req.getPeriod());
 						e.setKramank(row.getKramank());
@@ -749,7 +792,7 @@ public class DrawingServiceImpl implements DrawingService {
 						e.setCreatedAt(LocalDateTime.now());
 						e.setUpdatedAt(LocalDateTime.now());
 
-						// ✅ Set custom delete tracking IDs
+						// custom delete tracking (same logic)
 						e.setOverAllDeleteId(row.getOveralldeleteId());
 						e.setDeleteId(v.getDeleteId());
 
@@ -759,36 +802,68 @@ public class DrawingServiceImpl implements DrawingService {
 				}
 			}
 
-			// ✅ Build success response
 			resp.setMessage(String.format("Created: %d | Updated: %d | Deleted: %d", created, updated, deleted));
+
 			err.setErrorCode("BHUSAMPADAN_SAVE_OK");
 			err.setErrorDescription("Save or update successful");
 			resp.setErrorDetails(err);
 
+			log.info("SUCCESS saveOrUpdatePralambitBhusampadan | created={} updated={} deleted={} | corrId={}", created,
+					updated, deleted, corrId);
+
+			return resp;
+
 		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdatePralambitBhusampadan | corrId={}", corrId, e);
+
 			err.setErrorCode("BHUSAMPADAN_SAVE_ERR");
 			err.setErrorDescription(e.getMessage());
 			resp.setErrorDetails(err);
 			resp.setMessage("Error saving Pralambit Bhusampadan");
-		}
 
-		return resp;
+			return resp;
+		}
 	}
 
 	@Override
-	public PralambitBhusampadanResponse getPralambitBhusampadan(String period, String star, int page, int size) {
+	public PralambitBhusampadanResponse getPralambitBhusampadan(String period) {
+
 		PralambitBhusampadanResponse resp = new PralambitBhusampadanResponse();
 		ApplicationError err = new ApplicationError();
 
-		try {
-			Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
-			Page<PralambitBhusampadanEntity> result = (star == null || star.isBlank())
-					? pralambitBhusampadanRepository.findByPeriod(period, pageable)
-					: pralambitBhusampadanRepository.findByPeriodAndStar(period, star, pageable);
+		final String corrId = MDC.get("correlationId");
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
 
-			List<Map<String, Object>> out = new ArrayList<>();
-			for (PralambitBhusampadanEntity e : result.getContent()) {
-				Map<String, Object> m = new LinkedHashMap<>();
+		log.info("START getPralambitBhusampadan | period={} | user={} | corrId={}", period, user, corrId);
+
+		try {
+
+			// 🔹 Single DB call
+			List<PralambitBhusampadanEntity> entities = pralambitBhusampadanRepository.findByPeriod(period);
+
+			if (entities.isEmpty()) {
+
+				log.warn("No data found | period={} | corrId={}", period, corrId);
+
+				resp.setData(Collections.emptyList());
+				resp.setMessage("No data found for period: " + period);
+				err.setErrorCode("NO_DATA_FOUND");
+				err.setErrorDescription("No records found");
+				resp.setErrorDetails(err);
+				return resp;
+			}
+
+			// 🔥 SORT FIRST (kramank → subId)
+			entities.sort(Comparator.comparingInt(PralambitBhusampadanEntity::getKramank)
+					.thenComparingInt(PralambitBhusampadanEntity::getSubId));
+
+			// 🔹 Map AFTER sorting
+			List<Map<String, Object>> out = new ArrayList<>(entities.size());
+
+			for (PralambitBhusampadanEntity e : entities) {
+
+				Map<String, Object> m = new LinkedHashMap<>(8);
 				m.put("id", e.getId());
 				m.put("title", e.getTitle());
 				m.put("period", e.getPeriod());
@@ -799,27 +874,32 @@ public class DrawingServiceImpl implements DrawingService {
 				}));
 				m.put("flag", e.getFlag());
 				m.put("createdAt", e.getCreatedAt());
+
 				out.add(m);
 			}
 
-			// 🔥 Sort by kramank → subId
-			out.sort(Comparator.comparingInt((Map<String, Object> m) -> Integer.parseInt(m.get("kramank").toString()))
-					.thenComparingInt((Map<String, Object> m) -> Integer.parseInt(m.get("subId").toString())));
-
 			resp.setData(out);
 			resp.setMessage("Data fetched successfully");
+
 			err.setErrorCode("BHUSAMPADAN_GET_OK");
 			err.setErrorDescription("Records retrieved");
 			resp.setErrorDetails(err);
-			return resp;
+
+			log.info("SUCCESS getPralambitBhusampadan | period={} | records={} | corrId={}", period, out.size(),
+					corrId);
 
 		} catch (Exception e) {
+
+			log.error("ERROR getPralambitBhusampadan | period={} | corrId={}", period, corrId, e);
+
 			err.setErrorCode("BHUSAMPADAN_GET_ERR");
 			err.setErrorDescription(e.getMessage());
 			resp.setErrorDetails(err);
 			resp.setMessage("Error fetching data");
-			return resp;
+			resp.setData(Collections.emptyList());
+
 		}
+		return resp;
 	}
 
 	@Override
@@ -2039,91 +2119,105 @@ public class DrawingServiceImpl implements DrawingService {
 
 	@Override
 	public SinchanKshamataResponse getSinchanKshamataData(String period, String date) {
+
 		SinchanKshamataResponse res = new SinchanKshamataResponse();
 		ApplicationError err = new ApplicationError();
 
-		List<SinchanKshamataEntity> list;
-		if (date != null) {
-			list = sinchanKshamataRepository.findByPeriodAndDateOrderBySectionTitleAscRowIdAsc(period,
-					LocalDate.parse(date));
-		} else {
-			list = sinchanKshamataRepository.findByPeriodOrderBySectionTitleAscRowIdAsc(period);
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START getSinchanKshamataData | period={} | date={} | user={} | corrId={}", period, date, user,
+				corrId);
+
+		try {
+
+			List<SinchanKshamataEntity> list;
+
+			// ---------- FETCH DATA ----------
+			if (date != null) {
+				list = sinchanKshamataRepository.findByPeriodAndDateOrderBySectionTitleAscRowIdAsc(period,
+						LocalDate.parse(date));
+			} else {
+				list = sinchanKshamataRepository.findByPeriodOrderBySectionTitleAscRowIdAsc(period);
+			}
+
+			if (list == null || list.isEmpty()) {
+
+				log.warn("No SinchanKshamata data found | period={} | date={} | corrId={}", period, date, corrId);
+
+				res.setTitle("");
+				res.setPeriod(period);
+				res.setDate(date);
+				res.setData(Collections.emptyList());
+
+				err.setErrorCode("NO_DATA_FOUND");
+				err.setErrorDescription("No records found");
+				res.setErrorDetails(err);
+
+				return res;
+			}
+
+			// ---------- GROUP BY sectionTitle (preserve order) ----------
+			Map<String, List<SinchanKshamataEntity>> grouped = list.stream().collect(Collectors
+					.groupingBy(SinchanKshamataEntity::getSectionTitle, LinkedHashMap::new, Collectors.toList()));
+
+			// ---------- FIXED SECTION ORDER ----------
+			List<String> fixedOrder = Arrays.asList("मोठे प्रकल्प (प्रमाण)", "उपसा सिंचन योजना",
+					"मध्यम प्रकल्प (प्रमाण)", "त.पा. प्रकल्प (प्रमाण)");
+
+			List<Map<String, Object>> sectionList = new ArrayList<>();
+
+			for (String sectionKey : fixedOrder) {
+
+				List<SinchanKshamataEntity> sectionRows = grouped.get(sectionKey);
+				if (sectionRows == null || sectionRows.isEmpty()) {
+					continue;
+				}
+
+				Map<String, Object> sectionObj = new LinkedHashMap<>();
+				sectionObj.put("sectionTitle", sectionKey);
+
+				// ---------- SORT ROWS BY rowId ----------
+				List<Map<String, Object>> sortedRows = sectionRows.stream()
+						.sorted(Comparator.comparing(SinchanKshamataEntity::getRowId)).map(e -> {
+							Map<String, Object> row = new LinkedHashMap<>();
+							row.put("rowId", e.getRowId());
+							row.put("deleteId", e.getDeleteId());
+							row.put("flag", e.getFlag());
+							row.put("rows", e.getSectionData());
+							return row;
+						}).toList();
+
+				sectionObj.put("rows", sortedRows);
+				sectionList.add(sectionObj);
+			}
+
+			// ---------- BUILD RESPONSE ----------
+			res.setTitle(list.get(0).getTitle());
+			res.setPeriod(period);
+			res.setDate(date);
+			res.setData(sectionList);
+
+			err.setErrorCode("SINGET_OK");
+			err.setErrorDescription("Fetched successfully");
+			res.setErrorDetails(err);
+
+			log.info("SUCCESS getSinchanKshamataData | period={} | sections={} | corrId={}", period, sectionList.size(),
+					corrId);
+
+			return res;
+
+		} catch (Exception e) {
+
+			log.error("ERROR getSinchanKshamataData | period={} | date={} | corrId={}", period, date, corrId, e);
+
+			err.setErrorCode("SINGET_ERR");
+			err.setErrorDescription(e.getMessage());
+			res.setErrorDetails(err);
+			res.setData(Collections.emptyList());
+
+			return res;
 		}
-
-		// ✅ Group rows by sectionTitle (in insertion order)
-		Map<String, List<SinchanKshamataEntity>> grouped = list.stream().collect(
-				Collectors.groupingBy(SinchanKshamataEntity::getSectionTitle, LinkedHashMap::new, Collectors.toList()));
-
-		// ✅ FIXED ORDER (consistent with Excel)
-		List<String> fixedOrder = Arrays.asList("मोठे प्रकल्प (प्रमाण)", "उपसा सिंचन योजना", "मध्यम प्रकल्प (प्रमाण)",
-				"त.पा. प्रकल्प (प्रमाण)");
-
-		// ✅ Build section list in fixed order (if exists in DB)
-		List<Map<String, Object>> sectionList = new ArrayList<>();
-
-		for (String sectionKey : fixedOrder) {
-			List<SinchanKshamataEntity> sectionRows = grouped.get(sectionKey);
-			if (sectionRows == null || sectionRows.isEmpty())
-				continue;
-
-			// 🔹 Create section object
-			Map<String, Object> sectionObj = new LinkedHashMap<>();
-			sectionObj.put("sectionTitle", sectionKey);
-
-			// 🔹 Sort rows within section by rowId
-			List<Map<String, Object>> sortedRows = sectionRows.stream()
-					.sorted(Comparator.comparing(SinchanKshamataEntity::getRowId)).map(e -> {
-						Map<String, Object> row = new LinkedHashMap<>();
-						row.put("rowId", e.getRowId());
-						row.put("deleteId", e.getDeleteId());
-						row.put("flag", e.getFlag());
-						row.put("rows", e.getSectionData());
-						return row;
-					}).collect(Collectors.toList());
-
-			sectionObj.put("rows", sortedRows);
-			sectionList.add(sectionObj);
-		}
-
-		// ✅ Build response
-		res.setTitle(list.isEmpty() ? "" : list.get(0).getTitle());
-		res.setPeriod(period);
-		res.setDate(date);
-		res.setData(sectionList);
-
-		err.setErrorCode("SINGET_OK");
-		err.setErrorDescription("Fetched successfully");
-		res.setErrorDetails(err);
-
-		return res;
-	}
-
-	/**
-	 * Converts any section title (Marathi or English) to a safe camelCase key for
-	 * JSON Example: "मोठे प्रकल्प (प्रमाण)" → "mothePrakalpPraman" "मध्यम प्रकल्प
-	 * (प्रमाण)" → "madhyamPrakalpPraman" "Other Section Title" →
-	 * "otherSectionTitle"
-	 */
-	private String normalizeSectionKey(String title) {
-		if (title == null || title.isBlank())
-			return "unknownSection";
-
-		// Remove brackets, punctuation, etc.
-		String clean = title.replaceAll("[^\\p{IsAlphabetic}\\p{IsDigit}\\s]", " ").trim();
-
-		// Convert to English transliteration-friendly lowercase words
-		String[] parts = clean.split("\\s+");
-		StringBuilder key = new StringBuilder();
-
-		for (int i = 0; i < parts.length; i++) {
-			String p = parts[i].toLowerCase(Locale.forLanguageTag("hi-IN"));
-			if (i == 0)
-				key.append(p);
-			else
-				key.append(Character.toUpperCase(p.charAt(0))).append(p.substring(1));
-		}
-
-		return key.toString();
 	}
 
 	private void createHeaderIrr(Row row, int col, String text, CellStyle style) {
@@ -2139,12 +2233,6 @@ public class DrawingServiceImpl implements DrawingService {
 	}
 
 	private void createNumIrr(Row row, int col, double val, CellStyle style) {
-		Cell c = row.createCell(col);
-		c.setCellValue(val);
-		c.setCellStyle(style);
-	}
-
-	private void createIntIrr(Row row, int col, int val, CellStyle style) {
 		Cell c = row.createCell(col);
 		c.setCellValue(val);
 		c.setCellStyle(style);
@@ -2621,58 +2709,58 @@ public class DrawingServiceImpl implements DrawingService {
 	}
 
 	@Override
+	@Transactional
 	public TenderBhamaResponse saveOrUpdateTenderBhama(TenderSaveRequest req) {
 
-		String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START saveOrUpdateTenderBhama | year={} | month={} | date={} | user={} | corrId={}", req.getYear(),
+				req.getMonth(), req.getDate(), user, corrId);
 
 		TenderBhamaResponse response = new TenderBhamaResponse();
 		ApplicationError error = new ApplicationError();
 
 		try {
+
 			ObjectMapper mapper = new ObjectMapper();
 
 			for (TenderRowDTO row : req.getRows()) {
 
-				// 🔴 DELETE CASE
+				// ---------- DELETE ----------
 				if ("D".equalsIgnoreCase(row.getFlag())) {
 
-					Optional<TenderBhamaEntity> deleted = tenderBhamaRerpository.findByYearAndMonthAndDateAndDeleteId(
-							req.getYear(), req.getMonth(), req.getDate(), row.getDeleteId());
-
-					deleted.ifPresent(entity -> {
-						tenderBhamaRerpository.delete(entity); // 🔥 complete delete from DB
-					});
+					tenderBhamaRerpository.findByYearAndMonthAndDateAndDeleteId(req.getYear(), req.getMonth(),
+							req.getDate(), row.getDeleteId()).ifPresent(entity -> {
+								tenderBhamaRerpository.delete(entity); // HARD DELETE
+								log.debug("Deleted TenderBhama | deleteId={} | corrId={}", row.getDeleteId(), corrId);
+							});
 
 					continue;
 				}
 
-				// 🟡 UPDATE / CREATE
+				// ---------- UPDATE / CREATE ----------
 				Optional<TenderBhamaEntity> existing = tenderBhamaRerpository.findByYearAndMonthAndDateAndRowId(
 						req.getYear(), req.getMonth(), req.getDate(), row.getRowId());
 
-				TenderBhamaEntity entity = existing.orElse(new TenderBhamaEntity());
+				TenderBhamaEntity entity = existing.orElseGet(TenderBhamaEntity::new);
 
-				// BASIC FIELDS
 				entity.setYear(req.getYear());
 				entity.setMonth(req.getMonth());
 				entity.setDate(req.getDate());
 				entity.setRowId(row.getRowId());
 				entity.setDeleteId(row.getDeleteId());
-
-				// JSON NODE
 				entity.setData(mapper.valueToTree(row.getData()));
 
-				// FLAG
 				entity.setFlag(existing.isPresent() ? "U" : "C");
 
-				// AUDIT
-				if (!existing.isPresent()) {
+				if (existing.isEmpty()) {
 					entity.setCreatedAt(LocalDateTime.now());
-					entity.setCreatedBy(currentUser);
+					entity.setCreatedBy(user);
 				}
 
 				entity.setUpdatedAt(LocalDateTime.now());
-				entity.setUpdatedBy(currentUser);
+				entity.setUpdatedBy(user);
 
 				tenderBhamaRerpository.save(entity);
 			}
@@ -2681,50 +2769,67 @@ public class DrawingServiceImpl implements DrawingService {
 			error.setErrorDescription("Saved Successfully");
 			response.setErrorDetails(error);
 
-		} catch (Exception ex) {
+			log.info("SUCCESS saveOrUpdateTenderBhama | rows={} | corrId={}", req.getRows().size(), corrId);
 
-			ex.printStackTrace();
+		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdateTenderBhama | corrId={}", corrId, e);
+
 			error.setErrorCode("500");
-			error.setErrorDescription(ex.getMessage());
+			error.setErrorDescription(e.getMessage());
 			response.setErrorDetails(error);
-
 		}
+
 		return response;
 	}
 
 	@Override
 	public TenderBhamaResponse getTenderBhamaDetails(String year, String month, String date) {
 
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START getTenderBhamaDetails | year={} | month={} | date={} | user={} | corrId={}", year, month, date,
+				user, corrId);
+
 		TenderBhamaResponse response = new TenderBhamaResponse();
 		ApplicationError error = new ApplicationError();
 
 		try {
+
 			List<TenderBhamaEntity> list = tenderBhamaRerpository.findByYearAndMonthAndDate(year, month, date);
 
-			// Sort by rowId
+			if (list == null || list.isEmpty()) {
+
+				log.warn("No TenderBhama data found | year={} | month={} | date={} | corrId={}", year, month, date,
+						corrId);
+
+				response.setRows(Collections.emptyList());
+				error.setErrorCode("0");
+				error.setErrorDescription("Success");
+				response.setErrorDetails(error);
+				return response;
+			}
+
+			// ---------- SORT BY rowId ----------
 			list.sort(Comparator.comparing(TenderBhamaEntity::getRowId));
 
-			List<Map<String, Object>> result = new ArrayList<>();
 			ObjectMapper mapper = new ObjectMapper();
+			List<Map<String, Object>> result = new ArrayList<>(list.size());
 
 			for (TenderBhamaEntity e : list) {
 
-				// No need to check D because now HARD DELETE is used
-				// If any D record remains, still skip it
-				if ("D".equalsIgnoreCase(e.getFlag()))
+				// Safety: skip if any D record remains
+				if ("D".equalsIgnoreCase(e.getFlag())) {
 					continue;
+				}
 
 				Map<String, Object> row = new LinkedHashMap<>();
-
-				// Add DB fields
 				row.put("rowId", e.getRowId());
 				row.put("deleteId", e.getDeleteId());
 				row.put("flag", e.getFlag());
 				row.put("kramank", e.getRowId()); // UI numbering
-
-				// Add dynamic JSON data
-				Map<String, Object> dataMap = mapper.convertValue(e.getData(), Map.class);
-				row.put("data", dataMap);
+				row.put("data", mapper.convertValue(e.getData(), Map.class));
 
 				result.add(row);
 			}
@@ -2734,12 +2839,16 @@ public class DrawingServiceImpl implements DrawingService {
 			error.setErrorDescription("Success");
 			response.setErrorDetails(error);
 
+			log.info("SUCCESS getTenderBhamaDetails | records={} | corrId={}", result.size(), corrId);
+
 			return response;
 
-		} catch (Exception ex) {
-			ex.printStackTrace();
+		} catch (Exception e) {
+
+			log.error("ERROR getTenderBhamaDetails | corrId={}", corrId, e);
+
 			error.setErrorCode("500");
-			error.setErrorDescription(ex.getMessage());
+			error.setErrorDescription(e.getMessage());
 			response.setErrorDetails(error);
 			return response;
 		}
@@ -2988,51 +3097,51 @@ public class DrawingServiceImpl implements DrawingService {
 	}
 
 	@Override
+	@Transactional
 	public TenderBhamaResponse saveOrUpdateTenderTarget(TenderSaveRequest req) {
+
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START saveOrUpdateTenderTarget | year={} | month={} | rows={} | user={} | corrId={}", req.getYear(),
+				req.getMonth(), req.getRows().size(), user, corrId);
+
 		TenderBhamaResponse response = new TenderBhamaResponse();
 		ApplicationError error = new ApplicationError();
 
 		try {
+
 			ObjectMapper mapper = new ObjectMapper();
 
 			for (TenderRowDTO row : req.getRows()) {
 
-				// 🔴 CASE 1 — HARD DELETE
+				// ---------- HARD DELETE ----------
 				if ("D".equalsIgnoreCase(row.getFlag())) {
 
-					Optional<TenderTargetEntity> existing = tenderTargetRepository
-							.findByYearAndMonthAndDeleteId(req.getYear(), req.getMonth(), row.getDeleteId());
-
-					existing.ifPresent(entity -> {
-						tenderTargetRepository.delete(entity); // HARD DELETE
-					});
+					tenderTargetRepository
+							.findByYearAndMonthAndDeleteId(req.getYear(), req.getMonth(), row.getDeleteId())
+							.ifPresent(entity -> {
+								tenderTargetRepository.delete(entity);
+								log.debug("Deleted TenderTarget | deleteId={} | corrId={}", row.getDeleteId(), corrId);
+							});
 
 					continue;
 				}
 
-				// 🟡 CASE 2 — UPDATE OR CREATE
+				// ---------- UPDATE / CREATE ----------
 				Optional<TenderTargetEntity> existing = tenderTargetRepository.findByYearAndMonthAndRowId(req.getYear(),
 						req.getMonth(), row.getRowId());
 
-				TenderTargetEntity entity = existing.orElse(new TenderTargetEntity());
+				TenderTargetEntity entity = existing.orElseGet(TenderTargetEntity::new);
 
-				// BASIC FIELDS
 				entity.setYear(req.getYear());
 				entity.setMonth(req.getMonth());
 				entity.setRowId(row.getRowId());
 				entity.setDeleteId(row.getDeleteId());
-
-				// JSONB DATA
-				JsonNode json = mapper.valueToTree(row.getData());
-				entity.setData(json);
-
-				// FLAG LOGIC
+				entity.setData(mapper.valueToTree(row.getData()));
 				entity.setFlag(existing.isPresent() ? "U" : "C");
 
-				// AUDIT FIELDS
-				String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-
-				if (!existing.isPresent()) {
+				if (existing.isEmpty()) {
 					entity.setCreatedAt(LocalDateTime.now());
 					entity.setCreatedBy(user);
 				}
@@ -3047,12 +3156,18 @@ public class DrawingServiceImpl implements DrawingService {
 			error.setErrorDescription("Saved Successfully");
 			response.setErrorDetails(error);
 
+			log.info("SUCCESS saveOrUpdateTenderTarget | year={} | month={} | corrId={}", req.getYear(), req.getMonth(),
+					corrId);
+
 			return response;
 
-		} catch (Exception ex) {
+		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdateTenderTarget | year={} | month={} | corrId={}", req.getYear(), req.getMonth(),
+					corrId, e);
 
 			error.setErrorCode("500");
-			error.setErrorDescription(ex.getMessage());
+			error.setErrorDescription(e.getMessage());
 			response.setErrorDetails(error);
 			return response;
 		}
@@ -3061,6 +3176,11 @@ public class DrawingServiceImpl implements DrawingService {
 	@Override
 	public TenderBhamaResponse getTenderTarget(String year, String month) {
 
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START getTenderTarget | year={} | month={} | user={} | corrId={}", year, month, user, corrId);
+
 		TenderBhamaResponse response = new TenderBhamaResponse();
 		ApplicationError error = new ApplicationError();
 
@@ -3068,16 +3188,26 @@ public class DrawingServiceImpl implements DrawingService {
 
 			List<TenderTargetEntity> list = tenderTargetRepository.findByYearAndMonth(year, month);
 
+			if (list == null || list.isEmpty()) {
+
+				log.warn("No TenderTarget data found | year={} | month={} | corrId={}", year, month, corrId);
+
+				response.setRows(Collections.emptyList());
+				error.setErrorCode("0");
+				error.setErrorDescription("Success");
+				response.setErrorDetails(error);
+				return response;
+			}
+
+			// ---------- ORDER BY rowId ----------
 			list.sort(Comparator.comparing(TenderTargetEntity::getRowId));
 
 			ObjectMapper mapper = new ObjectMapper();
-			List<Map<String, Object>> result = new ArrayList<>();
+			List<Map<String, Object>> result = new ArrayList<>(list.size());
 
 			for (TenderTargetEntity e : list) {
 
 				Map<String, Object> row = mapper.convertValue(e.getData(), Map.class);
-
-				// include metadata also
 				row.put("rowId", e.getRowId());
 				row.put("deleteId", e.getDeleteId());
 				row.put("flag", e.getFlag());
@@ -3086,17 +3216,21 @@ public class DrawingServiceImpl implements DrawingService {
 			}
 
 			response.setRows(result);
-
 			error.setErrorCode("0");
 			error.setErrorDescription("Success");
 			response.setErrorDetails(error);
 
+			log.info("SUCCESS getTenderTarget | year={} | month={} | records={} | corrId={}", year, month,
+					result.size(), corrId);
+
 			return response;
 
-		} catch (Exception ex) {
+		} catch (Exception e) {
+
+			log.error("ERROR getTenderTarget | year={} | month={} | corrId={}", year, month, corrId, e);
 
 			error.setErrorCode("500");
-			error.setErrorDescription(ex.getMessage());
+			error.setErrorDescription(e.getMessage());
 			response.setErrorDetails(error);
 			return response;
 		}
@@ -3260,50 +3394,49 @@ public class DrawingServiceImpl implements DrawingService {
 	}
 
 	@Override
+	@Transactional
 	public TenderBhamaResponse saveOrUpdateTenderPlan(TenderSaveRequest req) {
+
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START saveOrUpdateTenderPlan | year={} | rows={} | user={} | corrId={}", req.getYear(),
+				req.getRows().size(), user, corrId);
 
 		TenderBhamaResponse response = new TenderBhamaResponse();
 		ApplicationError error = new ApplicationError();
 
 		try {
+
 			ObjectMapper mapper = new ObjectMapper();
 
 			for (TenderRowDTO row : req.getRows()) {
 
-				// 🔴 CASE 1: HARD DELETE
+				// ---------- HARD DELETE ----------
 				if ("D".equalsIgnoreCase(row.getFlag())) {
 
-					Optional<TenderPlanEntity> existing = tenderPlanRepository.findByYearAndDeleteId(req.getYear(),
-							row.getDeleteId());
-
-					existing.ifPresent(entity -> {
+					tenderPlanRepository.findByYearAndDeleteId(req.getYear(), row.getDeleteId()).ifPresent(entity -> {
 						tenderPlanRepository.delete(entity);
+						log.debug("Deleted TenderPlan | year={} | deleteId={} | corrId={}", req.getYear(),
+								row.getDeleteId(), corrId);
 					});
 
 					continue;
 				}
 
-				// 🟡 CASE 2: CREATE OR UPDATE
+				// ---------- CREATE / UPDATE ----------
 				Optional<TenderPlanEntity> existing = tenderPlanRepository.findByYearAndRowId(req.getYear(),
 						row.getRowId());
 
-				TenderPlanEntity entity = existing.orElse(new TenderPlanEntity());
+				TenderPlanEntity entity = existing.orElseGet(TenderPlanEntity::new);
 
 				entity.setYear(req.getYear());
 				entity.setRowId(row.getRowId());
 				entity.setDeleteId(row.getDeleteId());
-
-				// JSONB
-				JsonNode json = mapper.valueToTree(row.getData());
-				entity.setData(json);
-
-				// FLAG LOGIC
+				entity.setData(mapper.valueToTree(row.getData()));
 				entity.setFlag(existing.isPresent() ? "U" : "C");
 
-				// AUDIT
-				String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-
-				if (!existing.isPresent()) {
+				if (existing.isEmpty()) {
 					entity.setCreatedAt(LocalDateTime.now());
 					entity.setCreatedBy(user);
 				}
@@ -3318,36 +3451,56 @@ public class DrawingServiceImpl implements DrawingService {
 			error.setErrorDescription("Saved Successfully");
 			response.setErrorDetails(error);
 
-		} catch (Exception ex) {
+			log.info("SUCCESS saveOrUpdateTenderPlan | year={} | corrId={}", req.getYear(), corrId);
+
+			return response;
+
+		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdateTenderPlan | year={} | corrId={}", req.getYear(), corrId, e);
 
 			error.setErrorCode("500");
-			error.setErrorDescription(ex.getMessage());
+			error.setErrorDescription(e.getMessage());
 			response.setErrorDetails(error);
-
+			return response;
 		}
-		return response;
 	}
 
 	@Override
 	public TenderBhamaResponse getTenderPlan(String year) {
 
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START getTenderPlan | year={} | user={} | corrId={}", year, user, corrId);
+
 		TenderBhamaResponse response = new TenderBhamaResponse();
 		ApplicationError error = new ApplicationError();
 
 		try {
+
 			List<TenderPlanEntity> list = tenderPlanRepository.findByYear(year);
 
-			// Sort by rowId
+			if (list == null || list.isEmpty()) {
+
+				log.warn("No TenderPlan data found | year={} | corrId={}", year, corrId);
+
+				response.setRows(Collections.emptyList());
+				error.setErrorCode("0");
+				error.setErrorDescription("Success");
+				response.setErrorDetails(error);
+				return response;
+			}
+
+			// ---------- ORDER BY rowId ----------
 			list.sort(Comparator.comparing(TenderPlanEntity::getRowId));
 
 			ObjectMapper mapper = new ObjectMapper();
-			List<Map<String, Object>> rows = new ArrayList<>();
+			List<Map<String, Object>> rows = new ArrayList<>(list.size());
 
 			for (TenderPlanEntity e : list) {
 
 				Map<String, Object> row = mapper.convertValue(e.getData(), Map.class);
-
-				// Include metadata
 				row.put("rowId", e.getRowId());
 				row.put("deleteId", e.getDeleteId());
 				row.put("flag", e.getFlag());
@@ -3360,12 +3513,16 @@ public class DrawingServiceImpl implements DrawingService {
 			error.setErrorDescription("Success");
 			response.setErrorDetails(error);
 
+			log.info("SUCCESS getTenderPlan | year={} | records={} | corrId={}", year, rows.size(), corrId);
+
 			return response;
 
-		} catch (Exception ex) {
+		} catch (Exception e) {
+
+			log.error("ERROR getTenderPlan | year={} | corrId={}", year, corrId, e);
 
 			error.setErrorCode("500");
-			error.setErrorDescription(ex.getMessage());
+			error.setErrorDescription(e.getMessage());
 			response.setErrorDetails(error);
 			return response;
 		}
@@ -3536,48 +3693,50 @@ public class DrawingServiceImpl implements DrawingService {
 	}
 
 	@Override
+	@Transactional
 	public TenderBhamaResponse saveOrUpdateTenderSummary(TenderSaveRequest req) {
+
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START saveOrUpdateTenderSummary | year={} | rows={} | user={} | corrId={}", req.getYear(),
+				req.getRows().size(), user, corrId);
+
 		TenderBhamaResponse response = new TenderBhamaResponse();
 		ApplicationError error = new ApplicationError();
 
-		String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-
 		try {
+
 			ObjectMapper mapper = new ObjectMapper();
 
 			for (TenderRowDTO row : req.getRows()) {
 
-				// -----------------------------------------
-				// 🔴 CASE 1: DELETE using deleteId + year
-				// -----------------------------------------
+				// ---------- HARD DELETE ----------
 				if ("D".equalsIgnoreCase(row.getFlag())) {
 
-					Optional<TenderSummaryEntity> existing = tenderSummaryRepository
-							.findByYearAndDeleteId(req.getYear(), row.getDeleteId());
+					tenderSummaryRepository.findByYearAndDeleteId(req.getYear(), row.getDeleteId())
+							.ifPresent(entity -> {
+								tenderSummaryRepository.delete(entity);
+								log.debug("Deleted TenderSummary | year={} | deleteId={} | corrId={}", req.getYear(),
+										row.getDeleteId(), corrId);
+							});
 
-					existing.ifPresent(tenderSummaryRepository::delete);
 					continue;
 				}
 
-				// -----------------------------------------
-				// 🟡 CASE 2: UPDATE or CREATE using rowId + year
-				// -----------------------------------------
+				// ---------- CREATE / UPDATE ----------
 				Optional<TenderSummaryEntity> existing = tenderSummaryRepository.findByYearAndRowId(req.getYear(),
 						row.getRowId());
 
-				TenderSummaryEntity entity = existing.orElse(new TenderSummaryEntity());
+				TenderSummaryEntity entity = existing.orElseGet(TenderSummaryEntity::new);
 
 				entity.setYear(req.getYear());
 				entity.setRowId(row.getRowId());
 				entity.setDeleteId(row.getDeleteId());
-
-				// JSONB conversion
 				entity.setData(mapper.valueToTree(row.getData()));
-
-				// FLAG: C or U
 				entity.setFlag(existing.isPresent() ? "U" : "C");
 
-				if (!existing.isPresent()) {
+				if (existing.isEmpty()) {
 					entity.setCreatedAt(LocalDateTime.now());
 					entity.setCreatedBy(user);
 				}
@@ -3591,13 +3750,17 @@ public class DrawingServiceImpl implements DrawingService {
 			error.setErrorCode("0");
 			error.setErrorDescription("Saved Successfully");
 			response.setErrorDetails(error);
+
+			log.info("SUCCESS saveOrUpdateTenderSummary | year={} | corrId={}", req.getYear(), corrId);
+
 			return response;
 
-		} catch (Exception ex) {
+		} catch (Exception e) {
 
-			ex.printStackTrace();
+			log.error("ERROR saveOrUpdateTenderSummary | year={} | corrId={}", req.getYear(), corrId, e);
+
 			error.setErrorCode("500");
-			error.setErrorDescription("Error: " + ex.getMessage());
+			error.setErrorDescription("Error: " + e.getMessage());
 			response.setErrorDetails(error);
 			return response;
 		}
@@ -3606,22 +3769,38 @@ public class DrawingServiceImpl implements DrawingService {
 	@Override
 	public TenderBhamaResponse getTenderSummary(String year) {
 
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START getTenderSummary | year={} | user={} | corrId={}", year, user, corrId);
+
 		TenderBhamaResponse response = new TenderBhamaResponse();
 		ApplicationError error = new ApplicationError();
 
 		try {
+
 			List<TenderSummaryEntity> list = tenderSummaryRepository.findByYear(year);
 
+			if (list == null || list.isEmpty()) {
+
+				log.warn("No TenderSummary data found | year={} | corrId={}", year, corrId);
+
+				response.setRows(Collections.emptyList());
+				error.setErrorCode("0");
+				error.setErrorDescription("Success");
+				response.setErrorDetails(error);
+				return response;
+			}
+
+			// ---------- ORDER BY rowId ----------
 			list.sort(Comparator.comparing(TenderSummaryEntity::getRowId));
 
 			ObjectMapper mapper = new ObjectMapper();
-			List<Map<String, Object>> result = new ArrayList<>();
+			List<Map<String, Object>> result = new ArrayList<>(list.size());
 
 			for (TenderSummaryEntity e : list) {
 
 				Map<String, Object> row = mapper.convertValue(e.getData(), Map.class);
-
-				// include identifiers also
 				row.put("rowId", e.getRowId());
 				row.put("deleteId", e.getDeleteId());
 				row.put("flag", e.getFlag());
@@ -3630,20 +3809,21 @@ public class DrawingServiceImpl implements DrawingService {
 			}
 
 			response.setRows(result);
-
 			error.setErrorCode("0");
 			error.setErrorDescription("Success");
 			response.setErrorDetails(error);
 
+			log.info("SUCCESS getTenderSummary | year={} | records={} | corrId={}", year, result.size(), corrId);
+
 			return response;
 
-		} catch (Exception ex) {
-			ex.printStackTrace();
+		} catch (Exception e) {
+
+			log.error("ERROR getTenderSummary | year={} | corrId={}", year, corrId, e);
 
 			error.setErrorCode("500");
-			error.setErrorDescription(ex.getMessage());
+			error.setErrorDescription(e.getMessage());
 			response.setErrorDetails(error);
-
 			return response;
 		}
 	}

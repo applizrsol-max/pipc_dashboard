@@ -16,15 +16,9 @@ public interface AccountsBusiness {
 
 	AccountsResponse saveAccounts(AccountsRequest request);
 
-	Map<String, Object> getAllAccounts(int page, int size);
-
 	Map<String, Object> getAllAccountsByYear(String year);
 
-	ByteArrayInputStream generateMarathiExcelForYear(String year) throws IOException;
-
 	ResponseEntity<InputStreamResource> downloadAccountsReport(String year) throws IOException;
-
-	Map<String, Object> getAllAccountsByYear(int page, int size, String year);
 
 	PendingParaResponse savePendingPara(PendingParaRequest request);
 

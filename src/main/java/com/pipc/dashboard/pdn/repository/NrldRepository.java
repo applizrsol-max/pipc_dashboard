@@ -20,4 +20,6 @@ public interface NrldRepository extends JpaRepository<NrldEntity, Long> {
 
 	Optional<NrldEntity> findByYearAndDamNameAndDeleteId(String year, String damName, Long deleteId);
 
+	List<NrldEntity> findByYearOrderByRowIdAsc(String year);
+
 }

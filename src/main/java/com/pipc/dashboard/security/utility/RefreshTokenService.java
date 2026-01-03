@@ -9,21 +9,17 @@ import org.springframework.stereotype.Service;
 
 import com.pipc.dashboard.login.entities.User;
 import com.pipc.dashboard.login.repository.RefreshTokenRepository;
-import com.pipc.dashboard.login.repository.UserRepository;
 import com.pipc.dashboard.token.entity.RefreshToken;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class RefreshTokenService {
 	@Value("${app.jwt.refresh-token-expiration-ms}")
 	private long refreshTokenDurationMs;
 
 	private final RefreshTokenRepository refreshRepo;
-	private final UserRepository userRepo;
-
-	public RefreshTokenService(RefreshTokenRepository refreshRepo, UserRepository userRepo) {
-		this.refreshRepo = refreshRepo;
-		this.userRepo = userRepo;
-	}
 
 	public RefreshToken createRefreshToken(User user) {
 		return refreshRepo.findByUser(user).map(existingToken -> {

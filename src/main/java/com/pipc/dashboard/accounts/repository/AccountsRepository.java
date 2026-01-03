@@ -26,4 +26,6 @@ public interface AccountsRepository extends JpaRepository<AccountsEntity, Long> 
 
 	Page<AccountsEntity> findByProjectYear(String year, PageRequest of);
 
+	List<AccountsEntity> findByProjectYearOrderByRowIdAsc(String year);
+
 }

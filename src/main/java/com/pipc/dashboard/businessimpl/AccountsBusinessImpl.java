@@ -31,28 +31,13 @@ public class AccountsBusinessImpl implements AccountsBusiness {
 	}
 
 	@Override
-	public Map<String, Object> getAllAccounts(int page, int size) {
-		return accountService.getAllAccounts(page, size);
-	}
-
-	@Override
 	public Map<String, Object> getAllAccountsByYear(String year) {
 		return accountService.getAllAccountsByYear(year);
 	}
 
 	@Override
-	public ByteArrayInputStream generateMarathiExcelForYear(String year) throws IOException {
-		return accountService.generateMarathiExcelForYear(year);
-	}
-
-	@Override
 	public ResponseEntity<InputStreamResource> downloadAccountsReport(String year) throws IOException {
 		return accountService.downloadAccountsReport(year);
-	}
-
-	@Override
-	public Map<String, Object> getAllAccountsByYear(int page, int size, String year) {
-		return accountService.getAllAccountsByYear(page, size, year);
 	}
 
 	@Override
@@ -66,7 +51,7 @@ public class AccountsBusinessImpl implements AccountsBusiness {
 	}
 
 	@Override
-	public ResponseEntity<InputStreamResource> downloadPendingPara(Integer year)throws IOException {
+	public ResponseEntity<InputStreamResource> downloadPendingPara(Integer year) throws IOException {
 		return accountService.downloadPendingPara(year);
 	}
 

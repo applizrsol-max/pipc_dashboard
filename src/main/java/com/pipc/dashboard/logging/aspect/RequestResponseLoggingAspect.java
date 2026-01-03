@@ -23,7 +23,6 @@ import com.pipc.dashboard.utility.SensitiveDataSanitizer;
 
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,132 +32,105 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class RequestResponseLoggingAspect {
 
-	private final LoggingAuditRepository repo;
-	private final ObjectMapper mapper;
-	private final SensitiveDataSanitizer sensitiveDataSanitizer;
+	private final LoggingAuditRepository auditRepo;
+	private final ObjectMapper objectMapper;
+	private final SensitiveDataSanitizer sanitizer;
 
 	@Around("within(@org.springframework.web.bind.annotation.RestController *)")
 	public Object logController(ProceedingJoinPoint pjp) throws Throwable {
 
-		/*
-		 * =====================================================
-		 * SKIP LOGGING IF @SkipLogging USED
-		 * =====================================================
-		 */
-		MethodSignature sig = (MethodSignature) pjp.getSignature();
-		Method method = sig.getMethod();
+		MethodSignature signature = (MethodSignature) pjp.getSignature();
+		Method method = signature.getMethod();
 
+		/* ===================== SKIP LOGGING ===================== */
 		if (method.isAnnotationPresent(SkipLogging.class)) {
 			return pjp.proceed();
 		}
 
-		String user = Optional.ofNullable(MDC.get("user")).filter(s -> !s.isBlank()).orElse("SYSTEM");
-		long start = System.currentTimeMillis();
+		long startTime = System.currentTimeMillis();
 
-		LoggingAuditEntity entity = new LoggingAuditEntity();
+		String user = Optional.ofNullable(MDC.get("user")).filter(u -> !u.isBlank()).orElse("SYSTEM");
 
-		HttpServletRequest request = ((ServletRequestAttributes) 
-		    RequestContextHolder.currentRequestAttributes()).getRequest();
+		HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes())
+				.getRequest();
 
-		entity.setApiName(pjp.getSignature().toShortString());
-		entity.setServiceName(pjp.getTarget().getClass().getSimpleName());
-		entity.setHttpMethod(request.getMethod());
-		entity.setRequestUrl(request.getRequestURI());
-		entity.setUserId(user);
+		LoggingAuditEntity audit = new LoggingAuditEntity();
+		audit.setApiName(signature.toShortString());
+		audit.setServiceName(pjp.getTarget().getClass().getSimpleName());
+		audit.setHttpMethod(request.getMethod());
+		audit.setRequestUrl(request.getRequestURI());
+		audit.setUserId(user);
 
-		/*
-		 * =====================================================
-		 * REQUEST LOGGING
-		 * =====================================================
-		 */
-		boolean skipReq = false;
+		/* ---------- Correlation IDs ---------- */
+		audit.setCorrelationId(MDC.get("correlationId"));
+		audit.setBusinessCorrelationId(MDC.get("businessCorrelationId"));
 
-		for (Object arg : pjp.getArgs()) {
-			if (arg instanceof org.springframework.web.multipart.MultipartFile ||
-				arg instanceof ServletResponse) {
-				skipReq = true;
-				break;
-			}
-		}
+		log.debug("AUDIT START | api={} | corrId={}", audit.getApiName(), audit.getCorrelationId());
 
-		if (skipReq) {
-			entity.setRequest(mapper.createObjectNode()
-					.put("message", "Multipart/Servlet request skipped from logging"));
-		} else {
-			JsonNode reqNode = mapper.valueToTree(pjp.getArgs());
-			entity.setRequest(sensitiveDataSanitizer.sanitize(reqNode));
-		}
+		/* ===================== REQUEST LOGGING ===================== */
+		audit.setRequest(buildRequestPayload(pjp.getArgs()));
 
 		Object response;
-
 		try {
-			/*
-			 * =====================================================
-			 * CONTROLLER EXECUTION
-			 * =====================================================
-			 */
+			/* ===================== CONTROLLER EXECUTION ===================== */
 			response = pjp.proceed();
-			entity.setStatus("SUCCESS");
+			audit.setStatus("SUCCESS");
 
-			/*
-			 * =====================================================
-			 * EXTRACT ACTUAL RESPONSE BODY
-			 * =====================================================
-			 */
-			Object responseBody = response;
+			Object responseBody = (response instanceof ResponseEntity<?> re) ? re.getBody() : response;
 
-			if (response instanceof ResponseEntity<?> re) {
-				responseBody = re.getBody();
-			}
+			audit.setResponse(buildResponsePayload(responseBody));
 
-			/*
-			 * =====================================================
-			 * SKIP ALL NON-SERIALIZABLE RESPONSES
-			 * =====================================================
-			 */
-			boolean isBinary =
-					responseBody instanceof InputStreamResource ||
-					responseBody instanceof Resource ||
-					responseBody instanceof byte[] ||
-					responseBody instanceof HttpServletResponse ||
-					responseBody instanceof ServletResponse ||
-					responseBody instanceof org.apache.catalina.connector.Response ||
-					responseBody instanceof org.apache.catalina.connector.ResponseFacade ||
-					responseBody instanceof org.apache.catalina.connector.CoyoteWriter;
+			audit.setExecutionTimeMs(System.currentTimeMillis() - startTime);
+			auditRepo.save(audit);
 
-			if (isBinary) {
-				entity.setResponse(mapper.createObjectNode()
-						.put("message", "Binary / Streaming response skipped from logging"));
+			log.info("AUDIT SUCCESS | api={} | time={}ms | corrId={}", audit.getApiName(), audit.getExecutionTimeMs(),
+					audit.getCorrelationId());
 
-				entity.setExecutionTimeMs(System.currentTimeMillis() - start);
-				repo.save(entity);
-				return response;
-			}
-
-			/*
-			 * =====================================================
-			 * SAFE JSON SERIALIZATION
-			 * =====================================================
-			 */
-			if (responseBody == null) {
-				entity.setResponse(mapper.createObjectNode().put("message", "Empty response"));
-			} else {
-				JsonNode resNode = mapper.valueToTree(responseBody);
-				entity.setResponse(sensitiveDataSanitizer.sanitize(resNode));
-			}
-
-			entity.setExecutionTimeMs(System.currentTimeMillis() - start);
-			repo.save(entity);
 			return response;
 
 		} catch (Exception ex) {
 
-			entity.setStatus("ERROR");
-			entity.setResponse(mapper.createObjectNode().put("exception", ex.getMessage()));
-			entity.setExecutionTimeMs(System.currentTimeMillis() - start);
-			repo.save(entity);
+			audit.setStatus("ERROR");
+			audit.setResponse(objectMapper.createObjectNode().put("exception", ex.getMessage()));
+			audit.setExecutionTimeMs(System.currentTimeMillis() - startTime);
 
-			throw ex;
+			auditRepo.save(audit);
+
+			log.error("AUDIT ERROR | api={} | corrId={}", audit.getApiName(), audit.getCorrelationId(), ex);
+
+			throw ex; // ❗ logic unchanged
 		}
+	}
+
+	/* ===================== HELPERS ===================== */
+
+	private JsonNode buildRequestPayload(Object[] args) {
+		for (Object arg : args) {
+			if (arg instanceof org.springframework.web.multipart.MultipartFile || arg instanceof ServletResponse) {
+				return objectMapper.createObjectNode().put("message", "Multipart/Servlet request skipped from logging");
+			}
+		}
+
+		JsonNode node = objectMapper.valueToTree(args);
+		return sanitizer.sanitize(node);
+	}
+
+	private JsonNode buildResponsePayload(Object responseBody) {
+
+		if (responseBody == null) {
+			return objectMapper.createObjectNode().put("message", "Empty response");
+		}
+
+		if (isBinaryResponse(responseBody)) {
+			return objectMapper.createObjectNode().put("message", "Binary / Streaming response skipped from logging");
+		}
+
+		JsonNode node = objectMapper.valueToTree(responseBody);
+		return sanitizer.sanitize(node);
+	}
+
+	private boolean isBinaryResponse(Object body) {
+		return body instanceof InputStreamResource || body instanceof Resource || body instanceof byte[]
+				|| body instanceof ServletResponse || body.getClass().getName().startsWith("org.apache.catalina");
 	}
 }

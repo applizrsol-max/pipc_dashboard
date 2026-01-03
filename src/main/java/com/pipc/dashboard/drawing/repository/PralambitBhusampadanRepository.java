@@ -17,7 +17,7 @@ import jakarta.transaction.Transactional;
 public interface PralambitBhusampadanRepository extends JpaRepository<PralambitBhusampadanEntity, Long> {
 
 	@Query("SELECT p FROM PralambitBhusampadanEntity p WHERE p.period = :period AND p.flag <> 'D'")
-	Page<PralambitBhusampadanEntity> findByPeriod(@Param("period") String period, Pageable pageable);
+	List<PralambitBhusampadanEntity> findByPeriod(@Param("period") String period);
 
 	@Query("SELECT p FROM PralambitBhusampadanEntity p WHERE p.period = :period AND p.star = :star AND p.flag <> 'D'")
 	Page<PralambitBhusampadanEntity> findByPeriodAndStar(@Param("period") String period, @Param("star") String star,

@@ -34,6 +34,8 @@ public class StoreEntity {
 	@Column(name = "rows_data", columnDefinition = "jsonb", nullable = false)
 	private JsonNode rowsData;
 
+	private String year;
+
 	@Column(name = "ekun")
 	private Integer ekun;
 

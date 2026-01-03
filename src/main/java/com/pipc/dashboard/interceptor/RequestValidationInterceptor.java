@@ -1,8 +1,11 @@
 package com.pipc.dashboard.interceptor;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -15,13 +18,15 @@ import jakarta.servlet.http.HttpServletResponse;
 @Component
 public class RequestValidationInterceptor implements HandlerInterceptor {
 
-	private final JwtProvider jwtService;
+	private static final Logger log = LoggerFactory.getLogger(RequestValidationInterceptor.class);
 
-	public RequestValidationInterceptor(JwtProvider jwtService) {
-		this.jwtService = jwtService;
+	private final JwtProvider jwtProvider;
+
+	public RequestValidationInterceptor(JwtProvider jwtProvider) {
+		this.jwtProvider = jwtProvider;
 	}
 
-	// Excluded APIs (no token/correlation validation)
+	/* ---------------- EXCLUDED PATHS ---------------- */
 	private static final List<String> EXCLUDED_PATHS = List.of("/pipc/dashboard/onboarding/login",
 			"/pipc/dashboard/onboarding/register", "/pipc/dashboard/onboarding/refresh-token",
 			"/pipc/dashboard/onboarding/resetPassword", "/pipc/dashboard/onboarding/otpPwdReset",
@@ -29,61 +34,53 @@ public class RequestValidationInterceptor implements HandlerInterceptor {
 
 	@Override
 	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
-			throws Exception {
+			throws IOException {
 
-		String uri = request.getRequestURI();
+		final String uri = request.getRequestURI();
 
-		// ✅ Skip for onboarding endpoints
-		if (EXCLUDED_PATHS.stream().anyMatch(uri::startsWith)) {
+		/* ---------- Skip onboarding APIs ---------- */
+		if (isExcluded(uri)) {
 			return true;
 		}
 
-		// ✅ Extract or generate correlation IDs
-		String businessCorrelationId = request.getHeader("businessCorrelationId");
-		String correlationId = request.getHeader("correlationId");
+		/* ---------- Correlation IDs ---------- */
+		String correlationId = getOrGenerate(request.getHeader("correlationId"), "COR");
+		String businessCorrelationId = getOrGenerate(request.getHeader("businessCorrelationId"), "BIZ");
 
-		if (businessCorrelationId == null || businessCorrelationId.isBlank()) {
-			businessCorrelationId = "BIZ-" + UUID.randomUUID();
-		}
-		if (correlationId == null || correlationId.isBlank()) {
-			correlationId = "COR-" + UUID.randomUUID();
-		}
-
-		// ✅ Token extraction
+		/* ---------- Authorization Header ---------- */
 		String authHeader = request.getHeader("Authorization");
 		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-			response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-			response.getWriter().write("Missing or invalid Authorization header");
+			unauthorized(response, "Missing or invalid Authorization header");
+			log.warn("Unauthorized request | uri={} | reason=Missing Authorization | corrId={}", uri, correlationId);
 			return false;
 		}
 
 		String token = authHeader.substring(7);
 
-		// ✅ Validate JWT
-		if (!jwtService.validateToken(token)) {
-			response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-			response.getWriter().write("Invalid or expired token");
+		/* ---------- JWT Validation ---------- */
+		if (!jwtProvider.validateToken(token)) {
+			unauthorized(response, "Invalid or expired token");
+			log.warn("Unauthorized request | uri={} | reason=Invalid token | corrId={}", uri, correlationId);
 			return false;
 		}
 
-		// ✅ Extract username from token
-		String username = jwtService.getUsernameFromToken(token);
+		/* ---------- Extract user ---------- */
+		String username = jwtProvider.getUsernameFromToken(token);
 		if (username == null || username.isBlank()) {
-			username = "system";
+			username = "SYSTEM";
 		}
 
-		// ✅ Add to MDC (for logs + global context)
+		/* ---------- MDC (logging context) ---------- */
 		MDC.put("user", username);
 		MDC.put("correlationId", correlationId);
 		MDC.put("businessCorrelationId", businessCorrelationId);
 
-		// ✅ Add to request attributes (for service/controller access)
+		/* ---------- Request attributes ---------- */
 		request.setAttribute("loggedInUser", username);
 		request.setAttribute("correlationId", correlationId);
 		request.setAttribute("businessCorrelationId", businessCorrelationId);
 
-		// ✅ Optional: Log once per request
-		System.out.printf("✅ Authorized [%s] user=%s | corrId=%s | bizCorrId=%s%n", uri, username, correlationId,
+		log.info("Authorized request | uri={} | user={} | corrId={} | bizCorrId={}", uri, username, correlationId,
 				businessCorrelationId);
 
 		return true;
@@ -92,7 +89,22 @@ public class RequestValidationInterceptor implements HandlerInterceptor {
 	@Override
 	public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler,
 			Exception ex) {
-		// Clear MDC after request completes
 		MDC.clear();
+	}
+
+	/* ===================== HELPERS ===================== */
+
+	private boolean isExcluded(String uri) {
+		return EXCLUDED_PATHS.stream().anyMatch(uri::startsWith);
+	}
+
+	private String getOrGenerate(String headerValue, String prefix) {
+		return (headerValue == null || headerValue.isBlank()) ? prefix + "-" + UUID.randomUUID() : headerValue;
+	}
+
+	private void unauthorized(HttpServletResponse response, String message) throws IOException {
+		response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+		response.setContentType("application/json");
+		response.getWriter().write(message);
 	}
 }

@@ -1,6 +1,7 @@
 package com.pipc.dashboard.business;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
@@ -14,7 +15,7 @@ public interface SupremaBusiness {
 
 	SupremaResponse saveOrUpdateSuprema(SupremaRequest supremaRequest);
 
-	Page<SupremaEntity> getSupremaByProjectYear(String projectYear, int page, int size);
+	List<SupremaEntity> getSupremaByProjectYear(String projectYear);
 
 	ResponseEntity<InputStreamResource> downloadSupremaExcel(String year) throws IOException;
 

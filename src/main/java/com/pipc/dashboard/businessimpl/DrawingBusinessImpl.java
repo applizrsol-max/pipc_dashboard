@@ -34,8 +34,8 @@ public class DrawingBusinessImpl implements DrawingBusiness {
 	}
 
 	@Override
-	public DamSafetyResponse getDamSafetyData(String year, int page, int size) {
-		return drawingService.getDamSafetyData(year, page, size);
+	public DamSafetyResponse getDamSafetyData(String year) {
+		return drawingService.getDamSafetyData(year);
 	}
 
 	@Override
@@ -44,9 +44,8 @@ public class DrawingBusinessImpl implements DrawingBusiness {
 	}
 
 	@Override
-	public DamInspectionResponse getDamInspectionData(String year, String period, String departmentKey, int page,
-			int size) {
-		return drawingService.getDamInspectionData(year, period, departmentKey, page, size);
+	public DamInspectionResponse getDamInspectionData(String year) {
+		return drawingService.getDamInspectionData(year);
 	}
 
 	@Override
@@ -56,8 +55,8 @@ public class DrawingBusinessImpl implements DrawingBusiness {
 	}
 
 	@Override
-	public DamNalikaResponse getNalikaByPeriod(String period, String departmentKey, int page, int size) {
-		return drawingService.getNalikaByPeriod(period, departmentKey, page, size);
+	public DamNalikaResponse getNalikaByPeriod(String period) {
+		return drawingService.getNalikaByPeriod(period);
 	}
 
 	@Override
@@ -66,8 +65,8 @@ public class DrawingBusinessImpl implements DrawingBusiness {
 	}
 
 	@Override
-	public PralambitBhusampadanResponse getPralambitBhusampadan(String period, String star, int page, int size) {
-		return drawingService.getPralambitBhusampadan(period, star, page, size);
+	public PralambitBhusampadanResponse getPralambitBhusampadan(String period) {
+		return drawingService.getPralambitBhusampadan(period);
 	}
 
 	@Override

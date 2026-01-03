@@ -37,4 +37,6 @@ public interface DamNalikaRepository extends JpaRepository<DamNalikaEntity, Inte
 
 	List<DamNalikaEntity> findByPeriodOrderByDepartmentKeyAscRowIdAsc(String period);
 
+	List<DamNalikaEntity> findByPeriodOrderByRowIdAsc(String period);
+
 }

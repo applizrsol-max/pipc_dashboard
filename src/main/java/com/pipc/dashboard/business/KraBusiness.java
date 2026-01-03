@@ -10,7 +10,7 @@ public interface KraBusiness {
 
 	KraResponse saveOrUpdateKra(KraRequest request);
 
-	KraResponse getKraByPeriod(String kraPeriod, int page, int size);
+	KraResponse getKraByPeriod(String kraPeriod);
 
 	ByteArrayInputStream generateKraExcel(String kraPeriod) throws IOException;
 

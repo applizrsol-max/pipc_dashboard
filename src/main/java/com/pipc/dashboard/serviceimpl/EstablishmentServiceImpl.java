@@ -3,14 +3,11 @@ package com.pipc.dashboard.serviceimpl;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigInteger;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,11 +15,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -41,22 +33,12 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.xwpf.usermodel.XWPFAbstractNum;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFNumbering;
-import org.apache.poi.xwpf.usermodel.XWPFParagraph;
-import org.apache.poi.xwpf.usermodel.XWPFRun;
-import org.apache.poi.xwpf.usermodel.XWPFTable;
-import org.apache.poi.xwpf.usermodel.XWPFTableCell;
-import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTAbstractNum;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTLvl;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STNumberFormat;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -81,13 +63,11 @@ import com.pipc.dashboard.establishment.repository.AppealEntity;
 import com.pipc.dashboard.establishment.repository.AppealRepository;
 import com.pipc.dashboard.establishment.repository.AppealRequestEntity;
 import com.pipc.dashboard.establishment.repository.AppealRequestRepository;
-import com.pipc.dashboard.establishment.repository.ApprovalDetailsEntity;
 import com.pipc.dashboard.establishment.repository.ApprovalDetailsRepository;
 import com.pipc.dashboard.establishment.repository.CrFileListEntity;
 import com.pipc.dashboard.establishment.repository.CrFileListRepository;
 import com.pipc.dashboard.establishment.repository.CrFileListRtrEntity;
 import com.pipc.dashboard.establishment.repository.CrFileListRtrRepository;
-import com.pipc.dashboard.establishment.repository.EmployeeDetailsEntity;
 import com.pipc.dashboard.establishment.repository.EmployeeDetailsRepository;
 import com.pipc.dashboard.establishment.repository.EmployeePostingEntity;
 import com.pipc.dashboard.establishment.repository.EmployeePostingRepository;
@@ -95,28 +75,19 @@ import com.pipc.dashboard.establishment.repository.IncomeTaxDeductionEntity;
 import com.pipc.dashboard.establishment.repository.IncomeTaxDeductionRepository;
 import com.pipc.dashboard.establishment.repository.KaryaratGopniyaAhwalEntity;
 import com.pipc.dashboard.establishment.repository.KaryaratGopniyaAhwalRepository;
-import com.pipc.dashboard.establishment.repository.KharchaTapsilEntity;
 import com.pipc.dashboard.establishment.repository.KharchaTapsilRepository;
-import com.pipc.dashboard.establishment.repository.LeaveEntity;
 import com.pipc.dashboard.establishment.repository.LeaveRepository;
 import com.pipc.dashboard.establishment.repository.MahaparRegisterEntity;
 import com.pipc.dashboard.establishment.repository.MahaparRegisterRepository;
 import com.pipc.dashboard.establishment.repository.MasterDataEntity;
 import com.pipc.dashboard.establishment.repository.MasterDataRepository;
-import com.pipc.dashboard.establishment.repository.MedicalBillMasterEntity;
 import com.pipc.dashboard.establishment.repository.MedicalBillMasterRepository;
-import com.pipc.dashboard.establishment.repository.PassportNocEntity;
 import com.pipc.dashboard.establishment.repository.PassportNocRepository;
-import com.pipc.dashboard.establishment.repository.ReferenceEntity;
 import com.pipc.dashboard.establishment.repository.ReferenceRepository;
 import com.pipc.dashboard.establishment.repository.RtrGopniyaAhwal;
 import com.pipc.dashboard.establishment.repository.RtrGopniyaAhwalRepository;
-import com.pipc.dashboard.establishment.repository.VaidyakExcludedDetailsEntity;
-import com.pipc.dashboard.establishment.repository.VaidyakKharchaParigananaEntity;
 import com.pipc.dashboard.establishment.repository.VaidyakKharchaParigananaRepository;
-import com.pipc.dashboard.establishment.repository.VaidyakTapshilEntity;
 import com.pipc.dashboard.establishment.repository.VaidyakTapshilRepository;
-import com.pipc.dashboard.establishment.repository.VastavyaDetailsEntity;
 import com.pipc.dashboard.establishment.repository.VastavyaDetailsRepository;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaRow;
@@ -128,13 +99,9 @@ import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.AppealWrapper2;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
-import com.pipc.dashboard.establishment.request.LeaveRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRowRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterSectionRequest;
-import com.pipc.dashboard.establishment.request.MedicalBillData;
-import com.pipc.dashboard.establishment.request.MedicalBillRequest;
-import com.pipc.dashboard.establishment.request.PassportNocRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRow;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
@@ -142,13 +109,9 @@ import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
-import com.pipc.dashboard.establishment.response.LeaveResponse;
-import com.pipc.dashboard.establishment.response.MedicalBillResponse;
-import com.pipc.dashboard.establishment.response.PassportNocResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
 import com.pipc.dashboard.service.EstablishmentService;
 import com.pipc.dashboard.utility.ApplicationError;
-import com.pipc.dashboard.utility.PdfUtil;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -187,516 +150,35 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	@Autowired
 	private ObjectMapper objectMapper;
 
-	@Override
 	@Transactional
-	public MedicalBillResponse saveOrUpdateMedicalBill(MedicalBillRequest request) {
-		MedicalBillResponse response = new MedicalBillResponse();
-		ApplicationError error = new ApplicationError();
-		String userFromMDC = MDC.get("user");
-
-		try {
-			for (MedicalBillData bill : request.getData()) {
-
-				// 1️⃣ DELETE if flag == "D"
-				if ("D".equalsIgnoreCase(bill.getFlag())) {
-					if (bill.getRowId() != null) {
-						masterRepo.findByRowId(bill.getRowId()).ifPresent(master -> {
-							log.info("Deleting medical bill for rowId {}", bill.getRowId());
-							masterRepo.delete(master);
-						});
-					}
-					continue;
-				}
-
-				// 2️⃣ FIND EXISTING or CREATE NEW
-				// 2️⃣ FIND EXISTING or CREATE NEW
-				MedicalBillMasterEntity master = Optional.ofNullable(bill.getRowId()).flatMap(masterRepo::findByRowId)
-						.orElseGet(MedicalBillMasterEntity::new);
-
-				boolean isNew = master.getId() == null;
-
-				// 3️⃣ BASIC DETAILS
-				master.setTitle(bill.getTitle());
-				master.setPeriod(request.getPeriod());
-				master.setMonth(request.getMonth());
-				master.setYear(request.getYear());
-				master.setCreatedBy(userFromMDC);
-				master.setUpdatedBy(userFromMDC);
-				master.setRowId(bill.getRowId());
-				master.setBillDate(request.getDate());
-
-				// ✅ Flag and updated time logic
-				if (isNew) {
-					master.setFlag("C");
-				} else {
-					master.setFlag("U");
-				}
-				master.setUpdatedTime(LocalDateTime.now());
-
-				// 4️⃣ REFERENCES
-				if (bill.getReference() != null) {
-					master.getReferences().clear();
-					bill.getReference().forEach(refText -> {
-						ReferenceEntity ref = new ReferenceEntity();
-						ref.setReference(refText);
-						ref.setMedicalBill(master);
-						master.getReferences().add(ref);
-					});
-				}
-
-				// 5️⃣ EMPLOYEE DETAILS
-				if (bill.getEmployeeDetails() != null) {
-					var src = bill.getEmployeeDetails();
-					EmployeeDetailsEntity emp = Optional.ofNullable(master.getEmployeeDetails())
-							.orElse(new EmployeeDetailsEntity());
-
-					emp.setEmployeeName(src.getEmployeeName());
-					emp.setDesignation(src.getDesignation());
-					emp.setDepartment(src.getDepartment());
-					emp.setPatientName(src.getPatientName());
-					emp.setHospitalName(src.getHospitalName());
-					emp.setFromDate(src.getTreatmentPeriod().getFromDate());
-					emp.setToDate(src.getTreatmentPeriod().getToDate());
-					emp.setMedicalBill(master);
-
-					master.setEmployeeDetails(emp);
-				}
-
-				// 6️⃣ APPROVAL DETAILS
-				if (bill.getApprovalDetails() != null) {
-					var src = bill.getApprovalDetails();
-					ApprovalDetailsEntity appr = Optional.ofNullable(master.getApprovalDetails())
-							.orElse(new ApprovalDetailsEntity());
-
-					appr.setApprovingAuthority(src.getApprovingAuthority());
-					appr.setApprovalDate(src.getApprovalDate());
-					appr.setApprovalAmount(src.getApprovalAmount());
-					appr.setApprovedBy(src.getApprovedBy());
-					appr.setMedicalBill(master);
-
-					master.setApprovalDetails(appr);
-				}
-
-				// 7️⃣ KHARCHA TAPSIL
-				if (bill.getKharchaTapsil() != null) {
-					master.getKharchaTapsil().clear();
-					bill.getKharchaTapsil().forEach(k -> {
-						if ("D".equalsIgnoreCase(k.getFlag()))
-							return;
-						KharchaTapsilEntity kt = new KharchaTapsilEntity();
-						kt.setSubId(k.getSubId());
-						kt.setAkr(k.getAkr());
-						kt.setTapsil(k.getTapsil());
-						kt.setRakkam(k.getRakkam());
-						kt.setMedicalBill(master);
-						master.getKharchaTapsil().add(kt);
-					});
-				}
-
-				// 8️⃣ VAIDYAK KHARCHA PARIGANANA
-				if (bill.getVaidyakKharchaPariganana() != null) {
-					var src = bill.getVaidyakKharchaPariganana();
-					VaidyakKharchaParigananaEntity vaidya = Optional.ofNullable(master.getVaidyakKharchaPariganana())
-							.orElse(new VaidyakKharchaParigananaEntity());
-
-					vaidya.setShasanNirdesh(src.getShasanNirdesh());
-					vaidya.setEmployeeName(src.getEmployeeName());
-					vaidya.setDesignation(src.getDesignation());
-					vaidya.setPatientName(src.getPatientName());
-					vaidya.setHospitalName(src.getHospitalName());
-					vaidya.setFromDate(src.getTreatmentPeriod().getFromDate());
-					vaidya.setToDate(src.getTreatmentPeriod().getToDate());
-					vaidya.setMedicalBill(master);
-
-					// Tapshil list
-					vaidya.getTapshilList().clear();
-					if (src.getTapshil() != null) {
-						src.getTapshil().forEach(t -> {
-							if ("D".equalsIgnoreCase(t.getFlag()))
-								return;
-							VaidyakTapshilEntity vt = new VaidyakTapshilEntity();
-							vt.setSubId(t.getSubId());
-							vt.setAkr(t.getAkr());
-							vt.setTapsil(t.getTapsil());
-							vt.setEkunKharch(t.getEkunKharch());
-							vt.setVaidyakKharchaPariganana(vaidya);
-							vaidya.getTapshilList().add(vt);
-						});
-					}
-
-					// Vastavya Details
-					vaidya.getVastavyaDetailsList().clear();
-					if (src.getVastavyaDetails() != null) {
-						src.getVastavyaDetails().forEach(v -> {
-							if ("D".equalsIgnoreCase(v.getFlag()))
-								return;
-							VastavyaDetailsEntity ve = new VastavyaDetailsEntity();
-							ve.setSubId(v.getSubId());
-							ve.setVastavyaPrakar(v.getVastavyaPrakar());
-							ve.setPratyakshaKharch(v.getPratyakshaKharch());
-							ve.setAnugya_rakkam(v.getAnugyaRakkam());
-							ve.setDeyaRakkam(v.getDeyaRakkam());
-							ve.setVaidyakKharchaPariganana(vaidya);
-							vaidya.getVastavyaDetailsList().add(ve);
-						});
-					}
-
-					// Excluded Details
-					// Excluded Details
-					if (src.getExcludedDetails() != null) {
-						if (vaidya.getExcludedDetails() == null) {
-							vaidya.setExcludedDetails(new ArrayList<>());
-						} else {
-							vaidya.getExcludedDetails().clear();
-						}
-
-						src.getExcludedDetails().forEach(e -> {
-							if ("D".equalsIgnoreCase(e.getFlag()))
-								return;
-							VaidyakExcludedDetailsEntity ed = new VaidyakExcludedDetailsEntity();
-							ed.setSubId(e.getSubId());
-							ed.setDescription(e.getDescription());
-							ed.setAmount(e.getTotalRakkam());
-							ed.setVaidyakKharchaPariganana(vaidya);
-							vaidya.getExcludedDetails().add(ed);
-						});
-					}
-
-					master.setVaidyakKharchaPariganana(vaidya);
-				}
-
-				// 9️⃣ SAVE (cascade = ALL)
-				masterRepo.save(master);
-				log.info("{} medical bill processed successfully", isNew ? "New" : "Updated");
-			}
-
-			// ✅ SUCCESS RESPONSE
-			response.setMessage("Medical bills processed successfully");
-			error.setErrorCode("200");
-			error.setErrorDescription("SUCCESS");
-			response.setErrorDetails(error);
-
-		} catch (Exception e) {
-			log.error("Error while saving medical bills", e);
-			error.setErrorCode("500");
-			error.setErrorDescription(e.getMessage());
-			response.setErrorDetails(error);
-			response.setMessage("Error while processing medical bills");
-		}
-
-		return response;
-	}
-
 	@Override
-	@Transactional(readOnly = true)
-	public MedicalBillResponse getMedicalBills(String employeeName, String month, String year, String period,
-			String date) {
-		MedicalBillResponse response = new MedicalBillResponse();
-		ApplicationError error = new ApplicationError();
-
-		try {
-
-			List<MedicalBillMasterEntity> bills = masterRepo.findByFilters(employeeName, month, year, period, date);
-
-			if (bills.isEmpty()) {
-				error.setErrorCode("404");
-				error.setErrorDescription("No records found for given filters");
-				response.setErrorDetails(error);
-				response.setMessage("No medical bills found");
-				response.setData(Collections.emptyList());
-				return response;
-			}
-
-			List<Map<String, Object>> result = new ArrayList<>();
-
-			for (MedicalBillMasterEntity m : bills) {
-				Map<String, Object> map = new LinkedHashMap<>();
-				map.put("rowId", m.getRowId());
-				map.put("title", m.getTitle());
-				map.put("period", m.getPeriod());
-				map.put("month", m.getMonth());
-				map.put("year", m.getYear());
-				map.put("flag", m.getFlag());
-				map.put("billDate", m.getBillDate()); // 🆕 added in response
-				map.put("createdBy", m.getCreatedBy());
-				map.put("updatedBy", m.getUpdatedBy());
-				map.put("updatedAt", m.getUpdatedTime());
-
-				// ✅ References
-				map.put("reference", Optional.ofNullable(m.getReferences()).orElse(Collections.emptyList()).stream()
-						.map(ReferenceEntity::getReference).toList());
-
-				// ✅ Employee Details
-				if (m.getEmployeeDetails() != null) {
-					Map<String, Object> emp = new LinkedHashMap<>();
-					var e = m.getEmployeeDetails();
-					emp.put("employeeName", e.getEmployeeName());
-					emp.put("designation", e.getDesignation());
-					emp.put("department", e.getDepartment());
-					emp.put("patientName", e.getPatientName());
-					emp.put("hospitalName", e.getHospitalName());
-					emp.put("treatmentPeriod", Map.of("fromDate", e.getFromDate(), "toDate", e.getToDate()));
-					map.put("employeeDetails", emp);
-				}
-
-				// ✅ Approval Details
-				if (m.getApprovalDetails() != null) {
-					var a = m.getApprovalDetails();
-					map.put("approvalDetails",
-							Map.of("approvingAuthority", a.getApprovingAuthority(), "approvalDate", a.getApprovalDate(),
-									"approvalAmount", a.getApprovalAmount(), "approvedBy", a.getApprovedBy()));
-				}
-
-				// ✅ Kharcha Tapsil
-				map.put("kharchaTapsil",
-						Optional.ofNullable(m.getKharchaTapsil()).orElse(Collections.emptyList()).stream()
-								.map(k -> Map.of("subId", k.getSubId(), "akr", k.getAkr(), "tapsil", k.getTapsil(),
-										"rakkam", k.getRakkam()))
-								.toList());
-
-				// ✅ Vaidyak Kharcha Pariganana
-				if (m.getVaidyakKharchaPariganana() != null) {
-					var v = m.getVaidyakKharchaPariganana();
-					Map<String, Object> vk = new LinkedHashMap<>();
-					vk.put("shasanNirdesh", v.getShasanNirdesh());
-					vk.put("employeeName", v.getEmployeeName());
-					vk.put("designation", v.getDesignation());
-					vk.put("patientName", v.getPatientName());
-					vk.put("hospitalName", v.getHospitalName());
-					vk.put("treatmentPeriod", Map.of("fromDate", v.getFromDate(), "toDate", v.getToDate()));
-
-					vk.put("tapshil",
-							Optional.ofNullable(v.getTapshilList()).orElse(Collections.emptyList()).stream()
-									.map(t -> Map.of("subId", t.getSubId(), "akr", t.getAkr(), "tapsil", t.getTapsil(),
-											"ekunKharch", t.getEkunKharch()))
-									.toList());
-
-					vk.put("vastavyaDetails",
-							Optional.ofNullable(v.getVastavyaDetailsList()).orElse(Collections.emptyList()).stream()
-									.map(vd -> Map.of("subId", vd.getSubId(), "vastavyaPrakar", vd.getVastavyaPrakar(),
-											"pratyakshaKharch", vd.getPratyakshaKharch(), "anugyaRakkam",
-											vd.getAnugya_rakkam(), "deyaRakkam", vd.getDeyaRakkam()))
-									.toList());
-
-					vk.put("excludedDetails",
-							Optional.ofNullable(v.getExcludedDetails()).orElse(Collections.emptyList()).stream()
-									.map(ed -> Map.of("subId", ed.getSubId(), "description", ed.getDescription(),
-											"totalRakkam", ed.getAmount()))
-									.toList());
-
-					map.put("vaidyaKharchaPariganana", vk);
-				}
-
-				result.add(map);
-			}
-
-			response.setMessage("Medical bills fetched successfully");
-			error.setErrorCode("200");
-			error.setErrorDescription("SUCCESS");
-			response.setErrorDetails(error);
-			response.setData(result);
-
-		} catch (Exception e) {
-			log.error("Error fetching medical bills", e);
-			error.setErrorCode("500");
-			error.setErrorDescription(e.getMessage());
-			response.setErrorDetails(error);
-			response.setMessage("Error while fetching medical bills");
-		}
-
-		return response;
-	}
-
-	@Override
-	public LeaveResponse saveOrUpdateLeave(LeaveRequest dto) {
-		LeaveResponse response = new LeaveResponse();
-		ApplicationError error = new ApplicationError();
-		response.setData(new ArrayList<>());
-
-		try {
-			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-			LocalDateTime now = LocalDateTime.now();
-
-			Optional<LeaveEntity> existingOpt = leaveRepository.findByRowId(dto.getRowId());
-
-			// 🗑️ DELETE case
-			if ("D".equalsIgnoreCase(dto.getFlag())) {
-				if (existingOpt.isPresent()) {
-					leaveRepository.delete(existingOpt.get());
-					response.setMessage("Leave order deleted successfully.");
-					error.setErrorCode("200");
-					error.setErrorDescription("Success");
-				} else {
-					response.setMessage("No record found for deletion with rowId: " + dto.getRowId());
-					error.setErrorCode("404");
-					error.setErrorDescription("Record not found");
-				}
-				response.setErrorDetails(error);
-				return response;
-			}
-
-			LeaveEntity entity;
-			String flag;
-
-			if (existingOpt.isPresent()) {
-				// 🔁 UPDATE existing record
-				entity = existingOpt.get();
-				flag = "U";
-			} else {
-				// 🆕 CREATE new record
-				entity = new LeaveEntity();
-				flag = "C";
-			}
-
-			// 🔹 Common field mapping
-			entity.setRowId(dto.getRowId());
-			entity.setYear(dto.getYear());
-			entity.setMonth(dto.getMonth());
-			entity.setDate(dto.getDate());
-			entity.setEmployeeName(dto.getApplicantDetails().getEmployeeName());
-			entity.setDesignation(dto.getApplicantDetails().getDesignation());
-			entity.setLeaveFromDate(dto.getLeaveDetails().getFromDate());
-			entity.setLeaveToDate(dto.getLeaveDetails().getToDate());
-			entity.setFlag(flag);
-			entity.setKramankNo(dto.getKramankNo());
-
-			// 🔹 Store full JSON data
-			JsonNode jsonData = objectMapper.convertValue(dto, JsonNode.class);
-			entity.setData(jsonData);
-
-			// 🔹 Created / Updated handling
-			if (entity.getId() == null) {
-				// First time create
-				entity.setCreatedBy(username);
-				entity.setCreatedDate(now);
-				entity.setUpdatedBy(username);
-				entity.setUpdatedDate(now);
-			} else {
-				// Updating
-				if (entity.getCreatedBy() == null)
-					entity.setCreatedBy(username);
-				if (entity.getCreatedDate() == null)
-					entity.setCreatedDate(now);
-
-				entity.setUpdatedBy(username);
-				entity.setUpdatedDate(now);
-			}
-
-			// 💾 Save entity
-			LeaveEntity saved = leaveRepository.save(entity);
-
-			// ✅ Prepare response data
-			Map<String, Object> map = new LinkedHashMap<>();
-			map.put("rowId", saved.getRowId());
-			map.put("flag", saved.getFlag());
-			map.put("employeeName", saved.getEmployeeName());
-			map.put("year", saved.getYear());
-			map.put("month", saved.getMonth());
-			map.put("createdBy", saved.getCreatedBy());
-			map.put("createdDate", saved.getCreatedDate());
-			map.put("updatedBy", saved.getUpdatedBy());
-			map.put("updatedDate", saved.getUpdatedDate());
-			map.put("kramankNo", saved.getKramankNo());
-			map.put("status", "SUCCESS");
-
-			response.getData().add(map);
-			response.setMessage(
-					flag.equals("U") ? "Leave order updated successfully." : "Leave order created successfully.");
-
-			error.setErrorCode("200");
-			error.setErrorDescription("Success");
-		} catch (Exception e) {
-			log.error("Error in saveOrUpdateLeave: {}", e.getMessage(), e);
-			response.setMessage("Error while saving leave order.");
-			error.setErrorCode("500");
-			error.setErrorDescription(e.getMessage());
-		}
-
-		response.setErrorDetails(error);
-		return response;
-	}
-
-	@Override
-	public LeaveResponse getLeaveDetails(String employeeName, String year, String month, String date) {
-		LeaveResponse response = new LeaveResponse();
-		ApplicationError error = new ApplicationError();
-		response.setData(new ArrayList<>());
-
-		try {
-			// 🧭 Fetch data using dynamic filters
-			List<LeaveEntity> results = leaveRepository.findByFilters(employeeName, year, month, date);
-
-			if (results.isEmpty()) {
-				response.setMessage("No leave records found for the given filters.");
-				error.setErrorCode("404");
-				error.setErrorDescription("No data found");
-			} else {
-				List<Map<String, Object>> mappedList = new ArrayList<>();
-
-				for (LeaveEntity entity : results) {
-					Map<String, Object> map = new LinkedHashMap<>();
-					map.put("rowId", entity.getRowId());
-					map.put("employeeName", entity.getEmployeeName());
-					map.put("designation", entity.getDesignation());
-					map.put("year", entity.getYear());
-					map.put("month", entity.getMonth());
-					map.put("date", entity.getDate());
-					map.put("leaveFromDate", entity.getLeaveFromDate());
-					map.put("leaveToDate", entity.getLeaveToDate());
-					map.put("flag", entity.getFlag());
-					map.put("createdBy", entity.getCreatedBy());
-					map.put("createdDate", entity.getCreatedDate());
-					map.put("updatedBy", entity.getUpdatedBy());
-					map.put("updatedDate", entity.getUpdatedDate());
-					map.put("fullJson", entity.getData());
-					mappedList.add(map);
-				}
-
-				response.setData(mappedList);
-				response.setMessage("Leave details fetched successfully.");
-				error.setErrorCode("200");
-				error.setErrorDescription("Success");
-			}
-		} catch (Exception e) {
-			log.error("Error in getLeaveDetails: {}", e.getMessage(), e);
-			response.setMessage("Error while fetching leave records.");
-			error.setErrorCode("500");
-			error.setErrorDescription(e.getMessage());
-		}
-
-		response.setErrorDetails(error);
-		return response;
-	}
-
-	@Transactional
 	public AppealResponse saveOrUpdateAppeal(AppealWrapper wrapper) {
 
 		AppealResponse response = new AppealResponse();
 		ApplicationError error = new ApplicationError();
 		response.setData(new ArrayList<>());
 
-		try {
+		String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		LocalDateTime now = LocalDateTime.now();
 
-			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-			LocalDateTime now = LocalDateTime.now();
+		log.info("START saveOrUpdateAppeal | records={} | user={}",
+				wrapper.getAppealData() != null ? wrapper.getAppealData().size() : 0, currentUser);
+
+		try {
 
 			for (AppealRequest dto : wrapper.getAppealData()) {
 
-				// -----------------------------
-				// FIND RECORD USING deleteId + year/date
-				// -----------------------------
 				Optional<AppealEntity> existingOpt = Optional.empty();
 
+				// 🔍 Find existing record using deleteId + date
 				if (dto.getDeleteId() != null && dto.getDate() != null) {
 					existingOpt = appealRepository.findByDeleteIdAndDate(dto.getDeleteId(), dto.getDate());
 				}
 
 				String flag = Optional.ofNullable(dto.getFlag()).orElse("C").toUpperCase();
 
-				// -----------------------------
-				// DELETE LOGIC BY deleteId + date/year
-				// -----------------------------
-				if (flag.equals("D")) {
+				// ---------------- DELETE ----------------
+				if ("D".equals(flag)) {
 
 					if (existingOpt.isPresent()) {
 						appealRepository.delete(existingOpt.get());
@@ -706,16 +188,18 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 						delMap.put("date", dto.getDate());
 						delMap.put("status", "DELETED");
 						response.getData().add(delMap);
+
+						log.info("Deleted Appeal | deleteId={} | date={}", dto.getDeleteId(), dto.getDate());
+					} else {
+						log.warn("Delete requested but record not found | deleteId={} | date={}", dto.getDeleteId(),
+								dto.getDate());
 					}
 					continue;
 				}
 
-				// -----------------------------
-				// CREATE / UPDATE LOGIC
-				// -----------------------------
-				// CREATE / UPDATE LOGIC
-				AppealEntity entity = existingOpt.orElse(new AppealEntity());
+				// ---------------- CREATE / UPDATE ----------------
 				boolean isUpdate = existingOpt.isPresent();
+				AppealEntity entity = existingOpt.orElse(new AppealEntity());
 
 				entity.setDeleteId(dto.getDeleteId());
 				entity.setYear(dto.getYear());
@@ -724,17 +208,17 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 				if (isUpdate) {
 					entity.setFlag("U");
-					entity.setUpdatedBy(username);
+					entity.setUpdatedBy(currentUser);
 					entity.setUpdatedDate(now);
 				} else {
 					entity.setFlag("C");
-					entity.setCreatedBy(username);
+					entity.setCreatedBy(currentUser);
 					entity.setCreatedDate(now);
-					entity.setUpdatedBy(username);
+					entity.setUpdatedBy(currentUser);
 					entity.setUpdatedDate(now);
 				}
 
-				// SET ALL FIELDS
+				// 🔹 Business fields
 				entity.setApeelArjachaNondaniKramank(dto.getApeelArjachaNondaniKramank());
 				entity.setApeelkaracheNav(dto.getApeelkaracheNav());
 				entity.setApeelArjKonakadeKelaAahe(dto.getApeelArjKonakadeKelaAahe());
@@ -749,7 +233,6 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 						dto.getKonalyaJanmahitiAdhikariYanchikadeApeelKeleTathyaTapshil());
 				entity.setApeelvarNirnayDilyachaDinank(dto.getApeelvarNirnayDilyachaDinank());
 				entity.setShera(dto.getShera());
-
 				entity.setDynamicColumns(dto.getDynamicColumns());
 
 				AppealEntity saved = appealRepository.save(entity);
@@ -759,14 +242,23 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				map.put("year", saved.getYear());
 				map.put("flag", saved.getFlag());
 				map.put("status", isUpdate ? "UPDATED" : "CREATED");
+
 				response.getData().add(map);
+
+				log.info("{} Appeal | rowId={} | year={}", isUpdate ? "Updated" : "Created", saved.getRowId(),
+						saved.getYear());
 			}
 
 			error.setErrorCode("200");
 			error.setErrorDescription("Success");
 			response.setErrorDetails(error);
 
+			log.info("SUCCESS saveOrUpdateAppeal | processedRecords={}", response.getData().size());
+
 		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdateAppeal", e);
+
 			error.setErrorCode("500");
 			error.setErrorDescription(e.getMessage());
 			response.setErrorDetails(error);
@@ -776,31 +268,28 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	}
 
 	@Override
-	public AppealResponse getAppealData(String year, int page, int size) {
+	public AppealResponse getAppealData(String year) {
 
 		AppealResponse response = new AppealResponse();
 		ApplicationError error = new ApplicationError();
 		response.setData(new ArrayList<>());
 
+		log.info("START getAppealData | year={}", year);
+
 		try {
 
-			// Validate Page & Size
-			int pageNum = page >= 0 ? page : 0;
-			int pageSize = size > 0 ? size : 10;
+			List<AppealEntity> entities;
 
-			Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by("updatedDate").descending());
-
-			Page<AppealEntity> appealPage;
-
-			// 🎯 Filter by year OR fetch all
+			// 🎯 Filter by year OR fetch all (pagination removed)
 			if (year != null && !year.isBlank()) {
-				appealPage = appealRepository.findByYear(year, pageable);
+				entities = appealRepository.findByYear(year);
 			} else {
-				appealPage = appealRepository.findAll(pageable);
+				entities = appealRepository.findAll();
 			}
 
-			// Build Response Data
-			for (AppealEntity e : appealPage.getContent()) {
+			log.info("Fetched {} records from DB", entities.size());
+
+			for (AppealEntity e : entities) {
 
 				Map<String, Object> map = new LinkedHashMap<>();
 
@@ -826,7 +315,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				map.put("apeelvarNirnayDilyachaDinank", e.getApeelvarNirnayDilyachaDinank());
 				map.put("shera", e.getShera());
 
-				// 🧩 Dynamic Columns (convert JsonNode → Map)
+				// 🧩 Dynamic Columns
 				if (e.getDynamicColumns() != null && !e.getDynamicColumns().isEmpty()) {
 					Map<String, Object> dynMap = objectMapper.convertValue(e.getDynamicColumns(), Map.class);
 					map.put("dynamicColumns", dynMap);
@@ -834,7 +323,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 					map.put("dynamicColumns", new LinkedHashMap<>());
 				}
 
-				// Audit Fields
+				// 🔍 Audit fields
 				map.put("createdBy", e.getCreatedBy());
 				map.put("createdDate", e.getCreatedDate());
 				map.put("updatedBy", e.getUpdatedBy());
@@ -842,23 +331,20 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 				response.getData().add(map);
 			}
-			// SORT BY rowId
-			response.getData().sort(Comparator.comparing(m -> Integer.parseInt(m.get("rowId").toString())));
 
-			// Pagination Meta
-			Map<String, Object> meta = new LinkedHashMap<>();
-			meta.put("pageNumber", appealPage.getNumber());
-			meta.put("pageSize", appealPage.getSize());
-			meta.put("totalElements", appealPage.getTotalElements());
-			meta.put("totalPages", appealPage.getTotalPages());
-			response.setMeta(meta);
+			// ✅ SORT BY rowId ASC
+			response.getData().sort(Comparator.comparingInt(m -> Integer.parseInt(m.get("rowId").toString())));
 
-			// Success
 			response.setMessage("Appeal register data fetched successfully.");
 			error.setErrorCode("200");
 			error.setErrorDescription("Success");
 
+			log.info("SUCCESS getAppealData | totalRecords={}", response.getData().size());
+
 		} catch (Exception ex) {
+
+			log.error("ERROR getAppealData | year={}", year, ex);
+
 			response.setMessage("Error while fetching appeal data.");
 			error.setErrorCode("500");
 			error.setErrorDescription(ex.getMessage());
@@ -871,39 +357,50 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	@Override
 	@Transactional
 	public EmployeePostingResponse saveOrUpdateEmployeePosting(EmployeePostingRequest dto) {
+
 		EmployeePostingResponse response = new EmployeePostingResponse();
 		ApplicationError error = new ApplicationError();
 		response.setData(new ArrayList<>());
 
+		final String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final LocalDateTime now = LocalDateTime.now();
+
+		log.info("START saveOrUpdateEmployeePosting | records={} | user={}",
+				dto.getData() != null ? dto.getData().size() : 0, currentUser);
+
 		try {
-			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
 
 			for (Map<String, Object> row : dto.getData()) {
+
+				// ---------------- EXTRACT BASIC FIELDS ----------------
+				if (row.get("rowId") == null) {
+					log.warn("Skipping record without rowId");
+					continue;
+				}
+
 				Long rowId = ((Number) row.get("rowId")).longValue();
 				String year = (String) row.get("year");
-				String flag = (String) row.getOrDefault("flag", "");
+				String flag = String.valueOf(row.getOrDefault("flag", "")).toUpperCase();
 
 				Optional<EmployeePostingEntity> existingOpt = employeePostingRepository.findByRowId(rowId);
 
-				// 🗑️ Delete
-				if ("D".equalsIgnoreCase(flag)) {
+				// ---------------- DELETE ----------------
+				if ("D".equals(flag)) {
+
 					if (existingOpt.isPresent()) {
 						employeePostingRepository.delete(existingOpt.get());
-						log.info("Deleted record with rowId: {}", rowId);
+						log.info("Deleted EmployeePosting | rowId={}", rowId);
+					} else {
+						log.warn("Delete requested but record not found | rowId={}", rowId);
 					}
 					continue;
 				}
 
-				// 🆕 Create or 🔁 Update
+				// ---------------- CREATE / UPDATE ----------------
+				boolean isUpdate = existingOpt.isPresent();
 				EmployeePostingEntity entity = existingOpt.orElse(new EmployeePostingEntity());
 
-				// detect automatically
-				if (existingOpt.isEmpty()) {
-					entity.setFlag("C");
-				} else {
-					entity.setFlag("U");
-				}
-
+				entity.setFlag(isUpdate ? "U" : "C");
 				entity.setRowId(rowId);
 				entity.setYear(year);
 
@@ -913,44 +410,48 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				entity.setDharika((String) row.get("dharika"));
 				entity.setKalavadhi((String) row.get("kalavadhi"));
 
-				// 🔹 dynamic fields
+				// ---------------- DYNAMIC COLUMNS ----------------
 				ObjectNode dynamic = objectMapper.createObjectNode();
+
+				List<String> fixedKeys = List.of("rowId", "year", "flag", "kramank", "adhikariKarmacharyacheNav",
+						"padnaam", "dharika", "kalavadhi");
+
 				for (Map.Entry<String, Object> entry : row.entrySet()) {
-					if (!List.of("rowId", "year", "flag", "kramank", "adhikariKarmacharyacheNav", "padnaam", "dharika",
-							"kalavadhi").contains(entry.getKey())) {
+					if (!fixedKeys.contains(entry.getKey())) {
 						dynamic.putPOJO(entry.getKey(), entry.getValue());
 					}
 				}
 				entity.setDynamicColumns(dynamic);
 
-				// 🕒 Timestamps
-				LocalDateTime now = LocalDateTime.now();
-				if (entity.getId() == null) {
-					entity.setCreatedBy(username);
+				// ---------------- AUDIT FIELDS ----------------
+				if (!isUpdate) {
+					entity.setCreatedBy(currentUser);
 					entity.setCreatedDate(now);
-					entity.setUpdatedBy(username);
-					entity.setUpdatedDate(now);
 				} else {
-					// retain created info
 					if (entity.getCreatedBy() == null)
-						entity.setCreatedBy(username);
+						entity.setCreatedBy(currentUser);
 					if (entity.getCreatedDate() == null)
 						entity.setCreatedDate(now);
-
-					entity.setUpdatedBy(username);
-					entity.setUpdatedDate(now);
 				}
 
+				entity.setUpdatedBy(currentUser);
+				entity.setUpdatedDate(now);
+
 				employeePostingRepository.save(entity);
-				log.info("{} record processed (rowId={})", entity.getFlag(), rowId);
+
+				log.info("{} EmployeePosting | rowId={} | year={}", isUpdate ? "Updated" : "Created", rowId, year);
 			}
 
 			response.setMessage("Records processed successfully.");
 			error.setErrorCode("200");
 			error.setErrorDescription("Success");
 
+			log.info("SUCCESS saveOrUpdateEmployeePosting | processedRecords={}", dto.getData().size());
+
 		} catch (Exception e) {
-			log.error("Error while saving employee posting data: {}", e.getMessage(), e);
+
+			log.error("ERROR saveOrUpdateEmployeePosting", e);
+
 			response.setMessage("Error while saving data.");
 			error.setErrorCode("500");
 			error.setErrorDescription(e.getMessage());
@@ -961,16 +462,28 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	}
 
 	@Override
-	public EmployeePostingResponse getEmployeePostingData(String name, String year, int page, int size) {
+	public EmployeePostingResponse getEmployeePostingData(String name, String year) {
+
 		EmployeePostingResponse response = new EmployeePostingResponse();
 		ApplicationError error = new ApplicationError();
 		response.setData(new ArrayList<>());
 
-		try {
-			Pageable pageable = PageRequest.of(page, size, Sort.by("createdDate").descending());
-			Page<EmployeePostingEntity> result = employeePostingRepository.findByNameAndYear(name, year, pageable);
+		log.info("START getEmployeePostingData | name={} | year={}", name, year);
 
-			for (EmployeePostingEntity e : result.getContent()) {
+		try {
+
+			// 🔹 Fetch all records (NO pagination)
+			List<EmployeePostingEntity> entities = employeePostingRepository.findByNameAndYear(name, year);
+
+			if (entities == null || entities.isEmpty()) {
+				log.warn("No EmployeePosting records found | name={} | year={}", name, year);
+			}
+
+			// 🔹 Sort by rowId ASC (stable & predictable)
+			entities.sort(Comparator.comparing(EmployeePostingEntity::getRowId));
+
+			for (EmployeePostingEntity e : entities) {
+
 				Map<String, Object> map = new LinkedHashMap<>();
 
 				map.put("rowId", e.getRowId());
@@ -981,14 +494,16 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				map.put("dharika", e.getDharika());
 				map.put("kalavadhi", e.getKalavadhi());
 				map.put("flag", e.getFlag());
+
+				// Audit
 				map.put("createdBy", e.getCreatedBy());
 				map.put("createdDate", e.getCreatedDate());
 				map.put("updatedBy", e.getUpdatedBy());
 				map.put("updatedDate", e.getUpdatedDate());
 
-				if (e.getDynamicColumns() != null) {
-					map.put("dynamicColumns", e.getDynamicColumns());
-				}
+				// Dynamic columns
+				map.put("dynamicColumns",
+						e.getDynamicColumns() != null ? e.getDynamicColumns() : objectMapper.createObjectNode());
 
 				response.getData().add(map);
 			}
@@ -997,8 +512,12 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 			error.setErrorCode("200");
 			error.setErrorDescription("Success");
 
+			log.info("SUCCESS getEmployeePostingData | records={}", response.getData().size());
+
 		} catch (Exception ex) {
-			log.error("Error fetching employee posting data: {}", ex.getMessage(), ex);
+
+			log.error("ERROR getEmployeePostingData | name={} | year={}", name, year, ex);
+
 			response.setMessage("Error while fetching records.");
 			error.setErrorCode("500");
 			error.setErrorDescription(ex.getMessage());
@@ -1010,33 +529,44 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 	@Override
 	public IncomeTaxDeductionResponse saveOrUpdateIncomeTaxDeduc(IncomeTaxDeductionRequest request) {
+
 		IncomeTaxDeductionResponse response = new IncomeTaxDeductionResponse();
 		ApplicationError error = new ApplicationError();
 		response.setData(new ArrayList<>());
 
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final LocalDateTime now = LocalDateTime.now();
+
+		log.info("START saveOrUpdateIncomeTaxDeduc | year={} | month={} | user={}", request.getYear(),
+				request.getMonth(), user);
+
 		try {
-			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-			LocalDateTime now = LocalDateTime.now();
 
 			for (Map<String, Object> row : request.getData()) {
+
+				if (row.get("rowId") == null)
+					continue;
+
 				Long rowId = ((Number) row.get("rowId")).longValue();
-				String flag = (String) row.getOrDefault("flag", "");
+				String flag = String.valueOf(row.getOrDefault("flag", "")).trim();
 
 				Optional<IncomeTaxDeductionEntity> existingOpt = incomeTaxDeductionRepository.findByRowId(rowId);
 
-				// 🗑️ DELETE case
+				// 🗑️ DELETE
 				if ("D".equalsIgnoreCase(flag)) {
-					existingOpt.ifPresent(incomeTaxDeductionRepository::delete);
+					existingOpt.ifPresent(entity -> {
+						incomeTaxDeductionRepository.delete(entity);
+						log.debug("Deleted IncomeTax row | rowId={}", rowId);
+					});
 					continue;
 				}
 
 				IncomeTaxDeductionEntity entity = existingOpt.orElse(new IncomeTaxDeductionEntity());
 
-				// Detect CREATE / UPDATE
-				String detectedFlag = existingOpt.isPresent() ? "U" : "C";
-				entity.setFlag(detectedFlag);
+				// FLAG
+				entity.setFlag(existingOpt.isPresent() ? "U" : "C");
 
-				// Map static fields
+				// STATIC FIELDS
 				entity.setRowId(rowId);
 				entity.setYear(request.getYear());
 				entity.setMonth(request.getMonth());
@@ -1050,7 +580,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 				entity.setRemarks((String) row.get("remarks"));
 
-				// Detect dynamic keys
+				// 🔹 DYNAMIC COLUMNS
 				Map<String, Object> dynamic = new LinkedHashMap<>();
 				for (Map.Entry<String, Object> entry : row.entrySet()) {
 					String key = entry.getKey();
@@ -1060,28 +590,31 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 					}
 				}
 
-				JsonNode dynamicJson = objectMapper.convertValue(dynamic, JsonNode.class);
-				entity.setDynamicColumns(dynamicJson);
+				entity.setDynamicColumns(objectMapper.valueToTree(dynamic));
 
-				// Audit fields
+				// AUDIT
 				if (entity.getId() == null) {
-					entity.setCreatedBy(username);
+					entity.setCreatedBy(user);
 					entity.setCreatedDate(now);
-					entity.setUpdatedBy(username);
-					entity.setUpdatedDate(now);
-				} else {
-					entity.setUpdatedBy(username);
-					entity.setUpdatedDate(now);
 				}
+				entity.setUpdatedBy(user);
+				entity.setUpdatedDate(now);
 
 				incomeTaxDeductionRepository.save(entity);
+
+				log.debug("{} IncomeTax row processed | rowId={}", entity.getFlag(), rowId);
 			}
 
 			response.setMessage("Income Tax data saved/updated successfully.");
 			error.setErrorCode("200");
 			error.setErrorDescription("Success");
+
+			log.info("SUCCESS saveOrUpdateIncomeTaxDeduc");
+
 		} catch (Exception e) {
-			log.error("Error saving IncomeTax data: {}", e.getMessage(), e);
+
+			log.error("ERROR saveOrUpdateIncomeTaxDeduc", e);
+
 			response.setMessage("Error while saving data.");
 			error.setErrorCode("500");
 			error.setErrorDescription(e.getMessage());
@@ -1092,26 +625,36 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	}
 
 	@Override
-	public Page<IncomeTaxDeductionResponse> getIncomeTaxDeductionData(String year, String month, int page, int size) {
-		Pageable pageable = PageRequest.of(page, size, Sort.by("rowId").ascending());
-		List<IncomeTaxDeductionResponse> responseList = new ArrayList<>();
+	public IncomeTaxDeductionResponse getIncomeTaxDeductionData(String year, String month) {
+
+		IncomeTaxDeductionResponse response = new IncomeTaxDeductionResponse();
 		ApplicationError error = new ApplicationError();
+		List<Map<String, Object>> dataList = new ArrayList<>();
+
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		log.info("START getIncomeTaxDeductionData | year={} | month={} | user={}", year, month, user);
 
 		try {
-			Page<IncomeTaxDeductionEntity> entities;
 
-			// 🧠 Dynamic filtering logic
+			List<IncomeTaxDeductionEntity> entities;
+
+			// 🧠 SAME filtering logic (pagination removed)
 			if ((year == null || year.isBlank()) && (month == null || month.isBlank())) {
-				entities = incomeTaxDeductionRepository.findAll(pageable);
-			} else if (year != null && (month == null || month.isBlank())) {
-				entities = incomeTaxDeductionRepository.findByYear(year, pageable);
-			} else if ((year == null || year.isBlank()) && month != null) {
-				entities = incomeTaxDeductionRepository.findByMonthContainingIgnoreCase(month, pageable);
+				entities = incomeTaxDeductionRepository.findAll();
+			} else if (year != null && !year.isBlank() && (month == null || month.isBlank())) {
+				entities = incomeTaxDeductionRepository.findByYear(year);
+			} else if ((year == null || year.isBlank()) && month != null && !month.isBlank()) {
+				entities = incomeTaxDeductionRepository.findByMonthContainingIgnoreCase(month);
 			} else {
-				entities = incomeTaxDeductionRepository.findByYearAndMonthContainingIgnoreCase(year, month, pageable);
+				entities = incomeTaxDeductionRepository.findByYearAndMonthContainingIgnoreCase(year, month);
 			}
 
-			for (IncomeTaxDeductionEntity e : entities.getContent()) {
+			// 🔥 Sort by rowId ASC
+			entities.sort(Comparator.comparing(IncomeTaxDeductionEntity::getRowId));
+
+			for (IncomeTaxDeductionEntity e : entities) {
+
 				Map<String, Object> map = new LinkedHashMap<>();
 
 				map.put("rowId", e.getRowId());
@@ -1123,203 +666,42 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				map.put("amountOfIncomeTaxDeducted", e.getAmountOfIncomeTaxDeducted());
 				map.put("remarks", e.getRemarks());
 
-				// ✅ Include dynamic columns (if present)
+				// ✅ Dynamic columns
 				if (e.getDynamicColumns() != null) {
-					e.getDynamicColumns().fields().forEachRemaining(entry -> {
-						map.put(entry.getKey(), entry.getValue().asText());
-					});
+					e.getDynamicColumns().fields()
+							.forEachRemaining(entry -> map.put(entry.getKey(), entry.getValue().asText()));
 				}
 
+				// Audit
 				map.put("createdBy", e.getCreatedBy());
 				map.put("createdDate", e.getCreatedDate());
 				map.put("updatedBy", e.getUpdatedBy());
 				map.put("updatedDate", e.getUpdatedDate());
 
-				IncomeTaxDeductionResponse response = new IncomeTaxDeductionResponse();
-				error.setErrorCode("200");
-				error.setErrorDescription("SUCCESS");
-				response.setMessage("Fetched successfully");
-				response.setErrorDetails(error);
-				response.setData(List.of(map));
-
-				responseList.add(response);
+				dataList.add(map);
 			}
 
-			return new PageImpl<>(responseList, pageable, entities.getTotalElements());
+			response.setData(dataList);
+			response.setMessage("Fetched successfully");
+
+			error.setErrorCode("200");
+			error.setErrorDescription("SUCCESS");
+
+			log.info("SUCCESS getIncomeTaxDeductionData | records={}", dataList.size());
 
 		} catch (Exception ex) {
-			IncomeTaxDeductionResponse errorResponse = new IncomeTaxDeductionResponse();
 
-			errorResponse.setMessage("Error occurred while fetching data");
+			log.error("ERROR getIncomeTaxDeductionData", ex);
+
+			response.setData(Collections.emptyList());
+			response.setMessage("Error occurred while fetching data");
+
 			error.setErrorCode("500");
 			error.setErrorDescription(ex.getMessage());
-			errorResponse.setErrorDetails(error);
-			errorResponse.setData(null);
-
-			return new PageImpl<>(List.of(errorResponse), pageable, 0);
-		}
-	}
-
-	@Override
-	public PassportNocResponse saveOrUpdatePassportNoc(PassportNocRequest dto) {
-		PassportNocResponse response = new PassportNocResponse();
-		ApplicationError error = new ApplicationError();
-		response.setData(new ArrayList<>());
-
-		try {
-			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-			String flag = Optional.ofNullable(dto.getFlag()).map(String::toUpperCase).orElse("C");
-
-			Optional<PassportNocEntity> existingOpt = passportNocRepository.findByRowId(dto.getRowId());
-
-			// 🗑 DELETE logic
-			if ("D".equals(flag)) {
-				if (existingOpt.isPresent()) {
-					passportNocRepository.delete(existingOpt.get());
-					response.setMessage("Record deleted successfully.");
-					error.setErrorCode("200");
-					error.setErrorDescription("Success");
-				} else {
-					response.setMessage("No record found to delete with rowId: " + dto.getRowId());
-					error.setErrorCode("404");
-					error.setErrorDescription("Not Found");
-				}
-				response.setErrorDetails(error);
-				return response;
-			}
-
-			// 📝 CREATE / UPDATE logic
-			PassportNocEntity entity = existingOpt.orElse(new PassportNocEntity());
-			LocalDateTime now = LocalDateTime.now();
-
-			entity.setRowId(dto.getRowId());
-			entity.setYear(dto.getYear());
-			entity.setMonth(dto.getMonth());
-			entity.setDate(LocalDate.parse(dto.getDate()));
-
-			// ✅ Assign JSONs
-			entity.setNoObjectionCertificate(dto.getNoObjectionCertificate());
-			entity.setIdentityConfirmation(dto.getIdentityConfirmation());
-			entity.setDynamicColumns(dto.getDynamicColumns());
-
-			// ✅ Extract employeeName (if present inside JSON)
-			String empName = null;
-			if (dto.getNoObjectionCertificate() != null && dto.getNoObjectionCertificate().has("employeeName")) {
-				empName = dto.getNoObjectionCertificate().get("employeeName").asText();
-			} else if (dto.getIdentityConfirmation() != null && dto.getIdentityConfirmation().has("employeeName")) {
-				empName = dto.getIdentityConfirmation().get("employeeName").asText();
-			}
-			entity.setEmployeeName(empName);
-
-			// ✅ Detect CREATE or UPDATE automatically
-			if (entity.getId() == null) {
-				flag = "C";
-				entity.setCreatedBy(username);
-				entity.setCreatedDate(now);
-				entity.setUpdatedBy(username);
-				entity.setUpdatedDate(now);
-			} else {
-				flag = "U";
-				if (entity.getCreatedBy() == null)
-					entity.setCreatedBy(username);
-				if (entity.getCreatedDate() == null)
-					entity.setCreatedDate(now);
-				entity.setUpdatedBy(username);
-				entity.setUpdatedDate(now);
-			}
-
-			entity.setFlag(flag);
-			PassportNocEntity saved = passportNocRepository.save(entity);
-
-			Map<String, Object> result = new LinkedHashMap<>();
-			result.put("rowId", saved.getRowId());
-			result.put("year", saved.getYear());
-			result.put("month", saved.getMonth());
-			result.put("employeeName", saved.getEmployeeName());
-			result.put("flag", saved.getFlag());
-			result.put("createdBy", saved.getCreatedBy());
-			result.put("createdDate", saved.getCreatedDate());
-			result.put("updatedBy", saved.getUpdatedBy());
-			result.put("updatedDate", saved.getUpdatedDate());
-
-			response.getData().add(result);
-			response.setMessage(flag.equals("U") ? "Record updated successfully." : "Record created successfully.");
-			error.setErrorCode("200");
-			error.setErrorDescription("Success");
-
-		} catch (Exception e) {
-			log.error("Error in saveOrUpdatePassportNoc: {}", e.getMessage(), e);
-			response.setMessage("Error while saving passport NOC data.");
-			error.setErrorCode("500");
-			error.setErrorDescription(e.getMessage());
 		}
 
 		response.setErrorDetails(error);
 		return response;
-	}
-
-	@Override
-	public Page<PassportNocResponse> getPassportNocData(String year, String month, String employeeName, int page,
-			int size) {
-		Pageable pageable = PageRequest.of(page, size, Sort.by("rowId").ascending());
-		ApplicationError error = new ApplicationError();
-
-		try {
-			// Default empty filter handling
-			String filterYear = (year != null && !year.isBlank()) ? year : "";
-			String filterMonth = (month != null && !month.isBlank()) ? month : "";
-			String filterName = (employeeName != null && !employeeName.isBlank()) ? employeeName : "";
-
-			Page<PassportNocEntity> entities = passportNocRepository
-					.findByYearContainingIgnoreCaseAndMonthContainingIgnoreCaseAndEmployeeNameContainingIgnoreCase(
-							filterYear, filterMonth, filterName, pageable);
-
-			List<Map<String, Object>> resultList = new ArrayList<>();
-
-			for (PassportNocEntity e : entities.getContent()) {
-				Map<String, Object> map = new LinkedHashMap<>();
-				map.put("rowId", e.getRowId());
-				map.put("year", e.getYear());
-				map.put("month", e.getMonth());
-				map.put("date", e.getDate());
-				map.put("flag", e.getFlag());
-				map.put("employeeName", e.getEmployeeName());
-				map.put("noObjectionCertificate", e.getNoObjectionCertificate());
-				map.put("identityConfirmation", e.getIdentityConfirmation());
-
-				// ✅ Add dynamic columns if any
-				if (e.getDynamicColumns() != null) {
-					e.getDynamicColumns().fields().forEachRemaining(entry -> {
-						map.put(entry.getKey(), entry.getValue().asText());
-					});
-				}
-
-				map.put("createdBy", e.getCreatedBy());
-				map.put("createdDate", e.getCreatedDate());
-				map.put("updatedBy", e.getUpdatedBy());
-				map.put("updatedDate", e.getUpdatedDate());
-
-				resultList.add(map);
-			}
-
-			PassportNocResponse response = new PassportNocResponse();
-			response.setMessage("Fetched successfully");
-			response.setData(resultList);
-
-			error.setErrorCode("200");
-			error.setErrorDescription("Success");
-			response.setErrorDetails(error);
-
-			return new PageImpl<>(List.of(response), pageable, entities.getTotalElements());
-
-		} catch (Exception e) {
-			PassportNocResponse response = new PassportNocResponse();
-			error.setErrorCode("500");
-			error.setErrorDescription(e.getMessage());
-			response.setMessage("Error while fetching passport NOC data");
-			response.setErrorDetails(error);
-			return new PageImpl<>(List.of(response), pageable, 0);
-		}
 	}
 
 	@Override
@@ -1470,145 +852,6 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		return v == null ? "" : v;
 	}
 
-	@Override
-	public ResponseEntity<InputStreamResource> downloadMedicalBill(String employeeName, String date) throws Exception {
-
-		MedicalBillMasterEntity entity = masterRepo.findByEmployeeDetails_EmployeeNameAndBillDate(employeeName, date)
-				.orElseThrow(() -> new RuntimeException("Record not found"));
-
-		// Load template
-		InputStream is = this.getClass().getResourceAsStream(TEMPLATE);
-		if (is == null) {
-			throw new RuntimeException("Template not found");
-		}
-
-		XWPFDocument doc = new XWPFDocument(is);
-
-		// -------------------- PLACEHOLDER MAP ---------------------
-		Map<String, String> map = new HashMap<>();
-		map.put("${title}", entity.getTitle());
-		map.put("${period}", entity.getPeriod());
-		map.put("${year}", entity.getYear());
-		map.put("${billDate}", entity.getBillDate());
-
-		if (entity.getEmployeeDetails() != null) {
-			var e = entity.getEmployeeDetails();
-			map.put("${employeeName}", nvl(e.getEmployeeName()));
-			map.put("${designation}", nvl(e.getDesignation()));
-			map.put("${department}", nvl(e.getDepartment()));
-			map.put("${patientName}", nvl(e.getPatientName()));
-			map.put("${hospitalName}", nvl(e.getHospitalName()));
-			map.put("${treatFrom}", nvl(e.getFromDate()));
-			map.put("${treatTo}", nvl(e.getToDate()));
-		}
-
-		if (entity.getApprovalDetails() != null) {
-			var a = entity.getApprovalDetails();
-			map.put("${approvalAuthority}", nvl(a.getApprovingAuthority()));
-			map.put("${approvalDate}", nvl(a.getApprovalDate()));
-			map.put("${approvalAmount}", String.valueOf(a.getApprovalAmount()));
-			map.put("${approvedBy}", nvl(a.getApprovedBy()));
-		}
-
-		// -------------------- REPLACE IN PARAGRAPHS --------------------
-		for (XWPFParagraph p : doc.getParagraphs()) {
-			replaceParagraph(p, map);
-		}
-
-		// -------------------- REPLACE IN TABLES ------------------------
-		for (XWPFTable tbl : doc.getTables()) {
-			for (XWPFTableRow row : tbl.getRows()) {
-				for (XWPFTableCell cell : row.getTableCells()) {
-					for (XWPFParagraph p : cell.getParagraphs()) {
-						replaceParagraph(p, map);
-					}
-				}
-			}
-		}
-
-		// -------------------- INSERT REFERENCE LIST ------------------
-		insertReferenceBulletList(doc, entity.getReferences());
-
-		// -------------------- INSERT KHARCHA TAPSHIL ROWS ------------
-		insertKharchaRows(doc, entity.getKharchaTapsil());
-
-		// -------------------- WRITE RESULT ------------------
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		doc.write(baos);
-		doc.close();
-
-		byte[] bytes = baos.toByteArray();
-
-		HttpHeaders headers = new HttpHeaders();
-		headers.setContentType(
-				MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
-		headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Medical_Bill.docx\"");
-
-		return ResponseEntity.ok().headers(headers).body(new InputStreamResource(new ByteArrayInputStream(bytes)));
-	}
-
-	// --------------------------------------------------------------------
-	// HELPER → Replace tokens in paragraph
-	private void replaceParagraph(XWPFParagraph p, Map<String, String> map) {
-		List<XWPFRun> runs = p.getRuns();
-		if (runs == null || runs.isEmpty())
-			return;
-
-		String full = "";
-		for (XWPFRun r : runs)
-			full += (r.getText(0) == null ? "" : r.getText(0));
-
-		String replaced = full;
-		for (var e : map.entrySet()) {
-			String key = e.getKey();
-			String token = "${" + key + "}";
-			replaced = replaced.replace(token, e.getValue() == null ? "" : e.getValue());
-		}
-
-		if (!replaced.equals(full)) {
-			// remove all runs text
-			for (XWPFRun r : runs)
-				r.setText("", 0);
-			// put everything in first run
-			runs.get(0).setText(replaced, 0);
-		}
-	}
-
-	// HELPER → Replace tokens in table
-	private void replaceTable(XWPFTable table, Map<String, String> map) {
-		for (XWPFTableRow row : table.getRows())
-			for (XWPFTableCell cell : row.getTableCells())
-				for (XWPFParagraph p : cell.getParagraphs())
-					replaceParagraph(p, map);
-	}
-
-	// --------------------------------------------------------------------
-	// C : Insert Bullet Reference List
-	private void insertReferenceBulletList(XWPFDocument doc, List<ReferenceEntity> refs) throws Exception {
-
-		if (refs == null || refs.isEmpty())
-			return;
-
-		for (XWPFParagraph p : doc.getParagraphs()) {
-			if (p.getText().contains("${REFERENCE_LIST}")) {
-
-				p.removeRun(0);
-
-				for (ReferenceEntity r : refs) {
-					XWPFParagraph bullet = doc.insertNewParagraph(p.getCTP().newCursor());
-					bullet.setNumID(addBulletStyle(doc));
-
-					XWPFRun run = bullet.createRun();
-					run.setFontFamily("Mangal");
-					run.setFontSize(12);
-					run.setText(r.getReference());
-				}
-
-				return;
-			}
-		}
-	}
-
 	public BigInteger addBulletStyle(XWPFDocument doc) throws Exception {
 		XWPFNumbering numbering = doc.createNumbering();
 
@@ -1626,153 +869,6 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		return numbering.addNum(abstractNumId);
 	}
 
-	// --------------------------------------------------------------------
-	// B : Expand Kharcha Table Rows
-	private void insertKharchaRows(XWPFDocument doc, List<KharchaTapsilEntity> list) {
-		if (list == null || list.isEmpty())
-			return;
-
-		for (XWPFTable tbl : doc.getTables()) {
-			if (tbl.getText().contains("${KHARCHA_TABLE}")) {
-
-				XWPFTableRow sampleRow = tbl.getRow(1); // 2nd row = template
-				tbl.removeRow(1);
-
-				for (KharchaTapsilEntity k : list) {
-					XWPFTableRow newRow = tbl.createRow();
-
-					copyRowStyle(sampleRow, newRow);
-
-					newRow.getCell(0).setText(String.valueOf(k.getAkr()));
-					newRow.getCell(1).setText(nvl(k.getTapsil()));
-					newRow.getCell(2).setText(String.valueOf(k.getRakkam()));
-				}
-
-				return;
-			}
-		}
-	}
-
-	private void copyRowStyle(XWPFTableRow src, XWPFTableRow dest) {
-		for (int i = 0; i < src.getTableCells().size(); i++) {
-			XWPFTableCell cSrc = src.getCell(i);
-			XWPFTableCell cDest = dest.getCell(i);
-
-			if (cSrc == null || cDest == null)
-				continue;
-
-			cDest.getCTTc().setTcPr(cSrc.getCTTc().getTcPr());
-			cDest.setColor(cSrc.getColor());
-		}
-	}
-
-	@Override
-	public ResponseEntity<InputStreamResource> downloadLeaveDetails(String employeeName, String date) throws Exception {
-
-		// 🔥 1) DB FETCH based on employeeName + date
-		LeaveEntity entity = leaveRepository.findByEmployeeNameAndDate(employeeName, date)
-				.orElseThrow(() -> new RuntimeException("Data not found"));
-
-		// 🔥 2) JSON column ko Map me convert karo
-		Map<String, Object> data = objectMapper.convertValue(entity.getData(), Map.class);
-
-		// 🔥 3) PDF START
-		PDDocument pdf = new PDDocument();
-		PDPage page = new PDPage(PDRectangle.A4);
-		pdf.addPage(page);
-
-		PDPageContentStream cs = new PDPageContentStream(pdf, page);
-
-		PDType0Font font = PdfUtil.loadFont(pdf);
-
-		float y = 790;
-
-		// ---------- TITLE ----------
-		PdfUtil.drawText(cs, "कार्यालयीन आदेश क्रमांक", 210, y, font, 16, true);
-		y -= 25;
-
-		PdfUtil.drawText(cs, "सन " + data.get("year").toString(), 260, y, font, 16, true);
-		y -= 40;
-
-		// ---------- SUBJECT ----------
-		PdfUtil.drawText(cs, "संदर्भ :- " + data.get("subjectReference"), 50, y, font, 12, true);
-		y -= 30;
-
-		// ---------- MAIN BODY ----------
-		Map<String, Object> applicant = (Map) data.get("applicantDetails");
-		Map<String, Object> leaveDetails = (Map) data.get("leaveDetails");
-
-		String p1 = "महाराष्ट्र नागरी सेवा (रजा) नियम 1981 मधील " + leaveDetails.get("ruleReference") + " अनुसार "
-				+ applicant.get("employeeName") + ", " + applicant.get("designation") + " यांना "
-				+ leaveDetails.get("reason") + " कारणासाठी " + leaveDetails.get("fromDate") + " ते "
-				+ leaveDetails.get("toDate") + " या कालावधीतील " + leaveDetails.get("totalDays")
-				+ " दिवसांची रजा मंजूर करण्यात येत आहे.";
-
-		y = drawParagraph(cs, font, p1, 12, 50, y - 10, 520);
-
-		// ---------- REJOIN ----------
-		Map<String, Object> rejoin = (Map) data.get("rejoiningDetails");
-		y = drawParagraph(cs, font, rejoin.get("remark").toString(), 12, 50, y - 15, 520);
-
-		// ---------- HOLIDAY ----------
-		Map<String, Object> holiday = (Map) data.get("holidayJoinApproval");
-		y = drawParagraph(cs, font, holiday.get("remark").toString(), 12, 50, y - 10, 520);
-
-		// ---------- CERTIFICATION ----------
-		Map<String, Object> cert = (Map) data.get("certification");
-
-		y = drawParagraph(cs, font, cert.get("employmentContinuation").toString(), 12, 50, y - 10, 520);
-
-		y = drawParagraph(cs, font, "रजा शिल्लक : " + cert.get("leaveBalanceBefore") + " → "
-				+ cert.get("leaveBalanceAfter") + " (दि. " + cert.get("asOnDate") + " रोजी)", 12, 50, y - 5, 520);
-
-		cs.close();
-
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		pdf.save(baos);
-		pdf.close();
-
-		HttpHeaders headers = new HttpHeaders();
-		headers.add("Content-Disposition", "attachment; filename=Leave_Order.pdf");
-
-		return ResponseEntity.ok().headers(headers).contentType(MediaType.APPLICATION_PDF)
-				.body(new InputStreamResource(new ByteArrayInputStream(baos.toByteArray())));
-	}
-
-	private float drawParagraph(PDPageContentStream cs, PDType0Font font, String text, int fontSize, float x, float y,
-			float width) throws IOException {
-
-		List<String> lines = splitText(text, font, fontSize, width);
-
-		for (String line : lines) {
-			PdfUtil.drawText(cs, line, x, y, font, fontSize, false);
-			y -= (fontSize + 5);
-		}
-		return y;
-	}
-
-	private List<String> splitText(String text, PDType0Font font, int fontSize, float width) throws IOException {
-
-		List<String> lines = new ArrayList<>();
-		String[] words = text.split(" ");
-
-		StringBuilder line = new StringBuilder();
-
-		for (String w : words) {
-			String tmp = line + " " + w;
-			float size = font.getStringWidth(tmp) / 1000 * fontSize;
-
-			if (size > width) {
-				lines.add(line.toString());
-				line = new StringBuilder(w);
-			} else {
-				line.append(" ").append(w);
-			}
-		}
-		lines.add(line.toString());
-		return lines;
-	}
-
 	@Override
 	@Transactional
 	public AgendaResponse saveOrUpdateAgenda(AgendaRequest dto) {
@@ -1780,71 +876,82 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		AgendaResponse response = new AgendaResponse();
 		ApplicationError error = new ApplicationError();
 
-		try {
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String year = dto.getMeta().getYear();
+		final String targetDate = dto.getMeta().getTargetDate();
 
-			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-			String year = dto.getMeta().getYear();
-			String targetDate = dto.getMeta().getTargetDate();
+		log.info("START saveOrUpdateAgenda | year={} | targetDate={} | user={}", year, targetDate, user);
+
+		try {
 
 			for (AgendaRow row : dto.getRows()) {
 
 				long rowId = row.getRowId();
 				String deleteFlag = Optional.ofNullable(row.getDeleteFlag()).orElse("");
+				LocalDateTime now = LocalDateTime.now();
 
-				/*
-				 * -------------------- HARD DELETE --------------------
-				 */
+				/* -------------------- HARD DELETE -------------------- */
 				if ("D".equalsIgnoreCase(deleteFlag)) {
 
 					Long deleteId = row.getDeleteId();
+
 					if (deleteId != null && deleteId > 0) {
 
 						agendaOfficerRepository.findByDeleteIdAndYearAndTargetDate(deleteId, year, targetDate)
-								.ifPresent(agendaOfficerRepository::delete);
+								.ifPresent(entity -> {
+									agendaOfficerRepository.delete(entity);
+									log.info("DELETED Agenda | rowId={} | deleteId={} | year={} | targetDate={}", rowId,
+											deleteId, year, targetDate);
+								});
 
 						error.setErrorCode("200");
 						error.setErrorDescription("Deleted successfully.");
+					} else {
+						log.warn("DELETE SKIPPED | rowId={} | reason=deleteId missing", rowId);
 					}
 
 					continue;
 				}
 
-				/*
-				 * -------------------- CREATE / UPDATE --------------------
-				 */
+				/* -------------------- CREATE / UPDATE -------------------- */
 				Optional<AgendaOfficerEntity> existingOpt = agendaOfficerRepository
 						.findByRowIdAndYearAndTargetDate(rowId, year, targetDate);
 
 				AgendaOfficerEntity entity = existingOpt.orElse(new AgendaOfficerEntity());
-				LocalDateTime now = LocalDateTime.now();
 
 				entity.setRowId(rowId);
 				entity.setYear(year);
 				entity.setTargetDate(targetDate);
-				entity.setColumnData(row.getColumnData()); // DIRECT SAVE
+				entity.setColumnData(row.getColumnData()); // DIRECT SAVE (unchanged)
 				entity.setDeleteId(row.getDeleteId());
 				entity.setUpAdhikshakAbhiyantaName(row.getUpAdhikshakAbhiyantaName());
 
 				if (entity.getId() == null) {
 					entity.setFlag("C");
-					entity.setCreatedBy(username);
+					entity.setCreatedBy(user);
 					entity.setCreatedAt(now);
+					log.info("CREATED Agenda | rowId={} | year={} | targetDate={}", rowId, year, targetDate);
 				} else {
 					entity.setFlag("U");
+					log.info("UPDATED Agenda | rowId={} | year={} | targetDate={}", rowId, year, targetDate);
 				}
 
-				entity.setUpdatedBy(username);
+				entity.setUpdatedBy(user);
 				entity.setUpdatedAt(now);
 
 				agendaOfficerRepository.save(entity);
 			}
 
 			response.setMessage("Success");
-
 			error.setErrorCode("200");
 			error.setErrorDescription("Agenda saved successfully.");
 
+			log.info("SUCCESS saveOrUpdateAgenda | year={} | targetDate={}", year, targetDate);
+
 		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdateAgenda | year={} | targetDate={} | user={}", year, targetDate, user, e);
+
 			error.setErrorCode("500");
 			error.setErrorDescription("Error: " + e.getMessage());
 			response.setMessage("Failed");
@@ -1860,21 +967,34 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		AgendaResponse response = new AgendaResponse();
 		ApplicationError error = new ApplicationError();
 
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START getAgendaByYearAndTargetDate | year={} | targetDate={} | user={} | corrId={}", year, targetDate,
+				user, corrId);
+
 		try {
-			// Direct fetch from DB
+
+			// 🔹 Direct fetch from DB (same as before)
 			List<AgendaOfficerEntity> list = agendaOfficerRepository.findByYearAndTargetDate(year, targetDate);
 
-			// ===== SORT BY rowId ASC =====
+			// 🔹 Sort by rowId ASC (same logic)
 			list.sort(Comparator.comparing(AgendaOfficerEntity::getRowId));
 
-			// No transformation – return exactly what was saved
+			// 🔹 No transformation – return exactly what was saved
 			response.setData(list);
 			response.setMessage("Success");
 
 			error.setErrorCode("200");
 			error.setErrorDescription("Agenda fetched successfully.");
 
+			log.info("SUCCESS getAgendaByYearAndTargetDate | year={} | targetDate={} | records={} | corrId={}", year,
+					targetDate, list.size(), corrId);
+
 		} catch (Exception e) {
+
+			log.error("ERROR getAgendaByYearAndTargetDate | year={} | targetDate={} | user={} | corrId={}", year,
+					targetDate, user, corrId, e);
 
 			response.setMessage("Failed");
 			error.setErrorCode("500");
@@ -2122,34 +1242,46 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	}
 
 	@Override
+	@Transactional
 	public AgendaSecResponse saveOrUpdateAgendaSec(AgendaSecRequest dto) {
+
 		AgendaSecResponse response = new AgendaSecResponse();
 		ApplicationError error = new ApplicationError();
-		String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-		if (dto.getSectionFlag().equalsIgnoreCase("GATB")) {
 
-			try {
+		final String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
 
-				String year = dto.getMeta().getYear();
-				String targetDate = dto.getMeta().getTargetDate();
+		log.info("START saveOrUpdateAgendaSec | section={} | user={} | corrId={}", dto.getSectionFlag(), username,
+				corrId);
+
+		try {
+
+			String year = dto.getMeta().getYear();
+			String targetDate = dto.getMeta().getTargetDate();
+
+			// ====================== GATB ======================
+			if ("GATB".equalsIgnoreCase(dto.getSectionFlag())) {
 
 				for (AgendaSecRow row : dto.getRows()) {
 
 					long rowId = row.getRowId();
 					String deleteFlag = Optional.ofNullable(row.getDeleteFlag()).orElse("");
 
-					// ---------------- HARD DELETE ----------------
+					// -------- HARD DELETE --------
 					if ("D".equalsIgnoreCase(deleteFlag)) {
-
 						Long deleteId = row.getDeleteId();
 						if (deleteId != null && deleteId > 0) {
 							agendaSecBRepository.findByDeleteIdAndYearAndTargetDate(deleteId, year, targetDate)
-									.ifPresent(agendaSecBRepository::delete);
+									.ifPresent(entity -> {
+										agendaSecBRepository.delete(entity);
+										log.info("DELETED GATB | deleteId={} | year={} | targetDate={} | corrId={}",
+												deleteId, year, targetDate, corrId);
+									});
 						}
 						continue;
 					}
 
-					// ---------------- SAVE / UPDATE ----------------
+					// -------- CREATE / UPDATE --------
 					Optional<AgendaSecEntityGATB> existing = agendaSecBRepository.findByRowIdAndYearAndTargetDate(rowId,
 							year, targetDate);
 
@@ -2174,45 +1306,34 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 					entity.setUpdatedAt(now);
 
 					agendaSecBRepository.save(entity);
+
+					log.debug("SAVED GATB | rowId={} | flag={} | corrId={}", rowId, entity.getFlag(), corrId);
 				}
-
-				error.setErrorCode("200");
-				error.setErrorDescription("AgendaSec saved successfully.");
-				response.setMessage("Success");
-
-			} catch (Exception e) {
-
-				error.setErrorCode("500");
-				error.setErrorDescription("Error: " + e.getMessage());
-				response.setMessage("Failed");
 			}
 
-		}
-
-		else {
-
-			try {
-
-				String year = dto.getMeta().getYear();
-				String targetDate = dto.getMeta().getTargetDate();
+			// ====================== GATD ======================
+			else {
 
 				for (AgendaSecRow row : dto.getRows()) {
 
 					long rowId = row.getRowId();
 					String deleteFlag = Optional.ofNullable(row.getDeleteFlag()).orElse("");
 
-					// ---------------- HARD DELETE ----------------
+					// -------- HARD DELETE --------
 					if ("D".equalsIgnoreCase(deleteFlag)) {
-
 						Long deleteId = row.getDeleteId();
 						if (deleteId != null && deleteId > 0) {
 							agendaSecDRepository.findByDeleteIdAndYearAndTargetDate(deleteId, year, targetDate)
-									.ifPresent(agendaSecDRepository::delete);
+									.ifPresent(entity -> {
+										agendaSecDRepository.delete(entity);
+										log.info("DELETED GATD | deleteId={} | year={} | targetDate={} | corrId={}",
+												deleteId, year, targetDate, corrId);
+									});
 						}
 						continue;
 					}
 
-					// ---------------- SAVE / UPDATE ----------------
+					// -------- CREATE / UPDATE --------
 					Optional<AgendaSecEntityGATD> existing = agendaSecDRepository.findByRowIdAndYearAndTargetDate(rowId,
 							year, targetDate);
 
@@ -2237,65 +1358,83 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 					entity.setUpdatedAt(now);
 
 					agendaSecDRepository.save(entity);
+
+					log.debug("SAVED GATD | rowId={} | flag={} | corrId={}", rowId, entity.getFlag(), corrId);
 				}
-
-				error.setErrorCode("200");
-				error.setErrorDescription("AgendaSec saved successfully.");
-				response.setMessage("Success");
-
-			} catch (Exception e) {
-
-				error.setErrorCode("500");
-				error.setErrorDescription("Error: " + e.getMessage());
-				response.setMessage("Failed");
 			}
 
+			error.setErrorCode("200");
+			error.setErrorDescription("AgendaSec saved successfully.");
+			response.setMessage("Success");
+
+			log.info("SUCCESS saveOrUpdateAgendaSec | section={} | year={} | targetDate={} | corrId={}",
+					dto.getSectionFlag(), year, targetDate, corrId);
+
+		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdateAgendaSec | section={} | corrId={}", dto.getSectionFlag(), corrId, e);
+
+			error.setErrorCode("500");
+			error.setErrorDescription("Error: " + e.getMessage());
+			response.setMessage("Failed");
 		}
+
 		response.setErrorDetails(error);
 		return response;
 	}
 
 	@Override
 	public AgendaSecResponse getAgendaSecByYearAndTargetDate(String year, String targetDate, String section) {
+
 		AgendaSecResponse response = new AgendaSecResponse();
 		ApplicationError error = new ApplicationError();
-		if (section.equalsIgnoreCase("GATB")) {
 
-			try {
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START getAgendaSec | section={} | year={} | targetDate={} | corrId={}", section, year, targetDate,
+				corrId);
+
+		try {
+
+			// ====================== GATB ======================
+			if ("GATB".equalsIgnoreCase(section)) {
 
 				List<AgendaSecEntityGATB> list = agendaSecBRepository.findByYearAndTargetDate(year, targetDate);
 
+				// sort by rowId ASC
 				list.sort(Comparator.comparingLong(AgendaSecEntityGATB::getRowId));
 
 				response.setDataGatB(list);
 				response.setMessage("Success");
 
-				error.setErrorCode("200");
-				error.setErrorDescription("Fetched successfully.");
+				log.info("FETCHED GATB | records={} | corrId={}", list.size(), corrId);
 
-			} catch (Exception e) {
-				error.setErrorCode("500");
-				error.setErrorDescription(e.getMessage());
-				response.setMessage("Failed");
 			}
-		} else {
-			try {
+			// ====================== GATD ======================
+			else {
 
 				List<AgendaSecEntityGATD> list = agendaSecDRepository.findByYearAndTargetDate(year, targetDate);
 
+				// sort by rowId ASC
 				list.sort(Comparator.comparingLong(AgendaSecEntityGATD::getRowId));
 
 				response.setDataGatD(list);
 				response.setMessage("Success");
 
-				error.setErrorCode("200");
-				error.setErrorDescription("Fetched successfully.");
-
-			} catch (Exception e) {
-				error.setErrorCode("500");
-				error.setErrorDescription(e.getMessage());
-				response.setMessage("Failed");
+				log.info("FETCHED GATD | records={} | corrId={}", list.size(), corrId);
 			}
+
+			error.setErrorCode("200");
+			error.setErrorDescription("Fetched successfully.");
+
+		} catch (Exception e) {
+
+			log.error("ERROR getAgendaSec | section={} | year={} | targetDate={} | corrId={}", section, year,
+					targetDate, corrId, e);
+
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+			response.setMessage("Failed");
 		}
 
 		response.setErrorDetails(error);
@@ -2766,35 +1905,44 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 	@Override
 	public ThirteenResponse saveOrUpdateAnukampa(ThirteenRequest dto) {
+
 		ThirteenResponse response = new ThirteenResponse();
 		ApplicationError error = new ApplicationError();
 
+		final String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
 		try {
-			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
 			String year = dto.getMeta().getYear();
 			String targetDate = dto.getMeta().getTargetDate();
+
+			log.info("START saveOrUpdateAnukampa | year={} | targetDate={} | user={} | corrId={}", year, targetDate,
+					currentUser, corrId);
 
 			for (ThirteenRow row : dto.getRows()) {
 
 				long rowId = row.getRowId();
 				String deleteFlag = Optional.ofNullable(row.getDeleteFlag()).orElse("");
 
-				// -------------- HARD DELETE ---------------
+				// ---------------- HARD DELETE ----------------
 				if ("D".equalsIgnoreCase(deleteFlag)) {
 
 					if (row.getDeleteId() != null) {
 						agendaThirteenRepository.findByDeleteIdAndYearAndTargetDate(row.getDeleteId(), year, targetDate)
-								.ifPresent(agendaThirteenRepository::delete);
+								.ifPresent(entity -> {
+									agendaThirteenRepository.delete(entity);
+									log.info("DELETED Anukampa | rowId={} | deleteId={} | corrId={}", rowId,
+											row.getDeleteId(), corrId);
+								});
 					}
-
 					continue;
 				}
 
-				// -------------- CREATE / UPDATE -----------
-				Optional<AgendaThirteenEntity> existing = agendaThirteenRepository
+				// ---------------- CREATE / UPDATE ----------------
+				Optional<AgendaThirteenEntity> existingOpt = agendaThirteenRepository
 						.findByRowIdAndYearAndTargetDate(rowId, year, targetDate);
 
-				AgendaThirteenEntity entity = existing.orElse(new AgendaThirteenEntity());
+				AgendaThirteenEntity entity = existingOpt.orElse(new AgendaThirteenEntity());
 				LocalDateTime now = LocalDateTime.now();
 
 				entity.setRowId(rowId);
@@ -2805,13 +1953,15 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 				if (entity.getId() == null) {
 					entity.setFlag("C");
-					entity.setCreatedBy(username);
+					entity.setCreatedBy(currentUser);
 					entity.setCreatedAt(now);
+					log.debug("CREATING Anukampa | rowId={} | corrId={}", rowId, corrId);
 				} else {
 					entity.setFlag("U");
+					log.debug("UPDATING Anukampa | rowId={} | corrId={}", rowId, corrId);
 				}
 
-				entity.setUpdatedBy(username);
+				entity.setUpdatedBy(currentUser);
 				entity.setUpdatedAt(now);
 
 				agendaThirteenRepository.save(entity);
@@ -2821,7 +1971,12 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 			error.setErrorCode("200");
 			error.setErrorDescription("Saved successfully");
 
+			log.info("SUCCESS saveOrUpdateAnukampa | year={} | targetDate={} | corrId={}", year, targetDate, corrId);
+
 		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdateAnukampa | corrId={}", corrId, e);
+
 			error.setErrorCode("500");
 			error.setErrorDescription(e.getMessage());
 			response.setMessage("Failed");
@@ -2829,32 +1984,41 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 		response.setErrorDetails(error);
 		return response;
-
 	}
 
 	@Override
 	public ThirteenResponse getAnukampaData(String year, String targetDate) {
-		ThirteenResponse res = new ThirteenResponse();
-		ApplicationError err = new ApplicationError();
+
+		ThirteenResponse response = new ThirteenResponse();
+		ApplicationError error = new ApplicationError();
+		final String corrId = MDC.get("correlationId");
 
 		try {
+
+			log.info("START getAnukampaData | year={} | targetDate={} | corrId={}", year, targetDate, corrId);
+
 			List<AgendaThirteenEntity> list = agendaThirteenRepository.findByYearAndTargetDate(year, targetDate)
 					.stream().sorted(Comparator.comparingLong(AgendaThirteenEntity::getRowId)).toList();
 
-			res.setData(list);
-			res.setMessage("Success");
+			response.setData(list);
+			response.setMessage("Success");
 
-			err.setErrorCode("200");
-			err.setErrorDescription("Fetched successfully");
+			error.setErrorCode("200");
+			error.setErrorDescription("Fetched successfully");
+
+			log.info("FETCHED Anukampa | records={} | corrId={}", list.size(), corrId);
 
 		} catch (Exception e) {
-			err.setErrorCode("500");
-			err.setErrorDescription(e.getMessage());
-			res.setMessage("Failed");
+
+			log.error("ERROR getAnukampaData | year={} | targetDate={} | corrId={}", year, targetDate, corrId, e);
+
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+			response.setMessage("Failed");
 		}
 
-		res.setErrorDetails(err);
-		return res;
+		response.setErrorDetails(error);
+		return response;
 	}
 
 	@Override
@@ -3044,16 +2208,17 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		ApplicationError error = new ApplicationError();
 		response.setData(new ArrayList<>());
 
+		final String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+		final LocalDateTime now = LocalDateTime.now();
+
 		try {
 
-			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-			LocalDateTime now = LocalDateTime.now();
+			log.info("START saveOrUpdateAppeal2 | records={} | user={} | corrId={}", request.getAppealData().size(),
+					currentUser, corrId);
 
 			for (AppealRequest2 dto : request.getAppealData()) {
 
-				// -----------------------------
-				// FIND RECORD USING deleteId + year/date
-				// -----------------------------
 				Optional<AppealRequestEntity> existingOpt = Optional.empty();
 
 				if (dto.getDeleteId() != null && dto.getDate() != null) {
@@ -3062,13 +2227,14 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 				String flag = Optional.ofNullable(dto.getFlag()).orElse("C").toUpperCase();
 
-				// -----------------------------
-				// DELETE LOGIC BY deleteId + date/year
-				// -----------------------------
-				if (flag.equals("D")) {
+				// ---------------- DELETE ----------------
+				if ("D".equalsIgnoreCase(flag)) {
 
 					if (existingOpt.isPresent()) {
 						appealRequestRepository.delete(existingOpt.get());
+
+						log.info("DELETED Appeal2 | deleteId={} | date={} | corrId={}", dto.getDeleteId(),
+								dto.getDate(), corrId);
 
 						Map<String, Object> delMap = new LinkedHashMap<>();
 						delMap.put("deleteId", dto.getDeleteId());
@@ -3079,10 +2245,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 					continue;
 				}
 
-				// -----------------------------
-				// CREATE / UPDATE LOGIC
-				// -----------------------------
-				// CREATE / UPDATE LOGIC
+				// ---------------- CREATE / UPDATE ----------------
 				AppealRequestEntity entity = existingOpt.orElse(new AppealRequestEntity());
 				boolean isUpdate = existingOpt.isPresent();
 
@@ -3093,17 +2256,19 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 				if (isUpdate) {
 					entity.setFlag("U");
-					entity.setUpdatedBy(username);
+					entity.setUpdatedBy(currentUser);
 					entity.setUpdatedDate(now);
+					log.debug("UPDATING Appeal2 | rowId={} | corrId={}", dto.getRowId(), corrId);
 				} else {
 					entity.setFlag("C");
-					entity.setCreatedBy(username);
+					entity.setCreatedBy(currentUser);
 					entity.setCreatedDate(now);
-					entity.setUpdatedBy(username);
+					entity.setUpdatedBy(currentUser);
 					entity.setUpdatedDate(now);
+					log.debug("CREATING Appeal2 | rowId={} | corrId={}", dto.getRowId(), corrId);
 				}
 
-				// SET ALL FIELDS
+				// -------- SET ALL FIELDS --------
 				entity.setArjachaNondaniKramank(dto.getArjachaNondaniKramank());
 				entity.setArjdarNavPatta(dto.getArjdarNavPatta());
 				entity.setArjPraptDinank(dto.getArjPraptDinank());
@@ -3118,7 +2283,6 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				entity.setKonKshaAwarNokri(dto.getKonKshaAwarNokri());
 				entity.setPrathamAppeal(dto.getPrathamAppeal());
 				entity.setShera(dto.getShera());
-
 				entity.setDynamicColumns(dto.getDynamicColumns());
 
 				AppealRequestEntity saved = appealRequestRepository.save(entity);
@@ -3133,32 +2297,37 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 			error.setErrorCode("200");
 			error.setErrorDescription("Success");
-			response.setErrorDetails(error);
+
+			log.info("SUCCESS saveOrUpdateAppeal2 | processed={} | corrId={}", response.getData().size(), corrId);
 
 		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdateAppeal2 | corrId={}", corrId, e);
+
 			error.setErrorCode("500");
 			error.setErrorDescription(e.getMessage());
-			response.setErrorDetails(error);
 		}
 
+		response.setErrorDetails(error);
 		return response;
 	}
 
 	@Override
 	public AppealResponse getAppealData2(String year) {
+
 		AppealResponse response = new AppealResponse();
 		ApplicationError error = new ApplicationError();
 		response.setData(new ArrayList<>());
 
-		try {
-			List<AppealRequestEntity> appealList;
+		final String corrId = MDC.get("correlationId");
 
-			// 🎯 Filter by year OR fetch all
-			if (year != null && !year.isBlank()) {
-				appealList = appealRequestRepository.findByYear(year);
-			} else {
-				appealList = appealRequestRepository.findAll();
-			}
+		try {
+
+			log.info("START getAppealData2 | year={} | corrId={}", year, corrId);
+
+			List<AppealRequestEntity> appealList = (year != null && !year.isBlank())
+					? appealRequestRepository.findByYear(year)
+					: appealRequestRepository.findAll();
 
 			for (AppealRequestEntity e : appealList) {
 
@@ -3171,7 +2340,6 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				map.put("deleteId", e.getDeleteId());
 				map.put("flag", e.getFlag());
 
-				// ✅ NEW FIELD NAMES
 				map.put("arjachaNondaniKramank", e.getArjachaNondaniKramank());
 				map.put("arjdarNavPatta", e.getArjdarNavPatta());
 				map.put("arjPraptDinank", e.getArjPraptDinank());
@@ -3187,15 +2355,12 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				map.put("prathamAppeal", e.getPrathamAppeal());
 				map.put("shera", e.getShera());
 
-				// 🧩 Dynamic Columns
 				if (e.getDynamicColumns() != null && !e.getDynamicColumns().isEmpty()) {
-					Map<String, Object> dynMap = objectMapper.convertValue(e.getDynamicColumns(), Map.class);
-					map.put("dynamicColumns", dynMap);
+					map.put("dynamicColumns", objectMapper.convertValue(e.getDynamicColumns(), Map.class));
 				} else {
 					map.put("dynamicColumns", new LinkedHashMap<>());
 				}
 
-				// Audit
 				map.put("createdBy", e.getCreatedBy());
 				map.put("createdDate", e.getCreatedDate());
 				map.put("updatedBy", e.getUpdatedBy());
@@ -3204,10 +2369,9 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				response.getData().add(map);
 			}
 
-			// SORT by rowId
+			// SORT BY rowId
 			response.getData().sort(Comparator.comparing(m -> Integer.parseInt(m.get("rowId").toString())));
 
-			// Meta Info (No Pagination)
 			Map<String, Object> meta = new LinkedHashMap<>();
 			meta.put("totalRecords", response.getData().size());
 			meta.put("filterYear", year);
@@ -3217,7 +2381,12 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 			error.setErrorCode("200");
 			error.setErrorDescription("Success");
 
+			log.info("FETCHED Appeal2 | records={} | corrId={}", response.getData().size(), corrId);
+
 		} catch (Exception ex) {
+
+			log.error("ERROR getAppealData2 | year={} | corrId={}", year, corrId, ex);
+
 			response.setMessage("Error while fetching appeal data.");
 			error.setErrorCode("500");
 			error.setErrorDescription(ex.getMessage());
@@ -3350,16 +2519,25 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
 	}
 
+	@Override
 	@Transactional
 	public PraptraMasterDataResponse saveMasterData(PraptraMasterDataRequest request) {
-		String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
 
 		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		ApplicationError error = new ApplicationError();
+
+		final String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+		final LocalDateTime now = LocalDateTime.now();
 
 		try {
+
+			log.info("START saveMasterData | year={} | rows={} | user={} | corrId={}", request.getYear(),
+					request.getRows().size(), username, corrId);
+
 			for (PraptraMasterDataRowRequest row : request.getRows()) {
 
-				// 🔴 DELETE
+				// ---------------- DELETE ----------------
 				if ("D".equalsIgnoreCase(row.getFlag())) {
 
 					if (row.getDeleteId() == null) {
@@ -3367,66 +2545,121 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 					}
 
 					masterDataRepository.deleteByYearAndDeleteId(request.getYear(), row.getDeleteId());
+
+					log.info("DELETED MasterData | year={} | deleteId={} | corrId={}", request.getYear(),
+							row.getDeleteId(), corrId);
 					continue;
 				}
 
-				// 🔍 UPDATE / INSERT
+				// ---------------- UPDATE / INSERT ----------------
 				Optional<MasterDataEntity> existing = masterDataRepository.findByYearAndRowId(request.getYear(),
 						row.getRowId());
 
 				if (existing.isPresent()) {
+
 					MasterDataEntity e = existing.get();
 					e.setData(row.getData());
 					e.setFlag("U");
-					e.setUpdatedAt(LocalDateTime.now());
+					e.setUpdatedAt(now);
 					e.setUpdatedBy(username);
+
 					masterDataRepository.save(e);
+
+					log.debug("UPDATED MasterData | year={} | rowId={} | corrId={}", request.getYear(), row.getRowId(),
+							corrId);
+
 				} else {
+
 					MasterDataEntity e = new MasterDataEntity();
 					e.setYear(request.getYear());
 					e.setRowId(row.getRowId());
 					e.setDeleteId(row.getDeleteId());
 					e.setData(row.getData());
 					e.setFlag("C");
-					e.setCreatedAt(LocalDateTime.now());
-					e.setUpdatedAt(LocalDateTime.now());
-					e.setUpdatedBy(username);
+					e.setCreatedAt(now);
+					e.setUpdatedAt(now);
 					e.setCreatedBy(username);
+					e.setUpdatedBy(username);
+
 					masterDataRepository.save(e);
+
+					log.debug("CREATED MasterData | year={} | rowId={} | corrId={}", request.getYear(), row.getRowId(),
+							corrId);
 				}
 			}
 
 			response.setMessage("Master Data saved successfully");
 			response.setData(List.of());
-			response.setErrorDetails(new ApplicationError("200", "Success"));
+
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+			log.info("SUCCESS saveMasterData | year={} | corrId={}", request.getYear(), corrId);
+
 			return response;
 
 		} catch (Exception e) {
+
+			log.error("ERROR saveMasterData | year={} | corrId={}", request.getYear(), corrId, e);
+
 			response.setMessage("Failed to save Master Data");
 			response.setData(null);
-			response.setErrorDetails(new ApplicationError("500", e.getMessage()));
+
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+			response.setErrorDetails(error);
+
 			return response;
 		}
 	}
 
 	@Override
 	public PraptraMasterDataResponse getMasterData(String year) {
-		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
 
+		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		ApplicationError error = new ApplicationError();
 		List<Map<String, Object>> list = new ArrayList<>();
 
-		for (MasterDataEntity e : masterDataRepository.findAllByYearOrderByRowId(year)) {
-			Map<String, Object> m = new LinkedHashMap<>();
-			m.put("rowId", e.getRowId());
-			m.put("deleteId", e.getDeleteId());
-			m.put("data", e.getData());
-			list.add(m);
-		}
+		final String corrId = MDC.get("correlationId");
 
-		response.setMessage("Master Data fetched");
-		response.setData(list);
-		response.setErrorDetails(new ApplicationError("200", "Success"));
-		return response;
+		try {
+
+			log.info("START getMasterData | year={} | corrId={}", year, corrId);
+
+			for (MasterDataEntity e : masterDataRepository.findAllByYearOrderByRowId(year)) {
+
+				Map<String, Object> m = new LinkedHashMap<>();
+				m.put("rowId", e.getRowId());
+				m.put("deleteId", e.getDeleteId());
+				m.put("data", e.getData());
+				list.add(m);
+			}
+
+			response.setMessage("Master Data fetched");
+			response.setData(list);
+
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+			log.info("FETCHED MasterData | year={} | records={} | corrId={}", year, list.size(), corrId);
+
+			return response;
+
+		} catch (Exception e) {
+
+			log.error("ERROR getMasterData | year={} | corrId={}", year, corrId, e);
+
+			response.setMessage("Failed to fetch Master Data");
+			response.setData(null);
+
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+			response.setErrorDetails(error);
+
+			return response;
+		}
 	}
 
 	@Override
@@ -3685,20 +2918,34 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	}
 
 	@Override
+	@Transactional
 	public PraptraMasterDataResponse saveCrFileList(PraptraMasterDataRequest request) {
-		String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
 		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		ApplicationError error = new ApplicationError();
+
+		final String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+		final LocalDateTime now = LocalDateTime.now();
 
 		try {
+
+			log.info("START saveCrFileList | year={} | rows={} | user={} | corrId={}", request.getYear(),
+					request.getRows().size(), username, corrId);
+
 			for (PraptraMasterDataRowRequest r : request.getRows()) {
 
-				// 🔴 HARD DELETE
+				// ---------------- HARD DELETE ----------------
 				if ("D".equalsIgnoreCase(r.getFlag())) {
+
 					crFileListRepository.deleteByYearAndDeleteId(request.getYear(), r.getDeleteId());
+
+					log.info("DELETED CrFileList | year={} | deleteId={} | corrId={}", request.getYear(),
+							r.getDeleteId(), corrId);
 					continue;
 				}
 
-				// SAVE / UPDATE
+				// ---------------- SAVE / UPDATE ----------------
 				Optional<CrFileListEntity> opt = crFileListRepository.findByYearAndRowId(request.getYear(),
 						r.getRowId());
 
@@ -3708,8 +2955,12 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 					// UPDATE
 					e = opt.get();
 					e.setFlag("U");
-					e.setUpdatedAt(LocalDateTime.now());
+					e.setUpdatedAt(now);
 					e.setUpdatedBy(username);
+
+					log.debug("UPDATED CrFileList | year={} | rowId={} | corrId={}", request.getYear(), r.getRowId(),
+							corrId);
+
 				} else {
 					// CREATE
 					e = new CrFileListEntity();
@@ -3717,10 +2968,13 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 					e.setRowId(r.getRowId());
 					e.setDeleteId(r.getDeleteId());
 					e.setFlag("C");
-					e.setCreatedAt(LocalDateTime.now());
+					e.setCreatedAt(now);
 					e.setCreatedBy(username);
-					e.setUpdatedAt(LocalDateTime.now());
+					e.setUpdatedAt(now);
 					e.setUpdatedBy(username);
+
+					log.debug("CREATED CrFileList | year={} | rowId={} | corrId={}", request.getYear(), r.getRowId(),
+							corrId);
 				}
 
 				e.setData(r.getData());
@@ -3729,30 +2983,70 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 			response.setMessage("CrFileList processed successfully");
 			response.setData(List.of());
-			response.setErrorDetails(new ApplicationError("200", "Success"));
+
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+			log.info("SUCCESS saveCrFileList | year={} | corrId={}", request.getYear(), corrId);
+
+			return response;
 
 		} catch (Exception ex) {
+
+			log.error("ERROR saveCrFileList | year={} | corrId={}", request.getYear(), corrId, ex);
+
 			response.setMessage("Failed to process CrFileList");
 			response.setData(null);
-			response.setErrorDetails(new ApplicationError("500", ex.getMessage()));
+
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+			response.setErrorDetails(error);
+
+			return response;
 		}
-
-		return response;
-
 	}
 
 	@Override
 	public PraptraMasterDataResponse getCrFileList(String year) {
-		List<CrFileListEntity> list = crFileListRepository.findAllByYearOrderByRowId(year);
 
-		List<Map<String, Object>> data = list.stream()
-				.map(e -> Map.of("rowId", e.getRowId(), "deleteId", e.getDeleteId(), "data", e.getData())).toList();
+		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		ApplicationError error = new ApplicationError();
+		final String corrId = MDC.get("correlationId");
 
-		PraptraMasterDataResponse res = new PraptraMasterDataResponse();
-		res.setMessage("Success");
-		res.setData(data);
-		res.setErrorDetails(new ApplicationError("200", "Fetched successfully"));
-		return res;
+		try {
+
+			log.info("START getCrFileList | year={} | corrId={}", year, corrId);
+
+			List<CrFileListEntity> list = crFileListRepository.findAllByYearOrderByRowId(year);
+
+			List<Map<String, Object>> data = list.stream()
+					.map(e -> Map.of("rowId", e.getRowId(), "deleteId", e.getDeleteId(), "data", e.getData())).toList();
+
+			response.setMessage("Success");
+			response.setData(data);
+
+			error.setErrorCode("200");
+			error.setErrorDescription("Fetched successfully");
+			response.setErrorDetails(error);
+
+			log.info("FETCHED CrFileList | year={} | records={} | corrId={}", year, data.size(), corrId);
+
+			return response;
+
+		} catch (Exception ex) {
+
+			log.error("ERROR getCrFileList | year={} | corrId={}", year, corrId, ex);
+
+			response.setMessage("Failed to fetch CrFileList");
+			response.setData(null);
+
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+			response.setErrorDetails(error);
+
+			return response;
+		}
 	}
 
 	@Override
@@ -3849,19 +3143,32 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	@Transactional
 	@Override
 	public PraptraMasterDataResponse saveCrFileRtrList(PraptraMasterDataRequest request) {
-		String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
 		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		ApplicationError error = new ApplicationError();
+
+		final String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+		final LocalDateTime now = LocalDateTime.now();
 
 		try {
+
+			log.info("START saveCrFileRtrList | year={} | rows={} | user={} | corrId={}", request.getYear(),
+					request.getRows().size(), username, corrId);
+
 			for (PraptraMasterDataRowRequest r : request.getRows()) {
 
-				// 🔴 HARD DELETE
+				// ---------------- HARD DELETE ----------------
 				if ("D".equalsIgnoreCase(r.getFlag())) {
+
 					crFileListRtrRepository.deleteByYearAndDeleteId(request.getYear(), r.getDeleteId());
+
+					log.info("DELETED CrFileRtr | year={} | deleteId={} | corrId={}", request.getYear(),
+							r.getDeleteId(), corrId);
 					continue;
 				}
 
-				// SAVE / UPDATE
+				// ---------------- SAVE / UPDATE ----------------
 				Optional<CrFileListRtrEntity> opt = crFileListRtrRepository.findByYearAndRowId(request.getYear(),
 						r.getRowId());
 
@@ -3871,8 +3178,12 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 					// UPDATE
 					e = opt.get();
 					e.setFlag("U");
-					e.setUpdatedAt(LocalDateTime.now());
+					e.setUpdatedAt(now);
 					e.setUpdatedBy(username);
+
+					log.debug("UPDATED CrFileRtr | year={} | rowId={} | corrId={}", request.getYear(), r.getRowId(),
+							corrId);
+
 				} else {
 					// CREATE
 					e = new CrFileListRtrEntity();
@@ -3880,10 +3191,13 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 					e.setRowId(r.getRowId());
 					e.setDeleteId(r.getDeleteId());
 					e.setFlag("C");
-					e.setCreatedAt(LocalDateTime.now());
+					e.setCreatedAt(now);
 					e.setCreatedBy(username);
-					e.setUpdatedAt(LocalDateTime.now());
+					e.setUpdatedAt(now);
 					e.setUpdatedBy(username);
+
+					log.debug("CREATED CrFileRtr | year={} | rowId={} | corrId={}", request.getYear(), r.getRowId(),
+							corrId);
 				}
 
 				e.setData(r.getData());
@@ -3892,29 +3206,70 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 			response.setMessage("CrFileList processed successfully");
 			response.setData(List.of());
-			response.setErrorDetails(new ApplicationError("200", "Success"));
+
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+			log.info("SUCCESS saveCrFileRtrList | year={} | corrId={}", request.getYear(), corrId);
+
+			return response;
 
 		} catch (Exception ex) {
+
+			log.error("ERROR saveCrFileRtrList | year={} | corrId={}", request.getYear(), corrId, ex);
+
 			response.setMessage("Failed to process CrFileList");
 			response.setData(null);
-			response.setErrorDetails(new ApplicationError("500", ex.getMessage()));
-		}
 
-		return response;
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+			response.setErrorDetails(error);
+
+			return response;
+		}
 	}
 
 	@Override
 	public PraptraMasterDataResponse getCrFileRtrList(String year) {
-		List<CrFileListRtrEntity> list = crFileListRtrRepository.findAllByYearOrderByRowId(year);
 
-		List<Map<String, Object>> data = list.stream()
-				.map(e -> Map.of("rowId", e.getRowId(), "deleteId", e.getDeleteId(), "data", e.getData())).toList();
+		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		ApplicationError error = new ApplicationError();
+		final String corrId = MDC.get("correlationId");
 
-		PraptraMasterDataResponse res = new PraptraMasterDataResponse();
-		res.setMessage("Success");
-		res.setData(data);
-		res.setErrorDetails(new ApplicationError("200", "Fetched successfully"));
-		return res;
+		try {
+
+			log.info("START getCrFileRtrList | year={} | corrId={}", year, corrId);
+
+			List<CrFileListRtrEntity> list = crFileListRtrRepository.findAllByYearOrderByRowId(year);
+
+			List<Map<String, Object>> data = list.stream()
+					.map(e -> Map.of("rowId", e.getRowId(), "deleteId", e.getDeleteId(), "data", e.getData())).toList();
+
+			response.setMessage("Success");
+			response.setData(data);
+
+			error.setErrorCode("200");
+			error.setErrorDescription("Fetched successfully");
+			response.setErrorDetails(error);
+
+			log.info("FETCHED CrFileRtr | year={} | records={} | corrId={}", year, data.size(), corrId);
+
+			return response;
+
+		} catch (Exception ex) {
+
+			log.error("ERROR getCrFileRtrList | year={} | corrId={}", year, corrId, ex);
+
+			response.setMessage("Failed to fetch CrFileList");
+			response.setData(null);
+
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+			response.setErrorDetails(error);
+
+			return response;
+		}
 	}
 
 	@Override
@@ -4012,10 +3367,17 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	public PraptraMasterDataResponse saveMahaparRegister(MahaparRegisterRequest request) {
 
 		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		ApplicationError error = new ApplicationError();
+
+		final String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+		final String year = request.getYear();
+		final LocalDateTime now = LocalDateTime.now();
 
 		try {
-			String year = request.getYear();
-			String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+			log.info("START saveMahaparRegister | year={} | sections={} | user={} | corrId={}", year,
+					request.getSections() == null ? 0 : request.getSections().size(), username, corrId);
 
 			if (request.getSections() == null || request.getSections().isEmpty()) {
 				throw new IllegalArgumentException("sections cannot be empty");
@@ -4023,11 +3385,13 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 			for (MahaparRegisterSectionRequest section : request.getSections()) {
 
-				Long sectionId = section.getSectionId(); // 0 = independent
+				Long sectionId = section.getSectionId(); // 0 allowed
 				String sectionName = section.getSectionName();
 
-				if (section.getRows() == null)
+				if (section.getRows() == null || section.getRows().isEmpty()) {
+					log.debug("Skipping empty section | sectionId={} | corrId={}", sectionId, corrId);
 					continue;
+				}
 
 				for (MahaparRegisterRowRequest row : section.getRows()) {
 
@@ -4039,28 +3403,43 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 						}
 
 						mahaparRegisterRepository.deleteByYearAndDeleteId(year, row.getDeleteId());
+
+						log.info("DELETED MahaparRegister | year={} | sectionId={} | deleteId={} | corrId={}", year,
+								sectionId, row.getDeleteId(), corrId);
 						continue;
 					}
 
-					upsertEntity(year, sectionId, sectionName, row, username);
+					upsertMahaparEntity(year, sectionId, sectionName, row, username, now, corrId);
 				}
 			}
 
 			response.setMessage("Mahapar Register saved successfully");
 			response.setData(List.of());
-			response.setErrorDetails(new ApplicationError("200", "Success"));
+
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+			log.info("SUCCESS saveMahaparRegister | year={} | corrId={}", year, corrId);
+			return response;
 
 		} catch (Exception e) {
+
+			log.error("ERROR saveMahaparRegister | year={} | corrId={}", year, corrId, e);
+
 			response.setMessage("Failed to save Mahapar Register");
 			response.setData(null);
-			response.setErrorDetails(new ApplicationError("500", e.getMessage()));
-		}
 
-		return response;
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+			response.setErrorDetails(error);
+
+			return response;
+		}
 	}
 
-	private void upsertEntity(String year, Long sectionId, String sectionName, MahaparRegisterRowRequest row,
-			String username) {
+	private void upsertMahaparEntity(String year, Long sectionId, String sectionName, MahaparRegisterRowRequest row,
+			String username, LocalDateTime now, String corrId) {
 
 		Optional<MahaparRegisterEntity> opt = mahaparRegisterRepository.findByYearAndSectionIdAndRowId(year, sectionId,
 				row.getRowId());
@@ -4071,8 +3450,11 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 			/* -------- UPDATE -------- */
 			entity = opt.get();
 			entity.setFlag("U");
-			entity.setUpdatedAt(LocalDateTime.now());
+			entity.setUpdatedAt(now);
 			entity.setUpdatedBy(username);
+
+			log.debug("UPDATED MahaparRegister | year={} | sectionId={} | rowId={} | corrId={}", year, sectionId,
+					row.getRowId(), corrId);
 
 		} else {
 			/* -------- CREATE -------- */
@@ -4083,10 +3465,13 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 			entity.setRowId(row.getRowId());
 			entity.setDeleteId(row.getDeleteId());
 			entity.setFlag("C");
-			entity.setCreatedAt(LocalDateTime.now());
+			entity.setCreatedAt(now);
 			entity.setCreatedBy(username);
-			entity.setUpdatedAt(LocalDateTime.now());
+			entity.setUpdatedAt(now);
 			entity.setUpdatedBy(username);
+
+			log.debug("CREATED MahaparRegister | year={} | sectionId={} | rowId={} | corrId={}", year, sectionId,
+					row.getRowId(), corrId);
 		}
 
 		entity.setData(row.getData());
@@ -4097,8 +3482,13 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	public PraptraMasterDataResponse getMahaparRegister(String year) {
 
 		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		ApplicationError error = new ApplicationError();
+		final String corrId = MDC.get("correlationId");
 
 		try {
+
+			log.info("START getMahaparRegister | year={} | corrId={}", year, corrId);
+
 			List<MahaparRegisterEntity> entities = mahaparRegisterRepository
 					.findAllByYearOrderBySectionIdAscRowIdAsc(year);
 
@@ -4117,7 +3507,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 				MahaparRegisterSectionRequest section = sectionMap.computeIfAbsent(e.getSectionId(), k -> {
 					MahaparRegisterSectionRequest s = new MahaparRegisterSectionRequest();
-					s.setSectionId(e.getSectionId()); // 0 or >0
+					s.setSectionId(e.getSectionId());
 					s.setSectionName(e.getSectionName());
 					s.setRows(new ArrayList<>());
 					return s;
@@ -4130,15 +3520,28 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 			response.setMessage("Fetched successfully");
 			response.setData(List.of(Map.of("request", result)));
-			response.setErrorDetails(new ApplicationError("200", "Success"));
+
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+			log.info("FETCHED MahaparRegister | year={} | sections={} | corrId={}", year, sectionMap.size(), corrId);
+
+			return response;
 
 		} catch (Exception e) {
+
+			log.error("ERROR getMahaparRegister | year={} | corrId={}", year, corrId, e);
+
 			response.setMessage("Failed to fetch Mahapar Register");
 			response.setData(null);
-			response.setErrorDetails(new ApplicationError("500", e.getMessage()));
-		}
 
-		return response;
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+			response.setErrorDetails(error);
+
+			return response;
+		}
 	}
 
 	@Override
@@ -4321,246 +3724,247 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	public PraptraMasterDataResponse saveKaryaratGopniyaAhwal(MahaparRegisterRequest request) {
 
 		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
-		String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		ApplicationError error = new ApplicationError();
 
-		if (!request.getType().equalsIgnoreCase("Retired")) {
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+		final String year = request.getYear();
+		final boolean isRetired = "Retired".equalsIgnoreCase(request.getType());
+		final LocalDateTime now = LocalDateTime.now();
 
-			try {
-				String year = request.getYear();
+		try {
 
-				if (request.getSections() == null || request.getSections().isEmpty()) {
-					response.setMessage("No sections found");
-					response.setData(List.of());
-					response.setErrorDetails(new ApplicationError("400", "Sections are empty"));
-					return response;
-				}
+			log.info("START saveKaryaratGopniyaAhwal | year={} | type={} | user={} | corrId={}", year,
+					request.getType(), user, corrId);
 
-				for (MahaparRegisterSectionRequest div : request.getSections()) {
-
-					if (div.getRows() == null || div.getRows().isEmpty()) {
-						continue;
-					}
-
-					for (MahaparRegisterRowRequest row : div.getRows()) {
-
-						// ✅ HARD DELETE (YEAR + DIVISION + DELETE_ID)
-						if ("D".equalsIgnoreCase(row.getFlag())) {
-							karyaratGopniyaAhwalRepository.deleteByYearAndDivisionIdAndDeleteId(year,
-									div.getSectionId(), row.getDeleteId());
-							continue;
-						}
-
-						Optional<KaryaratGopniyaAhwalEntity> opt = karyaratGopniyaAhwalRepository
-								.findByYearAndDivisionIdAndRowId(year, div.getSectionId(), row.getRowId());
-
-						KaryaratGopniyaAhwalEntity entity;
-
-						if (opt.isPresent()) {
-							// -------- UPDATE --------
-							entity = opt.get();
-							entity.setFlag("U");
-							entity.setUpdatedAt(LocalDateTime.now());
-							entity.setUpdatedBy(user);
-						} else {
-							// -------- CREATE --------
-							entity = new KaryaratGopniyaAhwalEntity();
-							entity.setYear(year);
-							entity.setDivisionId(div.getSectionId());
-							entity.setDivisionName(div.getSectionName());
-							entity.setRowId(row.getRowId());
-							entity.setDeleteId(row.getDeleteId());
-							entity.setFlag("C");
-							entity.setCreatedAt(LocalDateTime.now());
-							entity.setCreatedBy(user);
-							entity.setUpdatedAt(LocalDateTime.now());
-							entity.setUpdatedBy(user);
-						}
-
-						entity.setData(row.getData());
-						karyaratGopniyaAhwalRepository.save(entity);
-					}
-				}
-
-				response.setMessage("Karyarat Gopniya Ahwal saved successfully");
+			if (request.getSections() == null || request.getSections().isEmpty()) {
+				response.setMessage("No sections found");
 				response.setData(List.of());
-				response.setErrorDetails(new ApplicationError("200", "Success"));
-
-			} catch (Exception e) {
-				response.setMessage("Failed to save Karyarat Gopniya Ahwal");
-				response.setData(null);
-				response.setErrorDetails(new ApplicationError("500", e.getMessage()));
+				response.setErrorDetails(new ApplicationError("400", "Sections are empty"));
+				return response;
 			}
-		} else {
-			try {
-				String year = request.getYear();
 
-				if (request.getSections() == null || request.getSections().isEmpty()) {
-					response.setMessage("No sections found");
-					response.setData(List.of());
-					response.setErrorDetails(new ApplicationError("400", "Sections are empty"));
-					return response;
+			for (MahaparRegisterSectionRequest div : request.getSections()) {
+
+				if (div.getRows() == null || div.getRows().isEmpty()) {
+					continue;
 				}
 
-				for (MahaparRegisterSectionRequest div : request.getSections()) {
+				for (MahaparRegisterRowRequest row : div.getRows()) {
 
-					if (div.getRows() == null || div.getRows().isEmpty()) {
-						continue;
-					}
+					/* ---------- HARD DELETE ---------- */
+					if ("D".equalsIgnoreCase(row.getFlag())) {
 
-					for (MahaparRegisterRowRequest row : div.getRows()) {
-
-						// ✅ HARD DELETE (YEAR + DIVISION + DELETE_ID)
-						if ("D".equalsIgnoreCase(row.getFlag())) {
+						if (isRetired) {
 							rtrGopniyaAhwalRepository.deleteByYearAndDivisionIdAndDeleteId(year, div.getSectionId(),
 									row.getDeleteId());
-							continue;
-						}
-
-						Optional<RtrGopniyaAhwal> opt = rtrGopniyaAhwalRepository.findByYearAndDivisionIdAndRowId(year,
-								div.getSectionId(), row.getRowId());
-
-						RtrGopniyaAhwal entity;
-
-						if (opt.isPresent()) {
-							// -------- UPDATE --------
-							entity = opt.get();
-							entity.setFlag("U");
-							entity.setUpdatedAt(LocalDateTime.now());
-							entity.setUpdatedBy(user);
 						} else {
-							// -------- CREATE --------
-							entity = new RtrGopniyaAhwal();
-							entity.setYear(year);
-							entity.setDivisionId(div.getSectionId());
-							entity.setDivisionName(div.getSectionName());
-							entity.setRowId(row.getRowId());
-							entity.setDeleteId(row.getDeleteId());
-							entity.setFlag("C");
-							entity.setCreatedAt(LocalDateTime.now());
-							entity.setCreatedBy(user);
-							entity.setUpdatedAt(LocalDateTime.now());
-							entity.setUpdatedBy(user);
+							karyaratGopniyaAhwalRepository.deleteByYearAndDivisionIdAndDeleteId(year,
+									div.getSectionId(), row.getDeleteId());
 						}
 
-						entity.setData(row.getData());
-						rtrGopniyaAhwalRepository.save(entity);
+						log.info(
+								"DELETED GopniyaAhwal | year={} | divisionId={} | deleteId={} | retired={} | corrId={}",
+								year, div.getSectionId(), row.getDeleteId(), isRetired, corrId);
+						continue;
+					}
+
+					/* ---------- UPSERT ---------- */
+					if (isRetired) {
+						upsertRetiredGopniyaAhwal(year, div, row, user, now, corrId);
+					} else {
+						upsertKaryaratGopniyaAhwal(year, div, row, user, now, corrId);
 					}
 				}
-
-				response.setMessage("Retired Gopniya Ahwal saved successfully");
-				response.setData(List.of());
-				response.setErrorDetails(new ApplicationError("200", "Success"));
-
-			} catch (Exception e) {
-				response.setMessage("Failed to save Retired Gopniya Ahwal");
-				response.setData(null);
-				response.setErrorDetails(new ApplicationError("500", e.getMessage()));
 			}
 
+			response.setMessage(isRetired ? "Retired Gopniya Ahwal saved successfully"
+					: "Karyarat Gopniya Ahwal saved successfully");
+			response.setData(List.of());
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+			log.info("SUCCESS saveKaryaratGopniyaAhwal | year={} | type={} | corrId={}", year, request.getType(),
+					corrId);
+
+			return response;
+
+		} catch (Exception e) {
+
+			log.error("ERROR saveKaryaratGopniyaAhwal | year={} | type={} | corrId={}", year, request.getType(), corrId,
+					e);
+
+			response.setMessage(
+					isRetired ? "Failed to save Retired Gopniya Ahwal" : "Failed to save Karyarat Gopniya Ahwal");
+			response.setData(null);
+			response.setErrorDetails(new ApplicationError("500", e.getMessage()));
+			return response;
+		}
+	}
+
+	private void upsertRetiredGopniyaAhwal(String year, MahaparRegisterSectionRequest div,
+			MahaparRegisterRowRequest row, String user, LocalDateTime now, String corrId) {
+
+		Optional<RtrGopniyaAhwal> opt = rtrGopniyaAhwalRepository.findByYearAndDivisionIdAndRowId(year,
+				div.getSectionId(), row.getRowId());
+
+		RtrGopniyaAhwal entity;
+
+		if (opt.isPresent()) {
+			entity = opt.get();
+			entity.setFlag("U");
+			entity.setUpdatedAt(now);
+			entity.setUpdatedBy(user);
+
+			log.debug("UPDATED RetiredGopniyaAhwal | year={} | divisionId={} | rowId={} | corrId={}", year,
+					div.getSectionId(), row.getRowId(), corrId);
+
+		} else {
+			entity = new RtrGopniyaAhwal();
+			entity.setYear(year);
+			entity.setDivisionId(div.getSectionId());
+			entity.setDivisionName(div.getSectionName());
+			entity.setRowId(row.getRowId());
+			entity.setDeleteId(row.getDeleteId());
+			entity.setFlag("C");
+			entity.setCreatedAt(now);
+			entity.setCreatedBy(user);
+			entity.setUpdatedAt(now);
+			entity.setUpdatedBy(user);
+
+			log.debug("CREATED RetiredGopniyaAhwal | year={} | divisionId={} | rowId={} | corrId={}", year,
+					div.getSectionId(), row.getRowId(), corrId);
 		}
 
-		return response;
+		entity.setData(row.getData());
+		rtrGopniyaAhwalRepository.save(entity);
+	}
+
+	private void upsertKaryaratGopniyaAhwal(String year, MahaparRegisterSectionRequest div,
+			MahaparRegisterRowRequest row, String user, LocalDateTime now, String corrId) {
+
+		Optional<KaryaratGopniyaAhwalEntity> opt = karyaratGopniyaAhwalRepository.findByYearAndDivisionIdAndRowId(year,
+				div.getSectionId(), row.getRowId());
+
+		KaryaratGopniyaAhwalEntity entity;
+
+		if (opt.isPresent()) {
+			entity = opt.get();
+			entity.setFlag("U");
+			entity.setUpdatedAt(now);
+			entity.setUpdatedBy(user);
+
+			log.debug("UPDATED KaryaratGopniyaAhwal | year={} | divisionId={} | rowId={} | corrId={}", year,
+					div.getSectionId(), row.getRowId(), corrId);
+
+		} else {
+			entity = new KaryaratGopniyaAhwalEntity();
+			entity.setYear(year);
+			entity.setDivisionId(div.getSectionId());
+			entity.setDivisionName(div.getSectionName());
+			entity.setRowId(row.getRowId());
+			entity.setDeleteId(row.getDeleteId());
+			entity.setFlag("C");
+			entity.setCreatedAt(now);
+			entity.setCreatedBy(user);
+			entity.setUpdatedAt(now);
+			entity.setUpdatedBy(user);
+
+			log.debug("CREATED KaryaratGopniyaAhwal | year={} | divisionId={} | rowId={} | corrId={}", year,
+					div.getSectionId(), row.getRowId(), corrId);
+		}
+
+		entity.setData(row.getData());
+		karyaratGopniyaAhwalRepository.save(entity);
 	}
 
 	@Override
 	public PraptraMasterDataResponse getKaryaratGopniyaAhwal(String year, String type) {
 
 		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		final String corrId = MDC.get("correlationId");
+		final boolean isRetired = "Retired".equalsIgnoreCase(type);
 
-		if (!type.equalsIgnoreCase("Retired")) {
+		try {
+			log.info("START getKaryaratGopniyaAhwal | year={} | type={} | corrId={}", year, type, corrId);
 
-			try {
-				// ✅ DB level sorting: divisionId ASC, rowId ASC
-				List<KaryaratGopniyaAhwalEntity> entities = karyaratGopniyaAhwalRepository
-						.findAllByYearOrderByDivisionIdAscRowIdAsc(year);
+			// 🔹 Fetch data (DB level sorted)
+			List<?> entities = isRetired ? rtrGopniyaAhwalRepository.findAllByYearOrderByDivisionIdAscRowIdAsc(year)
+					: karyaratGopniyaAhwalRepository.findAllByYearOrderByDivisionIdAscRowIdAsc(year);
 
-				// -------- BUILD SAME REQUEST STRUCTURE BACK --------
-				MahaparRegisterRequest result = new MahaparRegisterRequest();
-				result.setYear(year);
+			MahaparRegisterRequest result = new MahaparRegisterRequest();
+			result.setYear(year);
 
-				// divisionId → section mapping
-				Map<Long, MahaparRegisterSectionRequest> divisionMap = new LinkedHashMap<>();
+			Map<Long, MahaparRegisterSectionRequest> divisionMap = new LinkedHashMap<>();
 
-				for (KaryaratGopniyaAhwalEntity e : entities) {
+			for (Object obj : entities) {
 
-					// ---------- ROW ----------
-					MahaparRegisterRowRequest row = new MahaparRegisterRowRequest();
-					row.setRowId(e.getRowId());
-					row.setDeleteId(e.getDeleteId());
-					row.setFlag(e.getFlag());
-					row.setData(e.getData());
+				Long divisionId;
+				String divisionName;
+				Long rowId;
+				Long deleteId;
+				String flag;
+				Object data;
 
-					// ---------- DIVISION / SECTION ----------
-					MahaparRegisterSectionRequest section = divisionMap.computeIfAbsent(e.getDivisionId(), k -> {
-						MahaparRegisterSectionRequest s = new MahaparRegisterSectionRequest();
-						s.setSectionId(e.getDivisionId());
-						s.setSectionName(e.getDivisionName());
-						s.setRows(new ArrayList<>());
-						return s;
-					});
-
-					section.getRows().add(row);
+				if (isRetired) {
+					RtrGopniyaAhwal e = (RtrGopniyaAhwal) obj;
+					divisionId = e.getDivisionId();
+					divisionName = e.getDivisionName();
+					rowId = e.getRowId();
+					deleteId = e.getDeleteId();
+					flag = e.getFlag();
+					data = e.getData();
+				} else {
+					KaryaratGopniyaAhwalEntity e = (KaryaratGopniyaAhwalEntity) obj;
+					divisionId = e.getDivisionId();
+					divisionName = e.getDivisionName();
+					rowId = e.getRowId();
+					deleteId = e.getDeleteId();
+					flag = e.getFlag();
+					data = e.getData();
 				}
 
-				result.setSections(new ArrayList<>(divisionMap.values()));
+				// 🔹 Build row
+				MahaparRegisterRowRequest row = new MahaparRegisterRowRequest();
+				row.setRowId(rowId);
+				row.setDeleteId(deleteId);
+				row.setFlag(flag);
+				row.setData(objectMapper.valueToTree(data)); // ✅ FIXED
 
-				response.setMessage("Fetched successfully");
-				response.setData(List.of(Map.of("request", result)));
-				response.setErrorDetails(new ApplicationError("200", "Success"));
+				// 🔹 Group by division
+				MahaparRegisterSectionRequest section = divisionMap.computeIfAbsent(divisionId, k -> {
+					MahaparRegisterSectionRequest s = new MahaparRegisterSectionRequest();
+					s.setSectionId(divisionId);
+					s.setSectionName(divisionName);
+					s.setRows(new ArrayList<>());
+					return s;
+				});
 
-			} catch (Exception e) {
-				response.setMessage("Failed to fetch Karyarat Gopniya Ahwal");
-				response.setData(null);
-				response.setErrorDetails(new ApplicationError("500", e.getMessage()));
+				section.getRows().add(row);
 			}
-		} else {
-			try {
-				// ✅ DB level sorting: divisionId ASC, rowId ASC
-				List<RtrGopniyaAhwal> entities = rtrGopniyaAhwalRepository
-						.findAllByYearOrderByDivisionIdAscRowIdAsc(year);
 
-				// -------- BUILD SAME REQUEST STRUCTURE BACK --------
-				MahaparRegisterRequest result = new MahaparRegisterRequest();
-				result.setYear(year);
+			result.setSections(new ArrayList<>(divisionMap.values()));
 
-				// divisionId → section mapping
-				Map<Long, MahaparRegisterSectionRequest> divisionMap = new LinkedHashMap<>();
+			response.setMessage("Fetched successfully");
+			response.setData(List.of(Map.of("request", result)));
+			response.setErrorDetails(new ApplicationError("200", "Success"));
 
-				for (RtrGopniyaAhwal e : entities) {
+			log.info("END getKaryaratGopniyaAhwal | year={} | type={} | divisions={} | corrId={}", year, type,
+					divisionMap.size(), corrId);
 
-					// ---------- ROW ----------
-					MahaparRegisterRowRequest row = new MahaparRegisterRowRequest();
-					row.setRowId(e.getRowId());
-					row.setDeleteId(e.getDeleteId());
-					row.setFlag(e.getFlag());
-					row.setData(e.getData());
+			return response;
 
-					// ---------- DIVISION / SECTION ----------
-					MahaparRegisterSectionRequest section = divisionMap.computeIfAbsent(e.getDivisionId(), k -> {
-						MahaparRegisterSectionRequest s = new MahaparRegisterSectionRequest();
-						s.setSectionId(e.getDivisionId());
-						s.setSectionName(e.getDivisionName());
-						s.setRows(new ArrayList<>());
-						return s;
-					});
+		} catch (Exception e) {
 
-					section.getRows().add(row);
-				}
+			log.error("ERROR getKaryaratGopniyaAhwal | year={} | type={} | corrId={}", year, type, corrId, e);
 
-				result.setSections(new ArrayList<>(divisionMap.values()));
-
-				response.setMessage("Fetched successfully");
-				response.setData(List.of(Map.of("request", result)));
-				response.setErrorDetails(new ApplicationError("200", "Success"));
-
-			} catch (Exception e) {
-				response.setMessage("Failed to fetch Retired Gopniya Ahwal");
-				response.setData(null);
-				response.setErrorDetails(new ApplicationError("500", e.getMessage()));
-			}
+			response.setMessage(
+					isRetired ? "Failed to fetch Retired Gopniya Ahwal" : "Failed to fetch Karyarat Gopniya Ahwal");
+			response.setData(null);
+			response.setErrorDetails(new ApplicationError("500", e.getMessage()));
+			return response;
 		}
-
-		return response;
 	}
 
 	@Override

@@ -40,4 +40,6 @@ public interface DamInspectionRepository extends JpaRepository<DamInspectionEnti
 	Optional<DamInspectionEntity> findByTitleAndDepartmentKeyAndDeleteIdAndYearAndMonthAndPeriod(String title,
 			String deptKey, Long deleteId, String year, String month, String period);
 
+	List<DamInspectionEntity> findByYearOrderByRowIdAsc(String year);
+
 }

@@ -2,9 +2,7 @@ package com.pipc.dashboard.controller;
 
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.ResponseEntity;
+import org.slf4j.MDC;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,75 +26,92 @@ import com.pipc.dashboard.login.response.LoginResponse;
 import com.pipc.dashboard.utility.ApplicationError;
 import com.pipc.dashboard.utility.BaseResponse;
 
-@RequestMapping("/pipc/dashboard/onboarding")
-@RestController
-public class LoginController {
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
-	private Logger log = LoggerFactory.getLogger(LoginController.class);
+@Slf4j
+@RestController
+@RequestMapping("/pipc/dashboard/onboarding")
+@RequiredArgsConstructor
+public class LoginController {
 
 	private final LoginBussiness loginBusiness;
 
+	/*
+	 * ========================= HEALTH CHECK =========================
+	 */
 	@GetMapping("/hi")
 	public String sayHi() {
 		return "Hi";
 	}
 
-	public LoginController(LoginBussiness loginBusiness) {
-		this.loginBusiness = loginBusiness;
-	}
+	/*
+	 * ========================= REGISTER / LOGIN =========================
+	 */
 
 	@PostMapping("/register")
 	public LoginResponse register(@RequestBody RegisterRequest registerRequest) {
-		return loginBusiness.register(registerRequest);
 
+		log.info("Register user | corrId={}", MDC.get("correlationId"));
+		return loginBusiness.register(registerRequest);
 	}
 
 	@PostMapping("/login")
 	public LoginResponse logIn(@RequestBody LoginRequest logInRequest) {
+
+		log.info("Login request | corrId={}", MDC.get("correlationId"));
 		return loginBusiness.login(logInRequest);
-
-	}
-
-	@DeleteMapping("/deleteUser/{username}")
-	public BaseResponse deleteUser(@PathVariable String username) {
-		return loginBusiness.deleteUser(username);
 	}
 
 	@PostMapping("/refresh-token")
 	public LoginResponse refreshAccessToken(@RequestBody RefreshTokenRequest request) {
 
+		log.debug("Refresh token | corrId={}", MDC.get("correlationId"));
 		return loginBusiness.refreshAccessToken(request);
-
 	}
 
-	@PostMapping("/getAllRole")
-	public List<Role> getAllRole() {
-		return loginBusiness.getAllRole();
+	/*
+	 * ========================= USER MANAGEMENT =========================
+	 */
 
+	@DeleteMapping("/deleteUser/{username}")
+	public BaseResponse deleteUser(@PathVariable String username) {
+
+		log.info("Delete user={} | corrId={}", username, MDC.get("correlationId"));
+		return loginBusiness.deleteUser(username);
 	}
 
-	@PostMapping("/getAllUser")
+	@GetMapping("/getAllUser")
 	public List<UserResponse> getAllUser() {
 		return loginBusiness.getAllUser();
+	}
 
+	@GetMapping("/getAllRole")
+	public List<Role> getAllRole() {
+		return loginBusiness.getAllRole();
 	}
 
 	@PutMapping("/updateRole")
 	public BaseResponse updateUserRoles(@RequestBody UpdateUserRolesRequest request) {
+
+		log.info("Update user roles | corrId={}", MDC.get("correlationId"));
 		return loginBusiness.updateUserRoles(request);
 	}
 
+	/*
+	 * ========================= PASSWORD RESET FLOW =========================
+	 */
+
 	@PostMapping("/otpPwdReset")
 	public ApplicationError otpPwdReset(@RequestBody OtpRequest request) {
+
 		ApplicationError error = new ApplicationError();
 		boolean sent = loginBusiness.otpPwdReset(request.getEmailId(), request.getUserName());
 
 		if (sent) {
 			error.setErrorCode("0");
 			error.setErrorDescription("OTP sent successfully");
-		}
-
-		else {
+		} else {
 			error.setErrorCode("1");
 			error.setErrorDescription("Email not found!");
 		}
@@ -105,8 +120,8 @@ public class LoginController {
 
 	@PostMapping("/verifyOtpReset")
 	public ApplicationError verifyOtp(@RequestBody VerifyOtpRequest req) {
-		ApplicationError error = new ApplicationError();
 
+		ApplicationError error = new ApplicationError();
 		boolean isValid = loginBusiness.verifyOtp(req.getEmailId(), req.getUserName(), req.getOtp());
 
 		if (isValid) {
@@ -116,27 +131,22 @@ public class LoginController {
 			error.setErrorCode("1");
 			error.setErrorDescription("Invalid or expired OTP");
 		}
-
 		return error;
 	}
 
 	@PostMapping("/resetPassword")
 	public ApplicationError resetPassword(@RequestBody ResetPasswordRequest req) {
-		ApplicationError error = new ApplicationError();
 
+		ApplicationError error = new ApplicationError();
 		boolean updated = loginBusiness.resetPassword(req.getUserName(), req.getNewPwd());
 
 		if (updated) {
 			error.setErrorCode("0");
 			error.setErrorDescription("Password updated successfully");
-		}
-
-		else {
+		} else {
 			error.setErrorCode("1");
 			error.setErrorDescription("Password Updation Failed");
 		}
 		return error;
-
 	}
-
 }

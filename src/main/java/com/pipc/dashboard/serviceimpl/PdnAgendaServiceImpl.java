@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -33,10 +34,6 @@ import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.MDC;
 import org.springframework.core.io.InputStreamResource;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -62,23 +59,19 @@ import com.pipc.dashboard.service.PdnAgendaService;
 import com.pipc.dashboard.utility.ApplicationError;
 
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class PdnAgendaServiceImpl implements PdnAgendaService {
 
 	private final PdnAgendaRepository pdnAgnedaRepo;
-	private final ObjectMapper objectMapper;
 	private final NrldRepository nrldRepo;
-	private IrrigationRepositoryRevised irrigationRepositoryRevised;
-
-	public PdnAgendaServiceImpl(PdnAgendaRepository pdnAgnedaRepo, ObjectMapper objectMapper, NrldRepository nrldRepo,
-			IrrigationRepositoryRevised irrigationRepositoryRevised) {
-		this.pdnAgnedaRepo = pdnAgnedaRepo;
-		this.objectMapper = objectMapper;
-		this.nrldRepo = nrldRepo;
-		this.irrigationRepositoryRevised = irrigationRepositoryRevised;
-	}
+	private final IrrigationRepositoryRevised irrigationRepositoryRevised;
+	private final ObjectMapper objectMapper;
 
 	// ----------------------------------------------------
 	// 🔹 Save or Update PDN Agenda
@@ -89,78 +82,82 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 
 		PdnAgendaResponse response = new PdnAgendaResponse();
 		ApplicationError error = new ApplicationError();
+
+		final String corrId = MDC.get("correlationId");
+		final String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		log.info("START saveOrUpdatePdnAgenda | year={} | user={} | corrId={}", pdnAgendaRequest.getSubmissionYear(),
+				currentUser, corrId);
+
 		StringBuilder statusMsg = new StringBuilder();
 
 		try {
-			String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
 
 			for (AgendaPoint point : pdnAgendaRequest.getAgendaPoints()) {
+
 				for (AgendaDetail detail : point.getDetails()) {
 
 					JsonNode incomingData = detail.getColumnData();
 
-					// 🔹 Extract dam name dynamically
+					// 🔹 Extract dam name
 					String damName = extractFieldValue(incomingData, "NameOfDam");
-					if (damName == null || damName.isEmpty()) {
-						statusMsg.append("[Skipped: Missing Dam Name for RowId ").append(detail.getRowId())
-								.append("], ");
+					if (damName == null || damName.isBlank()) {
+						statusMsg.append("[Skipped: Missing Dam Name | rowId=").append(detail.getRowId()).append("], ");
 						continue;
 					}
 
-					// 🔹 Read flag & deleteId from detail (top-level)
 					String flag = detail.getFlag();
 					Long deleteId = detail.getDeleteId();
 
-					// 🔹 Find matching records (for both update & delete)
+					// 🔍 Fetch existing records
 					Optional<PdnAgendaEntity> existingOpt = pdnAgnedaRepo
 							.findBySubmissionYearAndPointOfAgendaAndRecordIdAndNameOfDam(
 									pdnAgendaRequest.getSubmissionYear(), point.getPointOfAgenda(), detail.getRowId(),
 									damName);
 
-					Optional<PdnAgendaEntity> existingOptByDeleteId = Optional.empty();
+					Optional<PdnAgendaEntity> existingByDeleteId = Optional.empty();
 					if (deleteId != null) {
-						existingOptByDeleteId = pdnAgnedaRepo
-								.findBySubmissionYearAndPointOfAgendaAndDeleteIdAndNameOfDam(
-										pdnAgendaRequest.getSubmissionYear(), point.getPointOfAgenda(), deleteId,
-										damName);
+						existingByDeleteId = pdnAgnedaRepo.findBySubmissionYearAndPointOfAgendaAndDeleteIdAndNameOfDam(
+								pdnAgendaRequest.getSubmissionYear(), point.getPointOfAgenda(), deleteId, damName);
 					}
 
-					// ✅ DELETE LOGIC (based on flag 'D')
+					// ================= DELETE =================
 					if ("D".equalsIgnoreCase(flag)) {
-						if (existingOptByDeleteId.isPresent()) {
-							pdnAgnedaRepo.delete(existingOptByDeleteId.get());
-							statusMsg.append("Deleted: ").append(damName).append(" (DeleteId: ").append(deleteId)
-									.append("), ");
+
+						if (existingByDeleteId.isPresent()) {
+							pdnAgnedaRepo.delete(existingByDeleteId.get());
+							statusMsg.append("Deleted(deleteId): ").append(damName).append(", ");
 						} else if (existingOpt.isPresent()) {
 							pdnAgnedaRepo.delete(existingOpt.get());
-							statusMsg.append("Deleted by RowId: ").append(detail.getRowId()).append(" (")
-									.append(damName).append("), ");
+							statusMsg.append("Deleted(rowId): ").append(damName).append(", ");
 						} else {
-							statusMsg.append("Delete requested but record not found for: ").append(damName)
-									.append(", ");
+							statusMsg.append("Delete requested but not found: ").append(damName).append(", ");
 						}
-						continue; // skip rest (no update/create)
+						continue;
 					}
 
-					// 🔹 Otherwise handle Create or Update
-					PdnAgendaEntity entity;
+					// ================= UPDATE =================
 					if (existingOpt.isPresent()) {
-						entity = existingOpt.get();
-						JsonNode existingData = entity.getColumnData();
 
-						if (!existingData.equals(incomingData)) {
+						PdnAgendaEntity entity = existingOpt.get();
+
+						if (!entity.getColumnData().equals(incomingData)) {
 							entity.setColumnData(incomingData);
 							entity.setUpdatedBy(currentUser);
 							entity.setUpdatedAt(LocalDateTime.now());
 							entity.setRecordFlag("U");
+
 							pdnAgnedaRepo.save(entity);
 							statusMsg.append("Updated: ").append(damName).append(", ");
 						} else {
-							statusMsg.append("No change for: ").append(damName).append(", ");
+							statusMsg.append("No change: ").append(damName).append(", ");
 						}
 
-					} else {
-						entity = new PdnAgendaEntity();
+					}
+					// ================= CREATE =================
+					else {
+
+						PdnAgendaEntity entity = new PdnAgendaEntity();
 						entity.setSubmissionTitle(pdnAgendaRequest.getSubmissionTitle());
 						entity.setSubmissionYear(pdnAgendaRequest.getSubmissionYear());
 						entity.setSrNo(point.getSrNo());
@@ -169,11 +166,12 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 						entity.setNameOfDam(damName);
 						entity.setColumnData(incomingData);
 						entity.setRecordFlag("C");
+						entity.setDeleteId(deleteId);
+
 						entity.setCreatedBy(currentUser);
 						entity.setUpdatedBy(currentUser);
 						entity.setCreatedAt(LocalDateTime.now());
 						entity.setUpdatedAt(LocalDateTime.now());
-						entity.setDeleteId(deleteId); // ✅ Save deleteId if given
 
 						pdnAgnedaRepo.save(entity);
 						statusMsg.append("Created: ").append(damName).append(", ");
@@ -182,11 +180,18 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 			}
 
 			error.setErrorCode("0");
-			error.setErrorDescription("Agenda processed: " + statusMsg);
-			response.setMessage("Success");
+			error.setErrorDescription("Agenda processed successfully");
+			response.setMessage(statusMsg.toString());
 			response.setErrorDetails(error);
 
+			log.info("SUCCESS saveOrUpdatePdnAgenda | year={} | corrId={}", pdnAgendaRequest.getSubmissionYear(),
+					corrId);
+
 		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdatePdnAgenda | year={} | corrId={}", pdnAgendaRequest.getSubmissionYear(), corrId,
+					e);
+
 			error.setErrorCode("1");
 			error.setErrorDescription("Error while saving agenda: " + e.getMessage());
 			response.setMessage("Failed");
@@ -200,88 +205,116 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 	// 🔹 Save or Update NRLD (Dam Records)
 	// ----------------------------------------------------
 	@Override
+	@Transactional
 	public NrldResponse saveOrUpdateNrld(NrldRequest nrldRequest) {
+
 		NrldResponse response = new NrldResponse();
 		ApplicationError error = new ApplicationError();
+
+		final String corrId = MDC.get("correlationId");
+		final String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		log.info("START saveOrUpdateNrld | year={} | user={} | corrId={}", nrldRequest.getSubmissionYear(), currentUser,
+				corrId);
 
 		List<String> createdRecords = new ArrayList<>();
 		List<String> updatedRecords = new ArrayList<>();
 		List<String> deletedRecords = new ArrayList<>();
 
-		String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-
 		try {
+
+			final String year = nrldRequest.getSubmissionYear();
+			final LocalDateTime now = LocalDateTime.now();
+
 			for (JsonNode record : nrldRequest.getRecords()) {
 
 				JsonNode recordData = record.get("data");
-				if (recordData == null || recordData.isNull())
+				if (recordData == null || recordData.isNull()) {
 					continue;
+				}
 
-				String year = nrldRequest.getSubmissionYear();
 				String damName = recordData.has("NameOfDam") ? recordData.get("NameOfDam").asText() : null;
+
 				Integer rowId = recordData.has("rowId") ? recordData.get("rowId").asInt() : null;
+
 				Long deleteId = recordData.has("deleteId") ? recordData.get("deleteId").asLong() : null;
+
 				String flag = recordData.has("flag") ? recordData.get("flag").asText().trim() : null;
 
-				if (damName == null || damName.isEmpty())
+				if (damName == null || damName.isBlank() || rowId == null) {
 					continue;
+				}
 
-				// ✅ DELETE logic
+				// ================= DELETE =================
 				if ("D".equalsIgnoreCase(flag) && deleteId != null) {
-					Optional<NrldEntity> existingToDelete = nrldRepo.findByYearAndDamNameAndDeleteId(year, damName,
-							deleteId);
 
-					if (existingToDelete.isPresent()) {
-						nrldRepo.delete(existingToDelete.get());
+					Optional<NrldEntity> toDelete = nrldRepo.findByYearAndDamNameAndDeleteId(year, damName, deleteId);
+
+					if (toDelete.isPresent()) {
+						nrldRepo.delete(toDelete.get());
 						deletedRecords.add("Deleted: " + damName + " (DeleteId: " + deleteId + ")");
 					} else {
 						deletedRecords.add("Delete requested but record not found for " + damName + " (DeleteId: "
 								+ deleteId + ")");
 					}
-					continue; // Skip further processing for deleted record
+					continue;
 				}
 
-				// 🔍 Check for existing record
+				// ================= UPDATE / CREATE =================
 				Optional<NrldEntity> existingOpt = nrldRepo.findByRowIdAndDamNameAndYear(rowId, damName, year);
 
-				NrldEntity entity;
-
 				if (existingOpt.isPresent()) {
-					entity = existingOpt.get();
+
+					NrldEntity entity = existingOpt.get();
+
 					if (!entity.getData().equals(recordData)) {
 						entity.setData(recordData);
 						entity.setUpdatedBy(currentUser);
-						entity.setUpdatedAt(LocalDateTime.now());
+						entity.setUpdatedAt(now);
 						entity.setRecordFlag("U");
+
 						nrldRepo.save(entity);
 						updatedRecords.add("Updated: " + damName);
 					}
+
 				} else {
-					entity = NrldEntity.builder().rowId(rowId).deleteId(deleteId).damName(damName).year(year)
-							.data(recordData).createdBy(currentUser).updatedBy(currentUser)
-							.createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).recordFlag("C").build();
+
+					NrldEntity entity = NrldEntity.builder().rowId(rowId).deleteId(deleteId).damName(damName).year(year)
+							.data(recordData).createdBy(currentUser).updatedBy(currentUser).createdAt(now)
+							.updatedAt(now).recordFlag("C").build();
 
 					nrldRepo.save(entity);
 					createdRecords.add("Created: " + damName);
 				}
 			}
 
-			// ✅ Combine summary message
-			StringBuilder desc = new StringBuilder();
-			if (!createdRecords.isEmpty())
-				desc.append(String.join(", ", createdRecords)).append(". ");
-			if (!updatedRecords.isEmpty())
-				desc.append(String.join(", ", updatedRecords)).append(". ");
-			if (!deletedRecords.isEmpty())
-				desc.append(String.join(", ", deletedRecords)).append(". ");
-			if (createdRecords.isEmpty() && updatedRecords.isEmpty() && deletedRecords.isEmpty())
-				desc.append("No changes detected.");
+			// ================= RESPONSE BUILD =================
+			StringBuilder summary = new StringBuilder();
+
+			if (!createdRecords.isEmpty()) {
+				summary.append(String.join(", ", createdRecords)).append(". ");
+			}
+			if (!updatedRecords.isEmpty()) {
+				summary.append(String.join(", ", updatedRecords)).append(". ");
+			}
+			if (!deletedRecords.isEmpty()) {
+				summary.append(String.join(", ", deletedRecords)).append(". ");
+			}
+			if (summary.length() == 0) {
+				summary.append("No changes detected.");
+			}
 
 			error.setErrorCode("0");
-			error.setErrorDescription(desc.toString());
+			error.setErrorDescription(summary.toString());
 			response.setErrorDetails(error);
 
+			log.info("SUCCESS saveOrUpdateNrld | year={} | created={} | updated={} | deleted={} | corrId={}", year,
+					createdRecords.size(), updatedRecords.size(), deletedRecords.size(), corrId);
+
 		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdateNrld | year={} | corrId={}", nrldRequest.getSubmissionYear(), corrId, e);
+
 			error.setErrorCode("1");
 			error.setErrorDescription("Error while saving NRLD data: " + e.getMessage());
 			response.setErrorDetails(error);
@@ -309,22 +342,61 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 	}
 
 	@Override
-	public Page<PdnAgendaEntity> getPDNAgenda(String projectYear, String projectName, int page, int size) {
+	public List<PdnAgendaEntity> getPDNAgenda(String projectYear) {
 
-		Pageable pageable = PageRequest.of(page, size, Sort.by("recordId").ascending());
+		final String corrId = MDC.get("correlationId");
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
 
-		return pdnAgnedaRepo.findBySubmissionYear(projectYear, pageable);
+		log.info("START getPDNAgenda | projectYear={} | user={} | corrId={}", projectYear, user, corrId);
 
+		try {
+
+			// 🔹 Single DB call with DB-level sorting
+			List<PdnAgendaEntity> list = pdnAgnedaRepo.findBySubmissionYearOrderByRecordIdAsc(projectYear);
+
+			if (list == null || list.isEmpty()) {
+				log.warn("No PDN Agenda found | projectYear={} | corrId={}", projectYear, corrId);
+				return Collections.emptyList();
+			}
+
+			log.info("SUCCESS getPDNAgenda | projectYear={} | records={} | corrId={}", projectYear, list.size(),
+					corrId);
+
+			return list;
+
+		} catch (Exception e) {
+
+			log.error("ERROR getPDNAgenda | projectYear={} | corrId={}", projectYear, corrId, e);
+			return Collections.emptyList();
+		}
 	}
 
 	@Override
-	public Page<NrldEntity> getNrldByYear(String year, String damName, int page, int size) {
-		Pageable pageable = PageRequest.of(page, size, Sort.by("rowId").ascending());
+	public List<NrldEntity> getNrldByYear(String year) {
 
-		if (damName != null && !damName.isEmpty()) {
-			return nrldRepo.findByYearAndDamNameContainingIgnoreCase(year, damName, pageable);
-		} else {
-			return nrldRepo.findByYear(year, pageable);
+		final String corrId = MDC.get("correlationId");
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		log.info("START getNrldByYear | year={} | user={} | corrId={}", year, user, corrId);
+
+		try {
+
+			// 🔹 Single DB call with DB-level sorting
+			List<NrldEntity> list = nrldRepo.findByYearOrderByRowIdAsc(year);
+
+			if (list == null || list.isEmpty()) {
+				log.warn("No NRLD data found | year={} | corrId={}", year, corrId);
+				return Collections.emptyList();
+			}
+
+			log.info("SUCCESS getNrldByYear | year={} | records={} | corrId={}", year, list.size(), corrId);
+
+			return list;
+
+		} catch (Exception e) {
+
+			log.error("ERROR getNrldByYear | year={} | corrId={}", year, corrId, e);
+			return Collections.emptyList();
 		}
 	}
 
@@ -569,70 +641,77 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 	}
 
 	@Override
+	@Transactional
 	public NrldResponse saveOrUpdateIccCap(IrrigationSaveRequest req) {
-		String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
 
 		NrldResponse response = new NrldResponse();
 		ApplicationError error = new ApplicationError();
 
+		final String corrId = MDC.get("correlationId");
+		final String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		log.info("START saveOrUpdateIccCap | year={} | date={} | user={} | corrId={}", req.getYear(), req.getDate(),
+				currentUser, corrId);
+
 		try {
 
-			ObjectMapper objectMapper = new ObjectMapper();
+			final LocalDateTime now = LocalDateTime.now();
+			final ObjectMapper mapper = this.objectMapper; // reuse injected mapper
 
 			for (IrrigationRowDTO row : req.getRows()) {
 
-				// 🔴 CASE 1 — PERMANENT DELETE USING deleteId + year + date
+				// ================= DELETE =================
 				if ("D".equalsIgnoreCase(row.getFlag())) {
 
-					Optional<IrrigationCapacityEntityRevised> existing = irrigationRepositoryRevised
+					Optional<IrrigationCapacityEntityRevised> toDelete = irrigationRepositoryRevised
 							.findByYearAndDateAndDeleteId(req.getYear(), req.getDate(), row.getDeleteId());
 
-					if (existing.isPresent()) {
-						// 🔥 PERMANENT DELETE
-						irrigationRepositoryRevised.delete(existing.get());
-					}
+					toDelete.ifPresent(entity -> {
+						irrigationRepositoryRevised.delete(entity);
+						log.debug("Deleted ICC CAP | deleteId={} | corrId={}", row.getDeleteId(), corrId);
+					});
 
 					continue;
 				}
 
-				// 🟡 CASE 2 — CREATE / UPDATE
+				// ================= CREATE / UPDATE =================
 				Optional<IrrigationCapacityEntityRevised> existing = irrigationRepositoryRevised
 						.findByYearAndDateAndRowId(req.getYear(), req.getDate(), row.getRowId());
 
-				IrrigationCapacityEntityRevised entity = existing.orElse(new IrrigationCapacityEntityRevised());
+				IrrigationCapacityEntityRevised entity = existing.orElseGet(IrrigationCapacityEntityRevised::new);
 
-				// BASIC FIELDS
 				entity.setYear(req.getYear());
 				entity.setDate(req.getDate());
 				entity.setRowId(row.getRowId());
 				entity.setDeleteId(row.getDeleteId());
-
-				// JSONB DATA
-				JsonNode jsonData = objectMapper.valueToTree(row.getData());
-				entity.setData(jsonData);
-
-				// FLAG LOGIC
+				entity.setData(mapper.valueToTree(row.getData()));
 				entity.setFlag(existing.isPresent() ? "U" : "C");
 
-				// AUDIT
-				if (!existing.isPresent()) {
-					entity.setCreatedAt(LocalDateTime.now());
+				if (existing.isEmpty()) {
+					entity.setCreatedAt(now);
 					entity.setCreatedBy(currentUser);
 				}
-				entity.setUpdatedAt(LocalDateTime.now());
+
+				entity.setUpdatedAt(now);
 				entity.setUpdatedBy(currentUser);
 
 				irrigationRepositoryRevised.save(entity);
 			}
 
-			// SUCCESS RESPONSE
 			error.setErrorCode("0");
 			error.setErrorDescription("Saved Successfully");
 			response.setErrorDetails(error);
+
+			log.info("SUCCESS saveOrUpdateIccCap | year={} | date={} | corrId={}", req.getYear(), req.getDate(),
+					corrId);
+
 			return response;
 
 		} catch (Exception ex) {
-			ex.printStackTrace();
+
+			log.error("ERROR saveOrUpdateIccCap | year={} | date={} | corrId={}", req.getYear(), req.getDate(), corrId,
+					ex);
+
 			error.setErrorCode("500");
 			error.setErrorDescription("Error occurred while saving: " + ex.getMessage());
 			response.setErrorDetails(error);
@@ -642,27 +721,39 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 
 	@Override
 	public NrldResponse getIccCapData(String year, String date) {
+
 		NrldResponse response = new NrldResponse();
 		ApplicationError error = new ApplicationError();
 
+		final String corrId = MDC.get("correlationId");
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		log.info("START getIccCapData | year={} | date={} | user={} | corrId={}", year, date, user, corrId);
+
 		try {
 
-			// Fetch all for year + date
-			List<IrrigationCapacityEntityRevised> list = irrigationRepositoryRevised.findByYearAndDate(year, date);
+			List<IrrigationCapacityEntityRevised> entities = irrigationRepositoryRevised.findByYearAndDate(year, date);
+
+			if (entities == null || entities.isEmpty()) {
+
+				log.warn("No ICC CAP data found | year={} | date={} | corrId={}", year, date, corrId);
+
+				response.setData(List.of());
+				error.setErrorCode("0");
+				error.setErrorDescription("No data found");
+				response.setErrorDetails(error);
+				return response;
+			}
 
 			// Sort by rowId ASC
-			list.sort(Comparator.comparing(IrrigationCapacityEntityRevised::getRowId));
+			entities.sort(Comparator.comparing(IrrigationCapacityEntityRevised::getRowId));
 
-			List<Map<String, Object>> finalList = new ArrayList<>();
+			List<Map<String, Object>> finalList = new ArrayList<>(entities.size());
+			final ObjectMapper mapper = this.objectMapper;
 
-			ObjectMapper mapper = new ObjectMapper();
+			for (IrrigationCapacityEntityRevised e : entities) {
 
-			for (IrrigationCapacityEntityRevised e : list) {
-
-				// Convert JSONB (JsonNode) → Map<String,Object>
 				Map<String, Object> row = mapper.convertValue(e.getData(), Map.class);
-
-				// Add system attributes
 				row.put("rowId", e.getRowId());
 				row.put("deleteId", e.getDeleteId());
 				row.put("flag", e.getFlag());
@@ -671,16 +762,19 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 			}
 
 			response.setData(finalList);
-
 			error.setErrorCode("0");
 			error.setErrorDescription("Success");
 			response.setErrorDetails(error);
+
+			log.info("SUCCESS getIccCapData | year={} | date={} | records={} | corrId={}", year, date, finalList.size(),
+					corrId);
 
 			return response;
 
 		} catch (Exception ex) {
 
-			ex.printStackTrace();
+			log.error("ERROR getIccCapData | year={} | date={} | corrId={}", year, date, corrId, ex);
+
 			error.setErrorCode("500");
 			error.setErrorDescription("Error fetching data: " + ex.getMessage());
 			response.setErrorDetails(error);

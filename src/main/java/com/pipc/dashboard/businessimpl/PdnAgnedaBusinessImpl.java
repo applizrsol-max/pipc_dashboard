@@ -1,6 +1,7 @@
 package com.pipc.dashboard.businessimpl;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
@@ -38,14 +39,14 @@ public class PdnAgnedaBusinessImpl implements PdnAgendaBusiness {
 	}
 
 	@Override
-	public Page<PdnAgendaEntity> getPDNAgenda(String projectYear, String projectName, int page, int size) {
+	public List<PdnAgendaEntity> getPDNAgenda(String projectYear) {
 
-		return pdnAgendaService.getPDNAgenda(projectYear, projectName, page, size);
+		return pdnAgendaService.getPDNAgenda(projectYear);
 	}
 
 	@Override
-	public Page<NrldEntity> getNrldByYear(String year, String damName, int page, int size) {
-		return pdnAgendaService.getNrldByYear(year, damName, page, size);
+	public List<NrldEntity> getNrldByYear(String year) {
+		return pdnAgendaService.getNrldByYear(year);
 	}
 
 	@Override

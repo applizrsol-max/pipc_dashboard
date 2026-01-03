@@ -12,8 +12,8 @@ public interface StoreService {
 
 	StoreResponse saveOrUpdate(StoreRequest storeRequest, String createdBy);
 
-	StoreResponse getStores(int page, int size);
+	StoreResponse getStores(String year);
 
-	ResponseEntity<InputStreamResource> downloadStoreData() throws IOException;
+	ResponseEntity<InputStreamResource> downloadStoreData(String year) throws IOException;
 
 }

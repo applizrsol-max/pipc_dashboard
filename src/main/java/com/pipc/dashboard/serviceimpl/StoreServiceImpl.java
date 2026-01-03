@@ -9,6 +9,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -23,9 +24,8 @@ import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.MDC;
 import org.springframework.core.io.InputStreamResource;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -42,6 +42,9 @@ import com.pipc.dashboard.store.request.VibhagRow;
 import com.pipc.dashboard.store.response.StoreResponse;
 import com.pipc.dashboard.utility.ApplicationError;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 @Transactional
 public class StoreServiceImpl implements StoreService {
@@ -57,238 +60,271 @@ public class StoreServiceImpl implements StoreService {
 	@Override
 	@Transactional
 	public StoreResponse saveOrUpdate(StoreRequest storeRequest, String createdBy) {
+
 		StoreResponse response = new StoreResponse();
 		ApplicationError error = new ApplicationError();
-		StringBuilder log = new StringBuilder();
+		StringBuilder activityLog = new StringBuilder();
+
+		final String year = storeRequest.getYear();
+		final Integer newEkunEkandar = storeRequest.getEkunEkandar();
+		final LocalDateTime now = LocalDateTime.now();
+
+		log.info("START saveOrUpdate Store | year={} | user={}", year, createdBy);
 
 		try {
-			Integer newEkunEkandar = storeRequest.getEkunEkandar();
 
-			// ---------- 1) Handle overall ekunEkandar change ----------
-			// findExistingEkunEkandar() returns Optional<Integer> (distinct)
-			Integer existingOverall = storeRepository.findExistingEkunEkandar().orElse(null);
+			// =====================================================
+			// 1️⃣ OVERALL EKUN EKANDAR (YEAR SCOPED)
+			// =====================================================
+			StoreEntity existingOverall = storeRepository.findExistingEkunEkandarByYear(year).orElse(null);
 
-			// If different (including existing null), update only the rows that actually
-			// differ
-			if ((existingOverall == null && newEkunEkandar != null)
-					|| (existingOverall != null && !existingOverall.equals(newEkunEkandar))) {
+			if (!Objects.equals(existingOverall, newEkunEkandar)) {
 
-				// Use repository bulk update that updates only rows where ekunEkandar <> :total
-				// This prevents touching rows that already have the same ekunEkandar.
-				storeRepository.updateEkunEkandarAndTimestamp(newEkunEkandar, createdBy);
+				storeRepository.updateEkunEkandarAndTimestampByYear(newEkunEkandar, createdBy, year);
 
-				log.append("ekunEkandar changed -> updated ekunEkandar on affected rows. ");
+				activityLog.append("Overall ekunEkandar updated. ");
+				log.debug("Updated ekunEkandar | old={} | new={} | year={}", existingOverall, newEkunEkandar, year);
 			}
 
-			// ---------- 2) For each department: handle dept ekun change and per-row
-			// changes ----------
+			// =====================================================
+			// 2️⃣ DEPARTMENT LEVEL
+			// =====================================================
 			for (DepartmentSection dept : storeRequest.getDepartments()) {
+
 				String deptName = dept.getDepartmentName();
 				Integer newDeptEkun = dept.getEkun();
 
-				// Find current ekun value for department (distinct) if exists
-				Optional<Integer> existingDeptEkunOpt = storeRepository.findExistingEkunForDept(deptName);
-				Integer existingDeptEkun = existingDeptEkunOpt.orElse(null);
+				log.debug("Processing department | name={} | year={}", deptName, year);
 
-				// If dept ekun changed (including previously null -> now non-null), update only
-				// those rows with different ekun
-				if ((existingDeptEkun == null && newDeptEkun != null)
-						|| (existingDeptEkun != null && !existingDeptEkun.equals(newDeptEkun))) {
+				StoreEntity existingDeptEkun = storeRepository.findExistingEkunForDeptAndYear(deptName, year)
+						.orElse(null);
 
-					// fetch rows of this department and update only those that differ
-					List<StoreEntity> deptRows = storeRepository.findAllByDepartmentName(deptName);
-					boolean anyDeptRowUpdated = false;
-					for (StoreEntity rowEntity : deptRows) {
-						if (rowEntity.getEkun() == null || !rowEntity.getEkun().equals(newDeptEkun)) {
-							rowEntity.setEkun(newDeptEkun);
-							rowEntity.setUpdatedBy(createdBy);
-							rowEntity.setUpdatedAt(LocalDateTime.now());
-							rowEntity.setFlag("U");
-							anyDeptRowUpdated = true;
+				if (!Objects.equals(existingDeptEkun, newDeptEkun)) {
+
+					List<StoreEntity> deptRows = storeRepository.findAllByDepartmentNameAndYear(deptName, year);
+
+					boolean deptUpdated = false;
+					for (StoreEntity e : deptRows) {
+						if (!Objects.equals(e.getEkun(), newDeptEkun)) {
+							e.setEkun(newDeptEkun);
+							e.setUpdatedBy(createdBy);
+							e.setUpdatedAt(now);
+							e.setFlag("U");
+							deptUpdated = true;
 						}
 					}
-					if (anyDeptRowUpdated) {
-						storeRepository.saveAll(deptRows); // save only modified rows
-						log.append("Department ekun changed for '").append(deptName)
-								.append("' -> updated affected rows. ");
+
+					if (deptUpdated) {
+						storeRepository.saveAll(deptRows);
+						activityLog.append("Dept ekun updated for ").append(deptName).append(". ");
+						log.debug("Department ekun updated | dept={} | year={}", deptName, year);
 					}
 				}
 
-				// ---------- 3) Now handle each incoming row (create/update/delete single row)
-				// ----------
+				// =====================================================
+				// 3️⃣ ROW LEVEL
+				// =====================================================
 				if (dept.getRows() == null)
 					continue;
+
 				for (VibhagRow row : dept.getRows()) {
+
 					Integer rowId = row.getRowId();
 					Long deleteId = row.getDeleteId();
+
 					if (rowId == null)
 						continue;
 
-					Optional<StoreEntity> existingEntityOpt = storeRepository.findByDepartmentNameAndRowId(deptName,
-							rowId);
+					Optional<StoreEntity> existingOpt = storeRepository.findByDepartmentNameAndRowIdAndYear(deptName,
+							rowId, year);
 
-					Optional<StoreEntity> existingEntityOptFordeletion = storeRepository
-							.findByDepartmentNameAndDeleteId(deptName, deleteId);
+					Optional<StoreEntity> deleteOpt = storeRepository.findByDepartmentNameAndDeleteIdAndYear(deptName,
+							deleteId, year);
 
-					// ---------- DELETE LOGIC ADDED HERE ----------
+					// ---------------- DELETE ----------------
 					if ("D".equalsIgnoreCase(row.getFlag())) {
-						if (existingEntityOptFordeletion.isPresent()) {
-							storeRepository.delete(existingEntityOptFordeletion.get());
-							log.append("Deleted deleteId ").append(deleteId).append(" from '").append(deptName)
-									.append("'. ");
-						} else {
-							log.append("Delete requested for deleteId ").append(rowId).append(" in '").append(deptName)
-									.append("' but not found. ");
-						}
-						continue; // skip further processing for this row
-					}
-					// ---------- END DELETE LOGIC ----------
 
-					// Convert to JsonNode safely and deterministically
-					JsonNode incomingJson;
-					try {
-						// serialize -> parse to ensure a valid JsonNode (avoids null)
-						String jsonStr = objectMapper.writeValueAsString(row);
-						incomingJson = objectMapper.readTree(jsonStr);
-					} catch (Exception ex) {
-						// fallback to empty object — never store null
-						incomingJson = objectMapper.createObjectNode();
+						if (deleteOpt.isPresent()) {
+							storeRepository.delete(deleteOpt.get());
+							activityLog.append("Deleted rowId ").append(rowId).append(" (").append(deptName)
+									.append("). ");
+							log.debug("Deleted row | dept={} | rowId={} | year={}", deptName, rowId, year);
+						} else {
+							log.warn("Delete requested but not found | dept={} | deleteId={} | year={}", deptName,
+									deleteId, year);
+						}
+						continue;
 					}
 
-					if (existingEntityOpt.isPresent()) {
-						StoreEntity entity = existingEntityOpt.get();
+					// ---------------- JSON ----------------
+					JsonNode incomingJson = objectMapper.valueToTree(row);
 
-						// Compare existing JSON with incoming JSON safely (handle null)
-						boolean rowJsonChanged = true;
-						JsonNode existingJson = entity.getRowsData();
-						if (existingJson != null) {
-							rowJsonChanged = !existingJson.equals(incomingJson);
-						} else {
-							// existingJson is null -> treat as change (we'll overwrite)
-							rowJsonChanged = true;
-						}
+					// ---------------- UPDATE ----------------
+					if (existingOpt.isPresent()) {
 
-						// Only update this row if
-						// - its JSON changed OR
-						// - dept ekun was changed earlier (we already updated those rows above), or
-						// - overall ekunEkandar changed and this row still had different value (note:
-						// already handled by bulk update)
-						if (rowJsonChanged) {
+						StoreEntity entity = existingOpt.get();
+						boolean jsonChanged = entity.getRowsData() == null
+								|| !entity.getRowsData().equals(incomingJson);
+
+						if (jsonChanged) {
 							entity.setRowsData(incomingJson);
 							entity.setEkun(newDeptEkun);
 							entity.setEkunEkandar(newEkunEkandar);
 							entity.setUpdatedBy(createdBy);
-							entity.setUpdatedAt(LocalDateTime.now());
+							entity.setUpdatedAt(now);
 							entity.setFlag("U");
+
 							storeRepository.save(entity);
-							log.append("Updated rowId ").append(rowId).append(" in '").append(deptName).append("'. ");
-						} else {
-							// nothing changed for this row specifically (dept/overall updates already
-							// applied above)
+
+							activityLog.append("Updated rowId ").append(rowId).append(" (").append(deptName)
+									.append("). ");
+							log.debug("Updated row | dept={} | rowId={} | year={}", deptName, rowId, year);
 						}
 
-					} else {
-						// create new record (row-level)
+					}
+					// ---------------- CREATE ----------------
+					else {
+
 						StoreEntity entity = new StoreEntity();
+						entity.setYear(year);
 						entity.setDepartmentName(deptName);
-						entity.setDeleteId(deleteId);
 						entity.setRowId(rowId);
+						entity.setDeleteId(deleteId);
 						entity.setRowsData(incomingJson);
 						entity.setEkun(newDeptEkun);
 						entity.setEkunEkandar(newEkunEkandar);
 						entity.setCreatedBy(createdBy);
 						entity.setUpdatedBy(createdBy);
-						entity.setCreatedAt(LocalDateTime.now());
-						entity.setUpdatedAt(LocalDateTime.now());
+						entity.setCreatedAt(now);
+						entity.setUpdatedAt(now);
 						entity.setFlag("C");
+
 						storeRepository.save(entity);
-						log.append("Created rowId ").append(rowId).append(" in '").append(deptName).append("'. ");
+
+						activityLog.append("Created rowId ").append(rowId).append(" (").append(deptName).append("). ");
+						log.debug("Created row | dept={} | rowId={} | year={}", deptName, rowId, year);
 					}
-				} // end rows loop
-			} // end departments loop
+				}
+			}
 
 			error.setErrorCode("0");
-			error.setErrorDescription("Success: " + log.toString());
+			error.setErrorDescription(activityLog.toString());
 			response.setErrorDetails(error);
-			response.setMessage("Processed successfully.");
+			response.setMessage("Processed successfully");
+
+			log.info("SUCCESS saveOrUpdate Store | year={} | user={}", year, createdBy);
 			return response;
 
 		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdate Store | year={} | user={}", year, createdBy, e);
+
 			error.setErrorCode("1");
 			error.setErrorDescription("Error while saving data: " + e.getMessage());
 			response.setErrorDetails(error);
-			response.setMessage("Failed to save rows.");
+			response.setMessage("Failed");
 			return response;
 		}
 	}
 
 	@Override
-	public StoreResponse getStores(int page, int size) {
+	public StoreResponse getStores(String year) {
+
 		StoreResponse response = new StoreResponse();
 		ApplicationError error = new ApplicationError();
 
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+
+		log.info("START getStores | year={} | user={} | corrId={}", year, user, corrId);
+
 		try {
-			// Step 1: get all distinct department names
-			List<String> departments = storeRepository.findDistinctDepartmentNames();
+			// =====================================================
+			// 1️⃣ Fetch distinct departments YEAR-wise
+			// =====================================================
+			List<String> departments = storeRepository.findDistinctDepartmentNamesByYear(year);
 
-			List<DepartmentSection> departmentSections = new ArrayList<>();
+			if (departments == null || departments.isEmpty()) {
+				log.warn("No store data found | year={} | corrId={}", year, corrId);
 
-			// Step 2: For each department, apply pagination
-			for (String dept : departments) {
-
-			    Page<StoreEntity> deptPage = storeRepository.findByDepartmentName(
-			            dept, PageRequest.of(page, size));
-
-			    if (deptPage.isEmpty())
-			        continue;
-
-			    List<VibhagRow> rows = new ArrayList<>();
-
-			    for (StoreEntity entity : deptPage.getContent()) {
-			        VibhagRow row = new ObjectMapper().convertValue(entity.getRowsData(), VibhagRow.class);
-			        row.setRowId(entity.getRowId());
-			        row.setDeleteId(entity.getDeleteId());
-			        rows.add(row);
-			    }
-
-			    // 🔥 Sort department-wise rows by rowId
-			    rows.sort(Comparator.comparingInt(VibhagRow::getRowId));
-
-			    DepartmentSection section = new DepartmentSection();
-			    section.setDepartmentName(dept);
-			    section.setEkun(deptPage.getContent().get(0).getEkun());
-			    section.setRows(rows);
-
-			    departmentSections.add(section);
+				error.setErrorCode("NO_DATA");
+				error.setErrorDescription("No store data found for year: " + year);
+				response.setErrorDetails(error);
+				response.setMessage("No data");
+				return response;
 			}
 
+			List<DepartmentSection> departmentSections = new ArrayList<>(departments.size());
 
-			// Step 3: build response similar to request
+			// =====================================================
+			// 2️⃣ Fetch ALL rows department-wise (NO pagination)
+			// =====================================================
+			for (String dept : departments) {
+
+				List<StoreEntity> entities = storeRepository.findByDepartmentNameAndYearOrderByRowIdAsc(dept, year);
+
+				if (entities == null || entities.isEmpty())
+					continue;
+
+				List<VibhagRow> rows = new ArrayList<>(entities.size());
+
+				for (StoreEntity entity : entities) {
+
+					VibhagRow row = objectMapper.convertValue(entity.getRowsData(), VibhagRow.class);
+
+					row.setRowId(entity.getRowId());
+					row.setDeleteId(entity.getDeleteId());
+					rows.add(row);
+				}
+
+				DepartmentSection section = new DepartmentSection();
+				section.setDepartmentName(dept);
+				section.setEkun(entities.get(0).getEkun());
+				section.setRows(rows);
+
+				departmentSections.add(section);
+
+				log.debug("Loaded department={} | rows={} | year={}", dept, rows.size(), year);
+			}
+
+			// =====================================================
+			// 3️⃣ Build final response (same structure as earlier)
+			// =====================================================
 			StoreRequest storeData = new StoreRequest();
-			storeData.setEkunEkandar(storeRepository.findExistingEkunEkandar().orElse(null));
+			storeData.setYear(year);
+
 			storeData.setDepartments(departmentSections);
 
 			response.setData(storeData);
+
 			error.setErrorCode("0");
-			error.setErrorDescription("Fetched successfully with department-wise pagination.");
+			error.setErrorDescription("Fetched successfully");
 			response.setErrorDetails(error);
 			response.setMessage("Success");
+
+			log.info("SUCCESS getStores | year={} | departments={} | corrId={}", year, departmentSections.size(),
+					corrId);
+
 			return response;
 
 		} catch (Exception e) {
+
+			log.error("ERROR getStores | year={} | corrId={}", year, corrId, e);
+
 			error.setErrorCode("1");
-			error.setErrorDescription("Error fetching paginated data: " + e.getMessage());
+			error.setErrorDescription("Error fetching data: " + e.getMessage());
 			response.setErrorDetails(error);
-			response.setMessage("Failed to fetch data.");
+			response.setMessage("Failed");
+
 			return response;
 		}
 	}
 
 	@Transactional(readOnly = true)
 	@Override
-	public ResponseEntity<InputStreamResource> downloadStoreData() throws IOException {
+	public ResponseEntity<InputStreamResource> downloadStoreData(String year) throws IOException {
 
-		List<StoreEntity> records = storeRepository.findAll();
+		List<StoreEntity> records = storeRepository.findByYear(year);
 
 		// Group by department name preserving order
 		Map<String, List<StoreEntity>> grouped = records.stream().collect(

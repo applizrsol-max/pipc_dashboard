@@ -25,8 +25,8 @@ public class KraBusinessImpl implements KraBusiness {
 	}
 
 	@Override
-	public KraResponse getKraByPeriod(String kraPeriod, int page, int size) {
-		return kraService.getKraByPeriod(kraPeriod, page, size);
+	public KraResponse getKraByPeriod(String kraPeriod) {
+		return kraService.getKraByPeriod(kraPeriod);
 	}
 
 	@Override

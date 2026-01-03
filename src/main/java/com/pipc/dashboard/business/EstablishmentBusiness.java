@@ -14,53 +14,30 @@ import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.AppealWrapper2;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
-import com.pipc.dashboard.establishment.request.LeaveRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
-import com.pipc.dashboard.establishment.request.MedicalBillRequest;
-import com.pipc.dashboard.establishment.request.PassportNocRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
-import com.pipc.dashboard.establishment.response.LeaveResponse;
-import com.pipc.dashboard.establishment.response.MedicalBillResponse;
-import com.pipc.dashboard.establishment.response.PassportNocResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
 
 public interface EstablishmentBusiness {
 
-	MedicalBillResponse saveOrUpdateMedicalBill(MedicalBillRequest request);
-
-	MedicalBillResponse getMedicalBills(String employeeName, String month, String year, String period, String date);
-
-	LeaveResponse saveOrUpdateLeave(LeaveRequest request);
-
-	LeaveResponse getLeaveDetails(String employeeName, String year, String month, String date);
-
 	AppealResponse saveOrUpdateAppeal(AppealWrapper request);
 
-	AppealResponse getAppealData(String year, int page, int size);
+	AppealResponse getAppealData(String year);
 
 	EmployeePostingResponse saveOrUpdateEmployeePosting(EmployeePostingRequest request);
 
-	EmployeePostingResponse getEmployeePostingData(String adhikariKarmacharyacheNav, String year, int page, int size);
+	EmployeePostingResponse getEmployeePostingData(String adhikariKarmacharyacheNav, String year);
 
 	IncomeTaxDeductionResponse saveOrUpdateIncomeTaxDeduc(IncomeTaxDeductionRequest request);
 
-	Page<IncomeTaxDeductionResponse> getIncomeTaxDeductionData(String year, String month, int page, int size);
-
-	PassportNocResponse saveOrUpdatePassportNoc(PassportNocRequest request);
-
-	Page<PassportNocResponse> getPassportNocData(String year, String month, String employeeName, int page, int size);
+	IncomeTaxDeductionResponse getIncomeTaxDeductionData(String year, String month);
 
 	ResponseEntity<InputStreamResource> downloadAppealArj(String year) throws IOException;
-
-	ResponseEntity<InputStreamResource> downloadMedicalBill(String employeeName, String date)
-			throws IOException, Exception;
-
-	ResponseEntity<InputStreamResource> downloadLeaveDetails(String employeeName, String date) throws Exception;
 
 	AgendaResponse saveOrUpdateAgenda(AgendaRequest request);
 

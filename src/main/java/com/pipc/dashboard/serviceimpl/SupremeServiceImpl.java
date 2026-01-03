@@ -6,8 +6,10 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -24,10 +26,6 @@ import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.MDC;
 import org.springframework.core.io.InputStreamResource;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -42,28 +40,36 @@ import com.pipc.dashboard.suprama.response.SupremaResponse;
 import com.pipc.dashboard.utility.ApplicationError;
 
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class SupremeServiceImpl implements SupremaService {
 
 	private final SupremaRepository supremaRepo;
-
-	public SupremeServiceImpl(SupremaRepository supremaRepo) {
-		this.supremaRepo = supremaRepo;
-	}
 
 	// ----------------------------------------------------
 	// 🔹 Save or Update Suprema Data
 	// ----------------------------------------------------
 	@Override
+	@Transactional
 	public SupremaResponse saveOrUpdateSuprema(SupremaRequest request) {
+
 		SupremaResponse response = new SupremaResponse();
 		ApplicationError error = new ApplicationError();
 
+		final String corrId = MDC.get("correlationId");
+		final String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String projectYear = request.getProjectYear();
+		final LocalDateTime now = LocalDateTime.now();
+
+		log.info("START saveOrUpdateSuprema | projectYear={} | rows={} | user={} | corrId={}", projectYear,
+				request.getRows() == null ? 0 : request.getRows().size(), currentUser, corrId);
+
 		try {
-			String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
-			String projectYear = request.getProjectYear();
 
 			List<String> createdProjects = new ArrayList<>();
 			List<String> updatedProjects = new ArrayList<>();
@@ -71,82 +77,103 @@ public class SupremeServiceImpl implements SupremaService {
 
 			for (JsonNode row : request.getRows()) {
 
-				// ✅ Extract key fields
 				Integer rowId = row.has("rowId") ? row.get("rowId").asInt() : null;
 				Long deleteId = row.has("deleteId") ? row.get("deleteId").asLong() : null;
 				String projectName = extractFieldValue(row, "prakalchenav", "projectname", "project", "name");
 				String flag = row.has("flag") ? row.get("flag").asText().trim() : null;
 
-				if (rowId == null || projectName == null || projectName.isEmpty())
+				if (rowId == null || projectName == null || projectName.isBlank()) {
+					log.debug("Skipping invalid row | rowId={} | projectName={}", rowId, projectName);
 					continue;
+				}
 
-				// 🔹 DELETE logic first (flag = "D")
+				/* ---------------- DELETE ---------------- */
 				if ("D".equalsIgnoreCase(flag)) {
+
 					Optional<SupremaEntity> existingOpt = supremaRepo
 							.findByProjectYearAndDeleteIdAndProjectName(projectYear, deleteId, projectName);
 
 					if (existingOpt.isPresent()) {
 						supremaRepo.delete(existingOpt.get());
-						deletedProjects.add(projectName + " (deleteId: " + rowId + ")");
+						deletedProjects.add(projectName + " (deleteId: " + deleteId + ")");
+						log.info("Deleted Suprema | project={} | deleteId={} | corrId={}", projectName, deleteId,
+								corrId);
 					} else {
-						deletedProjects.add(projectName + " (deleteId: " + rowId + ") - not found for delete");
+						deletedProjects.add(projectName + " (deleteId: " + deleteId + ") - not found");
+						log.warn("Delete requested but not found | project={} | deleteId={} | corrId={}", projectName,
+								deleteId, corrId);
 					}
-					continue; // skip save/update for deleted rows
+					continue;
 				}
 
-				// 🔍 Check for existing record
-				Optional<SupremaEntity> optionalEntity = supremaRepo
-						.findByProjectYearAndRowIdAndProjectName(projectYear, rowId, projectName);
+				/* ---------------- UPDATE / CREATE ---------------- */
+				Optional<SupremaEntity> existingOpt = supremaRepo.findByProjectYearAndRowIdAndProjectName(projectYear,
+						rowId, projectName);
 
-				SupremaEntity entity;
+				if (existingOpt.isPresent()) {
 
-				if (optionalEntity.isPresent()) {
-					entity = optionalEntity.get();
+					SupremaEntity entity = existingOpt.get();
 
-					// ✅ Update only if actual data changes
-					if (!entity.getSupremaData().equals(row)) {
+					if (!Objects.equals(entity.getSupremaData(), row)) {
+
 						entity.setSupremaData(row);
 						entity.setUpdatedBy(currentUser);
-						entity.setUpdatedDatetime(LocalDateTime.now());
+						entity.setUpdatedDatetime(now);
 						entity.setRecordFlag("U");
+
 						supremaRepo.save(entity);
 						updatedProjects.add(projectName + " (RowId: " + rowId + ")");
+
+						log.info("Updated Suprema | project={} | rowId={} | corrId={}", projectName, rowId, corrId);
+					} else {
+						log.debug("No change detected | project={} | rowId={} | corrId={}", projectName, rowId, corrId);
 					}
 
 				} else {
-					// ✅ Create new entry
-					entity = SupremaEntity.builder().projectName(projectName).projectYear(projectYear).rowId(rowId)
+
+					SupremaEntity entity = SupremaEntity.builder().projectName(projectName).projectYear(projectYear)
+							.rowId(rowId)
 							.deleteId(
 									deleteId != null ? deleteId : ThreadLocalRandom.current().nextLong(100000, 999999))
-							.supremaData(row).createdBy(currentUser).updatedBy(currentUser)
-							.createdDatetime(LocalDateTime.now()).updatedDatetime(LocalDateTime.now()).recordFlag("C")
-							.build();
+							.supremaData(row).createdBy(currentUser).updatedBy(currentUser).createdDatetime(now)
+							.updatedDatetime(now).recordFlag("C").build();
 
 					supremaRepo.save(entity);
 					createdProjects.add(projectName + " (RowId: " + rowId + ")");
+
+					log.info("Created Suprema | project={} | rowId={} | corrId={}", projectName, rowId, corrId);
 				}
 			}
 
-			// ✅ Build user-friendly summary
+			/* ---------------- RESPONSE SUMMARY ---------------- */
 			StringBuilder desc = new StringBuilder();
+
 			if (!createdProjects.isEmpty())
-				desc.append("Created proposals: ").append(String.join(", ", createdProjects)).append(". ");
+				desc.append("Created: ").append(String.join(", ", createdProjects)).append(". ");
+
 			if (!updatedProjects.isEmpty())
-				desc.append("Updated proposals: ").append(String.join(", ", updatedProjects)).append(". ");
+				desc.append("Updated: ").append(String.join(", ", updatedProjects)).append(". ");
+
 			if (!deletedProjects.isEmpty())
-				desc.append("Deleted proposals: ").append(String.join(", ", deletedProjects)).append(". ");
+				desc.append("Deleted: ").append(String.join(", ", deletedProjects)).append(". ");
+
 			if (createdProjects.isEmpty() && updatedProjects.isEmpty() && deletedProjects.isEmpty())
 				desc.append("No changes detected. ");
 
-			desc.append("Changes performed by ").append(currentUser).append(".");
+			desc.append("By ").append(currentUser).append(".");
 
 			error.setErrorCode("0");
 			error.setErrorDescription(desc.toString());
 
+			log.info("SUCCESS saveOrUpdateSuprema | created={} | updated={} | deleted={} | corrId={}",
+					createdProjects.size(), updatedProjects.size(), deletedProjects.size(), corrId);
+
 		} catch (Exception e) {
+
+			log.error("ERROR saveOrUpdateSuprema | projectYear={} | corrId={}", projectYear, corrId, e);
+
 			error.setErrorCode("1");
 			error.setErrorDescription("Error while saving Suprema data: " + e.getMessage());
-			e.printStackTrace();
 		}
 
 		response.setErrorDetails(error);
@@ -157,9 +184,33 @@ public class SupremeServiceImpl implements SupremaService {
 	// 🔹 Paginated Get API
 	// ----------------------------------------------------
 	@Override
-	public Page<SupremaEntity> getSupremaByProjectYear(String projectYear, int page, int size) {
-		Pageable pageable = PageRequest.of(page, size, Sort.by("rowId").ascending());
-		return supremaRepo.findByProjectYear(projectYear, pageable);
+	public List<SupremaEntity> getSupremaByProjectYear(String projectYear) {
+
+		final String corrId = MDC.get("correlationId");
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		log.info("START getSupremaByProjectYear | projectYear={} | user={} | corrId={}", projectYear, user, corrId);
+
+		try {
+
+			List<SupremaEntity> list = supremaRepo.findByProjectYearOrderByRowIdAsc(projectYear);
+
+			if (list == null || list.isEmpty()) {
+				log.warn("No Suprema data found | projectYear={} | corrId={}", projectYear, corrId);
+				return Collections.emptyList();
+			}
+
+			log.info("SUCCESS getSupremaByProjectYear | projectYear={} | records={} | corrId={}", projectYear,
+					list.size(), corrId);
+
+			return list;
+
+		} catch (Exception e) {
+
+			log.error("ERROR getSupremaByProjectYear | projectYear={} | corrId={}", projectYear, corrId, e);
+
+			return Collections.emptyList();
+		}
 	}
 
 	// ----------------------------------------------------

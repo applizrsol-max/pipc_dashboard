@@ -1,6 +1,7 @@
 package com.pipc.dashboard.businessimpl;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
@@ -28,8 +29,8 @@ public class SupremaBusinessImpl implements SupremaBusiness {
 	}
 
 	@Override
-	public Page<SupremaEntity> getSupremaByProjectYear(String projectYear, int page, int size) {
-		return supremaService.getSupremaByProjectYear(projectYear, page, size);
+	public List<SupremaEntity> getSupremaByProjectYear(String projectYear) {
+		return supremaService.getSupremaByProjectYear(projectYear);
 	}
 
 	@Override

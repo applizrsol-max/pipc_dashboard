@@ -22,19 +22,19 @@ public interface DrawingBusiness {
 
 	DamSafetyResponse saveOrUpdateDamSafety(DamSafetyRequest damSafetyRequest);
 
-	DamSafetyResponse getDamSafetyData(String year, int page, int size);
+	DamSafetyResponse getDamSafetyData(String year);
 
 	DamInspectionResponse saveOrUpdateDamInspection(DamInspectionRequest damInspectionRequest);
 
-	DamInspectionResponse getDamInspectionData(String year, String period, String departmentKey, int page, int size);
+	DamInspectionResponse getDamInspectionData(String year);
 
 	DamNalikaResponse saveOrUpdateNalika(DamNalikaRequest request);
 
-	DamNalikaResponse getNalikaByPeriod(String period, String departmentKey, int page, int size);
+	DamNalikaResponse getNalikaByPeriod(String period);
 
 	PralambitBhusampadanResponse saveOrUpdatePralambitBhusampadan(PralambitBhusampadanRequest req);
 
-	PralambitBhusampadanResponse getPralambitBhusampadan(String period, String star, int page, int size);
+	PralambitBhusampadanResponse getPralambitBhusampadan(String period);
 
 	ResponseEntity<InputStreamResource> downloadDamSafetyExcel(String period) throws IOException;
 

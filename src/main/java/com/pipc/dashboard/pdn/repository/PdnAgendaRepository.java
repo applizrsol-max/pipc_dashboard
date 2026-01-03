@@ -21,4 +21,6 @@ public interface PdnAgendaRepository extends JpaRepository<PdnAgendaEntity, Long
 	Optional<PdnAgendaEntity> findBySubmissionYearAndPointOfAgendaAndRecordIdAndNameOfDam(String submissionYear,
 			String pointOfAgenda, Integer rowId, String damName);
 
+	List<PdnAgendaEntity> findBySubmissionYearOrderByRecordIdAsc(String projectYear);
+
 }
