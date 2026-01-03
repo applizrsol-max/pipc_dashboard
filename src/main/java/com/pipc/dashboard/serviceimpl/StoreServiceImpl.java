@@ -45,7 +45,6 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-@Transactional
 public class StoreServiceImpl implements StoreService {
 
 	private final StoreRepository storeRepository;
@@ -147,7 +146,7 @@ public class StoreServiceImpl implements StoreService {
 						entity.setDepartmentName(deptName);
 						entity.setRowId(rowId);
 						entity.setRowsData(incomingJson);
-
+                        entity.setDeleteId(deleteId);
 						entity.setCreatedBy(createdBy);
 						entity.setUpdatedBy(createdBy);
 						entity.setCreatedAt(LocalDateTime.now());
@@ -190,7 +189,7 @@ public class StoreServiceImpl implements StoreService {
 			// =====================================================
 			// 1️⃣ Fetch distinct departments YEAR-wise
 			// =====================================================
-			List<String> departments = storeRepository.findDistinctDepartmentNamesByYear(year);
+			List<StoreEntity> departments = storeRepository.findDistinctDepartmentNamesByYear(year);
 
 			if (departments == null || departments.isEmpty()) {
 				log.warn("No store data found | year={} | corrId={}", year, corrId);
@@ -207,9 +206,9 @@ public class StoreServiceImpl implements StoreService {
 			// =====================================================
 			// 2️⃣ Fetch ALL rows department-wise
 			// =====================================================
-			for (String dept : departments) {
+			for (StoreEntity dept : departments) {
 
-				List<StoreEntity> entities = storeRepository.findByDepartmentNameAndYearOrderByRowIdAsc(dept, year);
+				List<StoreEntity> entities = storeRepository.findByDepartmentNameAndYearOrderByRowIdAsc(dept.getDepartmentName(), year);
 
 				if (entities == null || entities.isEmpty())
 					continue;
@@ -224,7 +223,7 @@ public class StoreServiceImpl implements StoreService {
 				}
 
 				DepartmentSection section = new DepartmentSection();
-				section.setDepartmentName(dept);
+				section.setDepartmentName(dept.getDepartmentName());
 				section.setEkun(entities.get(0).getEkun()); // same ekun for dept
 				section.setRows(rows);
 

@@ -58,7 +58,7 @@ public interface StoreRepository extends JpaRepository<StoreEntity, Long> {
 
 	List<StoreEntity> findByDepartmentNameAndYearOrderByRowIdAsc(String dept, String year);
 
-	List<String> findDistinctDepartmentNamesByYear(String year);
+	List<StoreEntity> findDistinctDepartmentNamesByYear(String year);
 
 	List<StoreEntity> findByYear(String year);
 
