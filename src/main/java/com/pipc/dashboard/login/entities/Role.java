@@ -21,6 +21,5 @@ public class Role {
 	private Long id;
 	@Column(unique = true, nullable = false)
 	private String name;
-	@Column(name="isMainCard")
-	private boolean isMainCard;
+	private String parentCard;
 }

@@ -2,8 +2,8 @@ package com.pipc.dashboard.serviceimpl;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -32,7 +32,6 @@ import com.pipc.dashboard.token.entity.RefreshToken;
 import com.pipc.dashboard.utility.ApplicationError;
 import com.pipc.dashboard.utility.BaseResponse;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -72,8 +71,6 @@ public class LoginServiceImpl implements LoginService {
 			// ---------------- USER ----------------
 			User user = new User();
 			user.setUsername(registerRequest.getUsername());
-
-			// SHA-512 password (client compatible)
 			user.setPassword(EncryptionUtils.sha512(registerRequest.getPassword()));
 
 			// ---------------- ROLES ----------------
@@ -81,10 +78,11 @@ public class LoginServiceImpl implements LoginService {
 
 			if (registerRequest.getRoles() == null || registerRequest.getRoles().isEmpty()) {
 
+				// Default ROLE_USER
 				Role defaultRole = roleRepo.findByName("ROLE_USER").orElseGet(() -> {
 					Role r = new Role();
 					r.setName("ROLE_USER");
-					r.setMainCard(false);
+					r.setParentCard(null); // MAIN role
 					return roleRepo.save(r);
 				});
 
@@ -97,7 +95,7 @@ public class LoginServiceImpl implements LoginService {
 					Role role = roleRepo.findByName(roleName).orElseGet(() -> {
 						Role r = new Role();
 						r.setName(roleName);
-						r.setMainCard(false); // default
+						r.setParentCard(null); // default: main card
 						return roleRepo.save(r);
 					});
 
@@ -107,7 +105,7 @@ public class LoginServiceImpl implements LoginService {
 
 			user.setRoles(roles);
 
-			// ---------------- SAVE ----------------
+			// ---------------- SAVE USER ----------------
 			User savedUser = userRepo.save(user);
 
 			// ---------------- TOKENS ----------------
@@ -285,10 +283,22 @@ public class LoginServiceImpl implements LoginService {
 
 		List<Role> roles = roleRepo.findAll();
 
-		Map<String, List<Role>> result = new HashMap<>();
-		result.put("mainCard", roles.stream().filter(Role::isMainCard).toList());
+		// Result: MainCard -> List of SubCards
+		Map<String, List<Role>> result = new LinkedHashMap<>();
 
-		result.put("subCard", roles.stream().filter(r -> !r.isMainCard()).toList());
+		// 1️⃣ Identify MAIN cards (parentCard == null)
+		List<Role> mainCards = roles.stream().filter(r -> r.getParentCard() == null || r.getParentCard().isBlank())
+				.toList();
+
+		// 2️⃣ For each MAIN card, attach its SUB cards
+		for (Role main : mainCards) {
+
+			List<Role> subCards = roles.stream()
+					.filter(r -> r.getParentCard() != null && r.getParentCard().equalsIgnoreCase(main.getName()))
+					.toList();
+
+			result.put(main.getName(), subCards);
+		}
 
 		return result;
 	}
