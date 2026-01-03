@@ -401,25 +401,21 @@ public class AccountServiceImpl implements AcountService {
 			"प्रधानमंत्री कृषि सिंचाई योजना (PMKSY)(CADA)");
 
 	@Override
-	public Map<String, Object> getAllAccountsByYear(String year) {
+	public Map<String, List<JsonNode>> getAllAccountsByYear(String year) {
+
 		log.debug("Fetching accounts by year={} | corrId={}", year, MDC.get("correlationId"));
 
-		// 🔹 DB se year ke basis par rowId ASC order me data
 		List<AccountsEntity> records = accountRepo.findByProjectYearOrderByRowIdAsc(year);
 
-		// 🔹 Same structure as your original code
-		Map<String, Object> groupedData = new LinkedHashMap<>();
+		Map<String, List<JsonNode>> groupedData = new LinkedHashMap<>();
 
 		for (AccountsEntity entity : records) {
 
 			String category = entity.getCategoryName();
 			JsonNode dataNode = entity.getAccountsData();
 
-			((ArrayNode) groupedData.computeIfAbsent(category, k -> new ArrayList<JsonNode>())).add(dataNode);
+			groupedData.computeIfAbsent(category, k -> new ArrayList<>()).add(dataNode);
 		}
-
-		// 🔹 Keep year (same as earlier, only _pageInfo removed)
-		groupedData.put("_year", year);
 
 		return groupedData;
 	}

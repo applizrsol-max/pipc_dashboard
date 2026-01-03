@@ -71,4 +71,6 @@ public interface StoreRepository extends JpaRepository<StoreEntity, Long> {
 			""")
 	int updateEkunEkandarAndTimestampByYear(@Param("ekunEkandar") Integer ekunEkandar,
 			@Param("updatedBy") String updatedBy, @Param("year") String year);
+
+	List<StoreEntity> findAllEkunForDeptAndYear(String deptName, String year);
 }

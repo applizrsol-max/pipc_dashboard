@@ -96,10 +96,11 @@ public class StoreServiceImpl implements StoreService {
 
 				log.debug("Processing department | name={} | year={}", deptName, year);
 
-				StoreEntity existingDeptEkun = storeRepository.findExistingEkunForDeptAndYear(deptName, year)
-						.orElse(null);
+				List<StoreEntity> existingDeptList = storeRepository.findAllEkunForDeptAndYear(deptName, year);
 
-				if (!Objects.equals(existingDeptEkun, newDeptEkun)) {
+				Integer oldDeptEkun = existingDeptList.isEmpty() ? null : existingDeptList.get(0).getEkun();
+
+				if (!Objects.equals(oldDeptEkun, newDeptEkun)) {
 
 					List<StoreEntity> deptRows = storeRepository.findAllByDepartmentNameAndYear(deptName, year);
 
@@ -257,7 +258,7 @@ public class StoreServiceImpl implements StoreService {
 			List<DepartmentSection> departmentSections = new ArrayList<>(departments.size());
 
 			// =====================================================
-			// 2️⃣ Fetch ALL rows department-wise (NO pagination)
+			// 2️⃣ Fetch ALL rows department-wise
 			// =====================================================
 			for (String dept : departments) {
 
@@ -269,9 +270,7 @@ public class StoreServiceImpl implements StoreService {
 				List<VibhagRow> rows = new ArrayList<>(entities.size());
 
 				for (StoreEntity entity : entities) {
-
 					VibhagRow row = objectMapper.convertValue(entity.getRowsData(), VibhagRow.class);
-
 					row.setRowId(entity.getRowId());
 					row.setDeleteId(entity.getDeleteId());
 					rows.add(row);
@@ -279,7 +278,7 @@ public class StoreServiceImpl implements StoreService {
 
 				DepartmentSection section = new DepartmentSection();
 				section.setDepartmentName(dept);
-				section.setEkun(entities.get(0).getEkun());
+				section.setEkun(entities.get(0).getEkun()); // same ekun for dept
 				section.setRows(rows);
 
 				departmentSections.add(section);
@@ -288,19 +287,18 @@ public class StoreServiceImpl implements StoreService {
 			}
 
 			// =====================================================
-			// 3️⃣ Build final response (same structure as earlier)
+			// 3️⃣ Build final response
 			// =====================================================
 			StoreRequest storeData = new StoreRequest();
 			storeData.setYear(year);
-
 			storeData.setDepartments(departmentSections);
 
 			response.setData(storeData);
+			response.setMessage("Success");
 
 			error.setErrorCode("0");
 			error.setErrorDescription("Fetched successfully");
 			response.setErrorDetails(error);
-			response.setMessage("Success");
 
 			log.info("SUCCESS getStores | year={} | departments={} | corrId={}", year, departmentSections.size(),
 					corrId);

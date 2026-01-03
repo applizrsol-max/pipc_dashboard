@@ -2,12 +2,14 @@ package com.pipc.dashboard.businessimpl;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.pipc.dashboard.accounts.request.AccountsRequest;
 import com.pipc.dashboard.accounts.request.PendingParaRequest;
 import com.pipc.dashboard.accounts.response.AccountsResponse;
@@ -31,7 +33,7 @@ public class AccountsBusinessImpl implements AccountsBusiness {
 	}
 
 	@Override
-	public Map<String, Object> getAllAccountsByYear(String year) {
+	public Map<String, List<JsonNode>> getAllAccountsByYear(String year) {
 		return accountService.getAllAccountsByYear(year);
 	}
 

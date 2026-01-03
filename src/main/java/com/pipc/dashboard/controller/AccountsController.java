@@ -1,6 +1,7 @@
 package com.pipc.dashboard.controller;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.MDC;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.pipc.dashboard.accounts.request.AccountsRequest;
 import com.pipc.dashboard.accounts.request.PendingParaRequest;
 import com.pipc.dashboard.accounts.response.AccountsResponse;
@@ -44,7 +46,7 @@ public class AccountsController {
 	 * ========================= GET ACCOUNTS BY YEAR =========================
 	 */
 	@GetMapping("/getAllAccountsByYear")
-	public Map<String, Object> getAllAccountsByYear(@RequestParam String year) {
+	public Map<String, List<JsonNode>> getAllAccountsByYear(@RequestParam String year) {
 
 		log.debug("Get Accounts By Year={} | corrId={}", year, MDC.get("correlationId"));
 
