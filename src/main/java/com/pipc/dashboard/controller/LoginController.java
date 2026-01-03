@@ -1,6 +1,7 @@
 package com.pipc.dashboard.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.MDC;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -87,7 +88,7 @@ public class LoginController {
 	}
 
 	@GetMapping("/getAllRole")
-	public List<Role> getAllRole() {
+	public Map<String, List<Role>> getAllRole() {
 		return loginBusiness.getAllRole();
 	}
 

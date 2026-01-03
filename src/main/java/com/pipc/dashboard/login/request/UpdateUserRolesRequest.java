@@ -8,4 +8,5 @@ import lombok.Data;
 public class UpdateUserRolesRequest {
     private String username;
     private List<String> roles;
+    
 }

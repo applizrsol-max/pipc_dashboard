@@ -1,6 +1,7 @@
 package com.pipc.dashboard.business;
 
 import java.util.List;
+import java.util.Map;
 
 import com.pipc.dashboard.login.entities.Role;
 import com.pipc.dashboard.login.entities.UserResponse;
@@ -21,7 +22,7 @@ public interface LoginBussiness {
 
 	public LoginResponse refreshAccessToken(RefreshTokenRequest request);
 
-	public List<Role> getAllRole();
+	public Map<String, List<Role>> getAllRole();
 
 	public List<UserResponse> getAllUser();
 

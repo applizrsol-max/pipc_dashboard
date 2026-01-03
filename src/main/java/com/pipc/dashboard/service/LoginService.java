@@ -1,6 +1,7 @@
 package com.pipc.dashboard.service;
 
 import java.util.List;
+import java.util.Map;
 
 import com.pipc.dashboard.login.entities.Role;
 import com.pipc.dashboard.login.entities.User;
@@ -20,7 +21,7 @@ public interface LoginService {
 
 	public LoginResponse refreshAccessToken(RefreshTokenRequest request);
 
-	public List<Role> getAllRole();
+	public Map<String, List<Role>> getAllRole();
 
 	public List<User> getAllUser();
 

@@ -2,8 +2,10 @@ package com.pipc.dashboard.serviceimpl;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
@@ -36,7 +38,6 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-@Transactional
 @RequiredArgsConstructor
 public class LoginServiceImpl implements LoginService {
 
@@ -54,11 +55,13 @@ public class LoginServiceImpl implements LoginService {
 
 		LoginResponse response = new LoginResponse();
 		ApplicationError error = new ApplicationError();
+		String corrId = MDC.get("correlationId");
 
-		log.info("START register | username={} | corrId={}", registerRequest.getUsername(), MDC.get("correlationId"));
+		log.info("START register | username={} | corrId={}", registerRequest.getUsername(), corrId);
 
 		try {
 
+			// ---------------- VALIDATION ----------------
 			if (userRepo.existsByUsername(registerRequest.getUsername())) {
 				error.setErrorCode("1");
 				error.setErrorDescription("Username already taken");
@@ -66,46 +69,75 @@ public class LoginServiceImpl implements LoginService {
 				return response;
 			}
 
+			// ---------------- USER ----------------
 			User user = new User();
 			user.setUsername(registerRequest.getUsername());
 
 			// SHA-512 password (client compatible)
 			user.setPassword(EncryptionUtils.sha512(registerRequest.getPassword()));
 
-			// Assign roles
+			// ---------------- ROLES ----------------
 			Set<Role> roles = new HashSet<>();
+
 			if (registerRequest.getRoles() == null || registerRequest.getRoles().isEmpty()) {
-				roles.add(roleRepo.findByName("ROLE_USER").orElseGet(() -> roleRepo.save(new Role(null, "ROLE_USER"))));
+
+				Role defaultRole = roleRepo.findByName("ROLE_USER").orElseGet(() -> {
+					Role r = new Role();
+					r.setName("ROLE_USER");
+					r.setMainCard(false);
+					return roleRepo.save(r);
+				});
+
+				roles.add(defaultRole);
+
 			} else {
+
 				for (String roleName : registerRequest.getRoles()) {
-					roles.add(roleRepo.findByName(roleName).orElseGet(() -> roleRepo.save(new Role(null, roleName))));
+
+					Role role = roleRepo.findByName(roleName).orElseGet(() -> {
+						Role r = new Role();
+						r.setName(roleName);
+						r.setMainCard(false); // default
+						return roleRepo.save(r);
+					});
+
+					roles.add(role);
 				}
 			}
+
 			user.setRoles(roles);
 
-			User saved = userRepo.save(user);
+			// ---------------- SAVE ----------------
+			User savedUser = userRepo.save(user);
 
-			String accessToken = jwtProvider.generateAccessToken(saved);
-			RefreshToken refreshToken = refreshTokenService.createRefreshToken(saved);
+			// ---------------- TOKENS ----------------
+			String accessToken = jwtProvider.generateAccessToken(savedUser);
+			RefreshToken refreshToken = refreshTokenService.createRefreshToken(savedUser);
 
-			response.setUserName(saved.getUsername());
+			// ---------------- RESPONSE ----------------
+			response.setUserName(savedUser.getUsername());
 			response.setAccessToken(accessToken);
 			response.setRefreshToken(refreshToken.getToken());
 			response.setGrantedAuthorities(roles);
 
 			error.setErrorCode("0");
 			error.setErrorDescription("User registered successfully");
+			response.setErrorDetails(error);
 
-			log.info("SUCCESS register | username={}", saved.getUsername());
+			log.info("SUCCESS register | username={} | roles={} | corrId={}", savedUser.getUsername(),
+					roles.stream().map(Role::getName).toList(), corrId);
+
+			return response;
 
 		} catch (Exception e) {
-			log.error("ERROR register | username={}", registerRequest.getUsername(), e);
+
+			log.error("ERROR register | username={} | corrId={}", registerRequest.getUsername(), corrId, e);
+
 			error.setErrorCode("1");
 			error.setErrorDescription("Registration failed");
+			response.setErrorDetails(error);
+			return response;
 		}
-
-		response.setErrorDetails(error);
-		return response;
 	}
 
 	/* ========================== LOGIN ========================== */
@@ -249,8 +281,16 @@ public class LoginServiceImpl implements LoginService {
 	/* ========================== ROLES & USERS ========================== */
 
 	@Override
-	public List<Role> getAllRole() {
-		return roleRepo.findAll();
+	public Map<String, List<Role>> getAllRole() {
+
+		List<Role> roles = roleRepo.findAll();
+
+		Map<String, List<Role>> result = new HashMap<>();
+		result.put("mainCard", roles.stream().filter(Role::isMainCard).toList());
+
+		result.put("subCard", roles.stream().filter(r -> !r.isMainCard()).toList());
+
+		return result;
 	}
 
 	@Override
