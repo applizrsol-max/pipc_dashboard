@@ -351,7 +351,7 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 
 		try {
 
-			// 🔹 Single DB call with DB-level sorting
+			// 🔹 Single DB call with sorting
 			List<PdnAgendaEntity> list = pdnAgnedaRepo.findBySubmissionYearOrderByRecordIdAsc(projectYear);
 
 			if (list == null || list.isEmpty()) {
