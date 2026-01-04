@@ -1,10 +1,10 @@
 package com.pipc.dashboard.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.MDC;
 import org.springframework.core.io.InputStreamResource;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,7 +43,7 @@ public class SupremaController {
 	 * ========================= GET SUPREMA (PAGINATED) =========================
 	 */
 	@GetMapping("/getSuprema")
-	public List<SupremaEntity> getSuprema(@RequestParam String projectYear) {
+	public Map<String, List<SupremaEntity>> getSuprema(@RequestParam String projectYear) {
 
 		log.debug("Get Suprema | projectYear={} | corrId={}", projectYear, MDC.get("correlationId"));
 
@@ -54,8 +54,7 @@ public class SupremaController {
 	 * ========================= DOWNLOAD SUPREMA EXCEL =========================
 	 */
 	@GetMapping("/downloadSupremaExcel")
-	public ResponseEntity<InputStreamResource> downloadSupremaExcel(@RequestParam("year") String year)
-			throws Exception {
+	public ResponseEntity<InputStreamResource> downloadSupremaExcel(@RequestParam String year) throws Exception {
 
 		log.info("Download Suprema Excel | year={} | corrId={}", year, MDC.get("correlationId"));
 

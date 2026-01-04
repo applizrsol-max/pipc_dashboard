@@ -8,7 +8,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -184,32 +186,55 @@ public class SupremeServiceImpl implements SupremaService {
 	// 🔹 Paginated Get API
 	// ----------------------------------------------------
 	@Override
-	public List<SupremaEntity> getSupremaByProjectYear(String projectYear) {
+	public Map<String, List<SupremaEntity>> getSupremaByProjectYear(String projectYear) {
 
 		final String corrId = MDC.get("correlationId");
 		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
 
 		log.info("START getSupremaByProjectYear | projectYear={} | user={} | corrId={}", projectYear, user, corrId);
 
+		Map<String, List<SupremaEntity>> response = new LinkedHashMap<>();
+
 		try {
 
-			List<SupremaEntity> list = supremaRepo.findByProjectYearOrderByRowIdAsc(projectYear);
+			// 🔹 DB call with sorting
+			List<SupremaEntity> entities = supremaRepo.findByProjectYearOrderByRowIdAsc(projectYear);
 
-			if (list == null || list.isEmpty()) {
+			if (entities == null || entities.isEmpty()) {
 				log.warn("No Suprema data found | projectYear={} | corrId={}", projectYear, corrId);
-				return Collections.emptyList();
+				response.put("content", Collections.emptyList());
+				return response;
 			}
 
-			log.info("SUCCESS getSupremaByProjectYear | projectYear={} | records={} | corrId={}", projectYear,
-					list.size(), corrId);
+			// 🔹 Safe copy (entity → response entity)
+			List<SupremaEntity> content = entities.stream().map(e -> {
+				SupremaEntity dto = new SupremaEntity();
+				dto.setId(e.getId());
+				dto.setProjectYear(e.getProjectYear());
+				dto.setRowId(e.getRowId());
+				dto.setDeleteId(e.getDeleteId());
+				dto.setRecordFlag(e.getRecordFlag());
+				dto.setSupremaData(e.getSupremaData()); // JsonNode 그대로
+				dto.setCreatedBy(e.getCreatedBy());
+				dto.setUpdatedBy(e.getUpdatedBy());
+				dto.setCreatedDatetime(e.getCreatedDatetime());
+				dto.setUpdatedDatetime(e.getUpdatedDatetime());
+				return dto;
+			}).toList();
 
-			return list;
+			response.put("content", content);
+
+			log.info("SUCCESS getSupremaByProjectYear | projectYear={} | records={} | corrId={}", projectYear,
+					content.size(), corrId);
+
+			return response;
 
 		} catch (Exception e) {
 
 			log.error("ERROR getSupremaByProjectYear | projectYear={} | corrId={}", projectYear, corrId, e);
 
-			return Collections.emptyList();
+			response.put("content", Collections.emptyList());
+			return response;
 		}
 	}
 
