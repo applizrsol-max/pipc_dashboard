@@ -342,61 +342,109 @@ public class PdnAgendaServiceImpl implements PdnAgendaService {
 	}
 
 	@Override
-	public List<PdnAgendaEntity> getPDNAgenda(String projectYear) {
+	public Map<String, List<PdnAgendaEntity>> getPDNAgenda(String projectYear) {
 
 		final String corrId = MDC.get("correlationId");
 		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
 
 		log.info("START getPDNAgenda | projectYear={} | user={} | corrId={}", projectYear, user, corrId);
 
+		Map<String, List<PdnAgendaEntity>> response = new LinkedHashMap<>();
+
 		try {
 
-			// 🔹 Single DB call with sorting
-			List<PdnAgendaEntity> list = pdnAgnedaRepo.findBySubmissionYearOrderByRecordIdAsc(projectYear);
+			// 🔹 DB call with sorting
+			List<PdnAgendaEntity> entities = pdnAgnedaRepo.findBySubmissionYearOrderByRecordIdAsc(projectYear);
 
-			if (list == null || list.isEmpty()) {
+			if (entities == null || entities.isEmpty()) {
 				log.warn("No PDN Agenda found | projectYear={} | corrId={}", projectYear, corrId);
-				return Collections.emptyList();
+				response.put("content", Collections.emptyList());
+				return response;
 			}
 
-			log.info("SUCCESS getPDNAgenda | projectYear={} | records={} | corrId={}", projectYear, list.size(),
+			// 🔹 Entity → response mapping (same entity, safe copy)
+			List<PdnAgendaEntity> content = entities.stream().map(e -> {
+				PdnAgendaEntity dto = new PdnAgendaEntity();
+				dto.setId(e.getId());
+				dto.setSubmissionTitle(e.getSubmissionTitle());
+				dto.setSubmissionYear(e.getSubmissionYear());
+				dto.setSrNo(e.getSrNo());
+				dto.setPointOfAgenda(e.getPointOfAgenda());
+				dto.setRecordId(e.getRecordId());
+				dto.setDeleteId(e.getDeleteId());
+				dto.setNameOfDam(e.getNameOfDam());
+				dto.setColumnData(e.getColumnData());
+				dto.setRecordFlag(e.getRecordFlag());
+				dto.setCreatedBy(e.getCreatedBy());
+				dto.setUpdatedBy(e.getUpdatedBy());
+				dto.setCreatedAt(e.getCreatedAt());
+				dto.setUpdatedAt(e.getUpdatedAt());
+				return dto;
+			}).toList();
+
+			response.put("content", content);
+
+			log.info("SUCCESS getPDNAgenda | projectYear={} | records={} | corrId={}", projectYear, content.size(),
 					corrId);
 
-			return list;
+			return response;
 
 		} catch (Exception e) {
 
 			log.error("ERROR getPDNAgenda | projectYear={} | corrId={}", projectYear, corrId, e);
-			return Collections.emptyList();
+			response.put("content", Collections.emptyList());
+			return response;
 		}
 	}
 
 	@Override
-	public List<NrldEntity> getNrldByYear(String year) {
+	public Map<String, List<NrldEntity>> getNrldByYear(String year) {
 
 		final String corrId = MDC.get("correlationId");
 		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
 
 		log.info("START getNrldByYear | year={} | user={} | corrId={}", year, user, corrId);
 
+		Map<String, List<NrldEntity>> response = new LinkedHashMap<>();
+
 		try {
 
-			// 🔹 Single DB call with DB-level sorting
-			List<NrldEntity> list = nrldRepo.findByYearOrderByRowIdAsc(year);
+			// 🔹 DB call with sorting
+			List<NrldEntity> entities = nrldRepo.findByYearOrderByRowIdAsc(year);
 
-			if (list == null || list.isEmpty()) {
+			if (entities == null || entities.isEmpty()) {
 				log.warn("No NRLD data found | year={} | corrId={}", year, corrId);
-				return Collections.emptyList();
+				response.put("content", Collections.emptyList());
+				return response;
 			}
 
-			log.info("SUCCESS getNrldByYear | year={} | records={} | corrId={}", year, list.size(), corrId);
+			// 🔹 Safe copy (entity → response entity)
+			List<NrldEntity> content = entities.stream().map(e -> {
+				NrldEntity dto = new NrldEntity();
+				dto.setId(e.getId());
+				dto.setYear(e.getYear());
+				dto.setRowId(e.getRowId());
+				dto.setDeleteId(e.getDeleteId());
+				dto.setRecordFlag(e.getRecordFlag());
+				dto.setData(e.getData()); // JsonNode 그대로
+				dto.setCreatedBy(e.getCreatedBy());
+				dto.setUpdatedBy(e.getUpdatedBy());
+				dto.setCreatedAt(e.getCreatedAt());
+				dto.setUpdatedAt(e.getUpdatedAt());
+				return dto;
+			}).toList();
 
-			return list;
+			response.put("content", content);
+
+			log.info("SUCCESS getNrldByYear | year={} | records={} | corrId={}", year, content.size(), corrId);
+
+			return response;
 
 		} catch (Exception e) {
 
 			log.error("ERROR getNrldByYear | year={} | corrId={}", year, corrId, e);
-			return Collections.emptyList();
+			response.put("content", Collections.emptyList());
+			return response;
 		}
 	}
 

@@ -1,10 +1,10 @@
 package com.pipc.dashboard.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.MDC;
 import org.springframework.core.io.InputStreamResource;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -45,7 +45,7 @@ public class PdnAgendaNrldController {
 	}
 
 	@GetMapping("/getPDNAgendaByProjectYear")
-	public List<PdnAgendaEntity> getPDNAgendaByProjectYear(@RequestParam String projectYear) {
+	public Map<String, List<PdnAgendaEntity>> getPDNAgendaByProjectYear(@RequestParam String projectYear) {
 
 		log.debug("Get PDN Agenda | year={} | corrId={}", projectYear, MDC.get("correlationId"));
 
@@ -71,7 +71,7 @@ public class PdnAgendaNrldController {
 	}
 
 	@GetMapping("/getNrldByYearAndDam")
-	public List<NrldEntity> getNrldByYearAndDam(@RequestParam String year) {
+	public Map<String, List<NrldEntity>> getNrldByYearAndDam(@RequestParam String year) {
 
 		log.debug("Get NRLD | year={} | corrId={}", year, MDC.get("correlationId"));
 
