@@ -11,6 +11,7 @@ import com.pipc.dashboard.login.entities.User;
 import com.pipc.dashboard.login.repository.RefreshTokenRepository;
 import com.pipc.dashboard.token.entity.RefreshToken;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -48,6 +49,7 @@ public class RefreshTokenService {
 		}
 	}
 
+	@Transactional
 	public void deleteByUser(User user) {
 		refreshRepo.deleteByUser(user);
 	}

@@ -32,6 +32,7 @@ import com.pipc.dashboard.token.entity.RefreshToken;
 import com.pipc.dashboard.utility.ApplicationError;
 import com.pipc.dashboard.utility.BaseResponse;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -81,6 +82,7 @@ public class LoginServiceImpl implements LoginService {
 				// DEFAULT ROLE
 				Role defaultRole = roleRepo.findByName("ROLE_USER")
 						.orElseThrow(() -> new RuntimeException("ROLE_USER not configured"));
+
 				finalRoles.add(defaultRole);
 
 			} else {
@@ -90,9 +92,10 @@ public class LoginServiceImpl implements LoginService {
 					Role role = roleRepo.findByName(roleName)
 							.orElseThrow(() -> new RuntimeException("Invalid role: " + roleName));
 
+					// ✅ only role sent by UI
 					finalRoles.add(role);
 
-					// ---------------- CASE 1: SUB ROLE ----------------
+					// ✅ if CHILD role → ensure PARENT exists
 					if (role.getParentCard() != null) {
 
 						Role parent = roleRepo.findByName(role.getParentCard())
@@ -101,12 +104,7 @@ public class LoginServiceImpl implements LoginService {
 						finalRoles.add(parent);
 					}
 
-					// ---------------- CASE 2: MAIN ROLE ----------------
-					if (role.getParentCard() == null) {
-
-						List<Role> subRoles = roleRepo.findByParentCard(role.getName());
-						finalRoles.addAll(subRoles);
-					}
+					// ❌ NO AUTO CHILD ADDITION FOR PARENT ROLE
 				}
 			}
 
@@ -200,6 +198,7 @@ public class LoginServiceImpl implements LoginService {
 	/* ========================== DELETE USER ========================== */
 
 	@Override
+	@Transactional // ✅ VERY IMPORTANT
 	public BaseResponse deleteUser(String username) {
 
 		BaseResponse response = new BaseResponse();
@@ -210,6 +209,7 @@ public class LoginServiceImpl implements LoginService {
 		try {
 
 			String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+
 			Optional<User> currentUserOpt = userRepo.findByUsername(currentUsername);
 
 			if (currentUserOpt.isEmpty()) {
@@ -230,20 +230,31 @@ public class LoginServiceImpl implements LoginService {
 			}
 
 			Optional<User> userOpt = userRepo.findByUsername(username);
+
 			if (userOpt.isEmpty()) {
 				error.setErrorCode("3");
 				error.setErrorDescription("User not found");
+
 			} else if (username.equalsIgnoreCase(currentUsername)) {
 				error.setErrorCode("4");
 				error.setErrorDescription("Cannot delete own account");
+
 			} else {
-				refreshTokenService.deleteByUser(userOpt.get());
-				userRepo.delete(userOpt.get());
+
+				User user = userOpt.get();
+
+				// ✅ delete dependent records first
+				refreshTokenService.deleteByUser(user);
+
+				// ✅ then delete user
+				userRepo.delete(user);
+
 				error.setErrorCode("0");
 				error.setErrorDescription("User deleted successfully");
 			}
 
 		} catch (Exception e) {
+
 			log.error("ERROR deleteUser | username={}", username, e);
 			error.setErrorCode("5");
 			error.setErrorDescription("Delete failed");
