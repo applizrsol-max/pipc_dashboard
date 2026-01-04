@@ -73,37 +73,44 @@ public class LoginServiceImpl implements LoginService {
 			user.setUsername(registerRequest.getUsername());
 			user.setPassword(EncryptionUtils.sha512(registerRequest.getPassword()));
 
-			// ---------------- ROLES ----------------
-			Set<Role> roles = new HashSet<>();
+			Set<Role> finalRoles = new HashSet<>();
 
+			// ---------------- ROLE LOGIC ----------------
 			if (registerRequest.getRoles() == null || registerRequest.getRoles().isEmpty()) {
 
-				// Default ROLE_USER
-				Role defaultRole = roleRepo.findByName("ROLE_USER").orElseGet(() -> {
-					Role r = new Role();
-					r.setName("ROLE_USER");
-					r.setParentCard(null); // MAIN role
-					return roleRepo.save(r);
-				});
-
-				roles.add(defaultRole);
+				// DEFAULT ROLE
+				Role defaultRole = roleRepo.findByName("ROLE_USER")
+						.orElseThrow(() -> new RuntimeException("ROLE_USER not configured"));
+				finalRoles.add(defaultRole);
 
 			} else {
 
 				for (String roleName : registerRequest.getRoles()) {
 
-					Role role = roleRepo.findByName(roleName).orElseGet(() -> {
-						Role r = new Role();
-						r.setName(roleName);
-						r.setParentCard(null); // default: main card
-						return roleRepo.save(r);
-					});
+					Role role = roleRepo.findByName(roleName)
+							.orElseThrow(() -> new RuntimeException("Invalid role: " + roleName));
 
-					roles.add(role);
+					finalRoles.add(role);
+
+					// ---------------- CASE 1: SUB ROLE ----------------
+					if (role.getParentCard() != null) {
+
+						Role parent = roleRepo.findByName(role.getParentCard())
+								.orElseThrow(() -> new RuntimeException("Parent role missing for " + roleName));
+
+						finalRoles.add(parent);
+					}
+
+					// ---------------- CASE 2: MAIN ROLE ----------------
+					if (role.getParentCard() == null) {
+
+						List<Role> subRoles = roleRepo.findByParentCard(role.getName());
+						finalRoles.addAll(subRoles);
+					}
 				}
 			}
 
-			user.setRoles(roles);
+			user.setRoles(finalRoles);
 
 			// ---------------- SAVE USER ----------------
 			User savedUser = userRepo.save(user);
@@ -116,14 +123,14 @@ public class LoginServiceImpl implements LoginService {
 			response.setUserName(savedUser.getUsername());
 			response.setAccessToken(accessToken);
 			response.setRefreshToken(refreshToken.getToken());
-			response.setGrantedAuthorities(roles);
+			response.setGrantedAuthorities(finalRoles);
 
 			error.setErrorCode("0");
 			error.setErrorDescription("User registered successfully");
 			response.setErrorDetails(error);
 
 			log.info("SUCCESS register | username={} | roles={} | corrId={}", savedUser.getUsername(),
-					roles.stream().map(Role::getName).toList(), corrId);
+					finalRoles.stream().map(Role::getName).toList(), corrId);
 
 			return response;
 
@@ -132,7 +139,7 @@ public class LoginServiceImpl implements LoginService {
 			log.error("ERROR register | username={} | corrId={}", registerRequest.getUsername(), corrId, e);
 
 			error.setErrorCode("1");
-			error.setErrorDescription("Registration failed");
+			error.setErrorDescription(e.getMessage());
 			response.setErrorDetails(error);
 			return response;
 		}
