@@ -8,12 +8,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRequest;
+import com.pipc.dashboard.bhusmapadan.response.BhaniniResponse;
 import com.pipc.dashboard.bhusmapadan.response.PraptraMasterDataResponse;
 import com.pipc.dashboard.business.EstablishmentBusiness;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.AppealWrapper2;
+import com.pipc.dashboard.establishment.request.BhaniniRequest;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
@@ -204,6 +206,22 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	public ResponseEntity<InputStreamResource> downloadKaryaratGopniyaAhwal(String year, String type)
 			throws IOException {
 		return establishmentService.downloadKaryaratGopniyaAhwal(year, type);
+	}
+
+	@Override
+	public BhaniniResponse saveOrUpdateBhaniniData(BhaniniRequest request) {
+		return establishmentService.saveOrUpdateBhaniniData(request);
+	}
+
+	@Override
+	public BhaniniResponse getBhaniniData(String employeeName, String year) {
+		return establishmentService.getBhaniniData(employeeName, year);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadBhaniniData(String year, String employeeName)
+			throws IOException {
+		return establishmentService.downloadBhaniniData(year,employeeName);
 	}
 
 }

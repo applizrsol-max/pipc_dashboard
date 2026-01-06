@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
@@ -50,6 +51,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRequest;
 import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRowRequest;
+import com.pipc.dashboard.bhusmapadan.response.BhaniniResponse;
 import com.pipc.dashboard.bhusmapadan.response.PraptraMasterDataResponse;
 import com.pipc.dashboard.establishment.repository.AgendaOfficerEntity;
 import com.pipc.dashboard.establishment.repository.AgendaOfficerRepository;
@@ -63,32 +65,24 @@ import com.pipc.dashboard.establishment.repository.AppealEntity;
 import com.pipc.dashboard.establishment.repository.AppealRepository;
 import com.pipc.dashboard.establishment.repository.AppealRequestEntity;
 import com.pipc.dashboard.establishment.repository.AppealRequestRepository;
-import com.pipc.dashboard.establishment.repository.ApprovalDetailsRepository;
+import com.pipc.dashboard.establishment.repository.BhaniniEntity;
+import com.pipc.dashboard.establishment.repository.BhaniniRepo;
 import com.pipc.dashboard.establishment.repository.CrFileListEntity;
 import com.pipc.dashboard.establishment.repository.CrFileListRepository;
 import com.pipc.dashboard.establishment.repository.CrFileListRtrEntity;
 import com.pipc.dashboard.establishment.repository.CrFileListRtrRepository;
-import com.pipc.dashboard.establishment.repository.EmployeeDetailsRepository;
 import com.pipc.dashboard.establishment.repository.EmployeePostingEntity;
 import com.pipc.dashboard.establishment.repository.EmployeePostingRepository;
 import com.pipc.dashboard.establishment.repository.IncomeTaxDeductionEntity;
 import com.pipc.dashboard.establishment.repository.IncomeTaxDeductionRepository;
 import com.pipc.dashboard.establishment.repository.KaryaratGopniyaAhwalEntity;
 import com.pipc.dashboard.establishment.repository.KaryaratGopniyaAhwalRepository;
-import com.pipc.dashboard.establishment.repository.KharchaTapsilRepository;
-import com.pipc.dashboard.establishment.repository.LeaveRepository;
 import com.pipc.dashboard.establishment.repository.MahaparRegisterEntity;
 import com.pipc.dashboard.establishment.repository.MahaparRegisterRepository;
 import com.pipc.dashboard.establishment.repository.MasterDataEntity;
 import com.pipc.dashboard.establishment.repository.MasterDataRepository;
-import com.pipc.dashboard.establishment.repository.MedicalBillMasterRepository;
-import com.pipc.dashboard.establishment.repository.PassportNocRepository;
-import com.pipc.dashboard.establishment.repository.ReferenceRepository;
 import com.pipc.dashboard.establishment.repository.RtrGopniyaAhwal;
 import com.pipc.dashboard.establishment.repository.RtrGopniyaAhwalRepository;
-import com.pipc.dashboard.establishment.repository.VaidyakKharchaParigananaRepository;
-import com.pipc.dashboard.establishment.repository.VaidyakTapshilRepository;
-import com.pipc.dashboard.establishment.repository.VastavyaDetailsRepository;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaRow;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
@@ -97,6 +91,7 @@ import com.pipc.dashboard.establishment.request.AppealRequest;
 import com.pipc.dashboard.establishment.request.AppealRequest2;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.AppealWrapper2;
+import com.pipc.dashboard.establishment.request.BhaniniRequest;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
@@ -122,25 +117,14 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class EstablishmentServiceImpl implements EstablishmentService {
 
-	private final MedicalBillMasterRepository masterRepo;
-	private final ReferenceRepository refRepo;
-	private final EmployeeDetailsRepository empRepo;
-	private final ApprovalDetailsRepository apprRepo;
-	private final KharchaTapsilRepository kharchaRepo;
-	private final VaidyakKharchaParigananaRepository vaidyaRepo;
-	private final VaidyakTapshilRepository tapshilRepo;
-	private final VastavyaDetailsRepository vastavyaRepo;
-	private final LeaveRepository leaveRepository;
 	private final AppealRepository appealRepository;
 	private final EmployeePostingRepository employeePostingRepository;
 	private final IncomeTaxDeductionRepository incomeTaxDeductionRepository;
-	private final PassportNocRepository passportNocRepository;
 	private final AgendaOfficerRepository agendaOfficerRepository;
 	private final AgendaSecBRepository agendaSecBRepository;
 	private final AgendaSecDRepository agendaSecDRepository;
 	private final AgendaThirteenRepository agendaThirteenRepository;
 	private final AppealRequestRepository appealRequestRepository;
-	private static final String TEMPLATE = "/templates/medical_bill_template.docx";
 	private final MasterDataRepository masterDataRepository;
 	private final CrFileListRepository crFileListRepository;
 	private final CrFileListRtrRepository crFileListRtrRepository;
@@ -149,6 +133,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	private final RtrGopniyaAhwalRepository rtrGopniyaAhwalRepository;
 	@Autowired
 	private ObjectMapper objectMapper;
+	private final BhaniniRepo bhaniniRepo;
 
 	@Transactional
 	@Override
@@ -4318,6 +4303,653 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 			c.setCellStyle(headerStyle);
 		}
 		return rowIdx;
+	}
+
+	@Transactional
+	@Override
+	public BhaniniResponse saveOrUpdateBhaniniData(BhaniniRequest request) {
+		String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		String corrId = MDC.get("correlationId");
+
+		log.info("saveOrUpdateSalaryArrears START | year={} | employee={} | user={} | corrId={}", request.getYear(),
+				request.getEmployee() != null ? request.getEmployee().getName() : "NA", currentUser, corrId);
+
+		BhaniniResponse response = new BhaniniResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+
+			// ---------------- VALIDATION ----------------
+			if (request.getEmployee() == null || request.getEmployee().getName() == null
+					|| request.getEmployee().getName().isBlank()) {
+
+				error.setErrorCode("400");
+				error.setErrorDescription("Employee name is mandatory");
+				response.setErrorDetails(error);
+				return response;
+			}
+
+			if (request.getYear() == null || request.getYear().isBlank()) {
+				error.setErrorCode("400");
+				error.setErrorDescription("Year is mandatory");
+				response.setErrorDetails(error);
+				return response;
+			}
+
+			String employeeName = request.getEmployee().getName();
+			String year = request.getYear();
+			String incomingFlag = request.getFlag(); // may be null
+
+			ObjectMapper mapper = new ObjectMapper();
+
+			// ---------------- DELETE (explicit only) ----------------
+			if ("D".equalsIgnoreCase(incomingFlag)) {
+
+				bhaniniRepo.deleteByEmployeeNameAndYear(employeeName, year);
+
+				error.setErrorCode("200");
+				error.setErrorDescription("Deleted Successfully");
+				response.setErrorDetails(error);
+
+				log.info("saveOrUpdateSalaryArrears DELETE SUCCESS | year={} | employee={} | corrId={}", year,
+						employeeName, corrId);
+
+				return response;
+			}
+
+			// ---------------- EXIST CHECK ----------------
+			Optional<BhaniniEntity> existingOpt = bhaniniRepo.findByEmployeeNameAndYear(employeeName, year);
+
+			BhaniniEntity entity;
+
+			if (existingOpt.isPresent()) {
+				// ---------------- UPDATE ----------------
+				entity = existingOpt.get();
+				entity.setData(mapper.valueToTree(request));
+				entity.setFlag("U");
+				entity.setUpdatedAt(LocalDateTime.now());
+				entity.setUpdatedBy(currentUser);
+
+				log.debug("Updating Salary Arrears | year={} | employee={} | corrId={}", year, employeeName, corrId);
+
+			} else {
+				// ---------------- CREATE ----------------
+				entity = new BhaniniEntity();
+				entity.setYear(year);
+				entity.setEmployeeName(employeeName);
+				entity.setData(mapper.valueToTree(request));
+				entity.setFlag("C");
+				entity.setCreatedAt(LocalDateTime.now());
+				entity.setCreatedBy(currentUser);
+				entity.setUpdatedAt(LocalDateTime.now());
+				entity.setUpdatedBy(currentUser);
+
+				log.debug("Creating Salary Arrears | year={} | employee={} | corrId={}", year, employeeName, corrId);
+			}
+
+			bhaniniRepo.save(entity);
+
+			// ---------------- SUCCESS RESPONSE ----------------
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+			log.info("saveOrUpdateSalaryArrears SUCCESS | year={} | employee={} | flag={} | corrId={}", year,
+					employeeName, entity.getFlag(), corrId);
+
+		} catch (Exception e) {
+
+			log.error("saveOrUpdateSalaryArrears FAILED | year={} | employee={} | corrId={}", request.getYear(),
+					request.getEmployee() != null ? request.getEmployee().getName() : "NA", corrId, e);
+
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage());
+			response.setErrorDetails(error);
+		}
+
+		return response;
+	}
+
+	@Override
+	public BhaniniResponse getBhaniniData(String year, String employeeName) {
+
+		String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		String corrId = MDC.get("correlationId");
+
+		log.info("getBhaniniData START | year={} | employee={} | user={} | corrId={}", year, employeeName, currentUser,
+				corrId);
+
+		BhaniniResponse response = new BhaniniResponse();
+		ApplicationError error = new ApplicationError();
+
+		try {
+			// -------- BASIC VALIDATION --------
+			if (year == null || year.isBlank()) {
+				error.setErrorCode("400");
+				error.setErrorDescription("Year is mandatory");
+				response.setErrorDetails(error);
+
+				log.warn("getBhaniniData VALIDATION FAILED | reason=year missing | corrId={}", corrId);
+				return response;
+			}
+
+			if (employeeName == null || employeeName.isBlank()) {
+				error.setErrorCode("400");
+				error.setErrorDescription("Employee name is mandatory");
+				response.setErrorDetails(error);
+
+				log.warn("getBhaniniData VALIDATION FAILED | reason=employeeName missing | corrId={}", corrId);
+				return response;
+			}
+
+			// -------- DB FETCH (SINGLE HIT) --------
+			Optional<BhaniniEntity> entityOpt = bhaniniRepo.findByEmployeeNameAndYear(employeeName, year);
+
+			if (entityOpt.isEmpty()) {
+				error.setErrorCode("404");
+				error.setErrorDescription("No data found");
+				response.setErrorDetails(error);
+
+				log.info("getBhaniniData NO DATA | year={} | employee={} | corrId={}", year, employeeName, corrId);
+				return response;
+			}
+
+			// -------- SUCCESS --------
+			response.setData(entityOpt.get().getData());
+
+			error.setErrorCode("200");
+			error.setErrorDescription("Success");
+			response.setErrorDetails(error);
+
+			log.info("getBhaniniData SUCCESS | year={} | employee={} | corrId={}", year, employeeName, corrId);
+
+		} catch (Exception e) {
+
+			log.error("getBhaniniData FAILED | year={} | employee={} | corrId={}", year, employeeName, corrId, e);
+
+			error.setErrorCode("500");
+			error.setErrorDescription(e.getMessage() != null ? e.getMessage() : "Unexpected error occurred");
+			response.setErrorDetails(error);
+		}
+
+		return response;
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadBhaniniData(String year, String employeeName)
+			throws IOException {
+		Optional<BhaniniEntity> entityOpt = bhaniniRepo.findByEmployeeNameAndYear(employeeName, year);
+
+		ObjectMapper mapper = new ObjectMapper();
+		JsonNode root = entityOpt.get().getData();
+
+		JsonNode employee = root.get("employee");
+		JsonNode previous = root.get("previousYearPending");
+		JsonNode khata = root.get("khatyavarJamaRakam");
+		JsonNode months = root.get("monthlyDetails");
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet("Bhanini");
+	
+
+		sheet.setColumnWidth(0, 6000); // Month
+		sheet.setColumnWidth(1, 4500);
+		sheet.setColumnWidth(2, 3000);
+		sheet.setColumnWidth(3, 4500);
+		sheet.setColumnWidth(4, 3000);
+		sheet.setColumnWidth(5, 4500);
+		sheet.setColumnWidth(6, 3000);
+		sheet.setColumnWidth(7, 4500);
+		sheet.setColumnWidth(8, 3000);
+		sheet.setColumnWidth(9, 7000); // Interest calculation
+		sheet.setColumnWidth(10, 3000);
+		sheet.setColumnWidth(11, 8000); // Shera / Arrears
+
+		// ================= STYLES =================
+		XSSFFont bold = wb.createFont();
+		bold.setBold(true);
+		XSSFFont normal = wb.createFont();
+
+		XSSFCellStyle centerBold = wb.createCellStyle();
+		centerBold.setFont(bold);
+		centerBold.setAlignment(HorizontalAlignment.CENTER);
+		centerBold.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		XSSFCellStyle leftBold = wb.createCellStyle();
+		leftBold.setFont(bold);
+		leftBold.setAlignment(HorizontalAlignment.LEFT);
+
+		XSSFCellStyle center = wb.createCellStyle();
+		center.setAlignment(HorizontalAlignment.CENTER);
+
+		XSSFCellStyle border = wb.createCellStyle();
+		border.setBorderBottom(BorderStyle.THIN);
+		border.setBorderTop(BorderStyle.THIN);
+		border.setBorderLeft(BorderStyle.THIN);
+		border.setBorderRight(BorderStyle.THIN);
+
+		// ---------- BORDERED STYLES ----------
+		XSSFCellStyle borderCenter = wb.createCellStyle();
+		borderCenter.setBorderBottom(BorderStyle.THIN);
+		borderCenter.setBorderTop(BorderStyle.THIN);
+		borderCenter.setBorderLeft(BorderStyle.THIN);
+		borderCenter.setBorderRight(BorderStyle.THIN);
+		borderCenter.setAlignment(HorizontalAlignment.CENTER);
+		borderCenter.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		XSSFCellStyle borderLeft = wb.createCellStyle();
+		borderLeft.cloneStyleFrom(borderCenter);
+		borderLeft.setAlignment(HorizontalAlignment.LEFT);
+
+		XSSFCellStyle borderBold = wb.createCellStyle();
+		borderBold.cloneStyleFrom(borderCenter);
+		borderBold.setFont(bold);
+		// -------- CENTER TEXT (NO BORDER) --------
+		XSSFCellStyle centerText = wb.createCellStyle();
+		centerText.setAlignment(HorizontalAlignment.CENTER);
+		centerText.setVerticalAlignment(VerticalAlignment.CENTER);
+		centerText.setFont(normal); // या boldFont अगर signature bold चाहिए
+
+		XSSFCellStyle borderBoldLeft = wb.createCellStyle();
+		borderBoldLeft.cloneStyleFrom(borderLeft);
+		borderBoldLeft.setFont(bold);
+		
+		XSSFCellStyle headerStyle = wb.createCellStyle();
+		headerStyle.setAlignment(HorizontalAlignment.CENTER);
+		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		headerStyle.setWrapText(true);   // 🔴 ये MUST है
+		headerStyle.setFont(bold);
+		headerStyle.setBorderBottom(BorderStyle.THIN);
+		headerStyle.setBorderTop(BorderStyle.THIN);
+		headerStyle.setBorderLeft(BorderStyle.THIN);
+		headerStyle.setBorderRight(BorderStyle.THIN);
+
+
+		// Utility
+		BiFunction<Row, Integer, Cell> c = (r, i) -> r.getCell(i) == null ? r.createCell(i) : r.getCell(i);
+
+		int r = 0;
+
+		// ================= ROW 1 =================
+		Row r1 = sheet.createRow(r++);
+		c.apply(r1, 0).setCellValue("चतुर्थश्रेणी कर्मचारी सर्वसाधारण भविष्यनिर्वाह निधी लेखा - नमुना एक");
+		c.apply(r1, 0).setCellStyle(centerBold);
+		sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 11));
+
+		// ================= ROW 2 =================
+		Row r2 = sheet.createRow(r++);
+		c.apply(r2, 0).setCellValue("सन " + year);
+		c.apply(r2, 7).setCellValue("अअपुपाप्रमं/"+root.get("aaPupram"));
+		sheet.addMergedRegion(new CellRangeAddress(1, 1, 7, 8));
+
+		// ================= ROW 3 =================
+		Row r3 = sheet.createRow(r++);
+		c.apply(r3, 0).setCellValue("नांव " + employee.get("name").asText());
+		c.apply(r3, 6).setCellValue("अधिकृत पदनाम : " + employee.get("designation").asText());
+		sheet.addMergedRegion(new CellRangeAddress(2, 2, 6, 8));
+
+		// ================= ROW 4 HEADER =================
+		Row h1 = sheet.createRow(r++);
+		h1.setHeightInPoints(42);
+		c.apply(h1, 0).setCellValue("मागील वर्षाच्या 31 मार्चचे वेतन");
+		c.apply(h1, 0).setCellStyle(headerStyle);
+		sheet.addMergedRegion(new CellRangeAddress(3, 3, 1, 2));
+		c.apply(h1, 1).setCellValue("पूर्ण रुपया मधील वर्गणी");
+
+		sheet.addMergedRegion(new CellRangeAddress(3, 3, 3, 4));
+		c.apply(h1, 3).setCellValue("काढलेल्या रकमांची परतफेड");
+
+		sheet.addMergedRegion(new CellRangeAddress(3, 3, 5, 6));
+		c.apply(h1, 5).setCellValue("एकूण");
+
+		sheet.addMergedRegion(new CellRangeAddress(3, 3, 7, 8));
+		c.apply(h1, 7).setCellValue("काढलेल्या रक्कमा");
+
+		sheet.addMergedRegion(new CellRangeAddress(3, 3, 9, 10));
+		c.apply(h1, 9).setCellValue("ज्यावरील व्याजाची गणना होते अशी मासिक शिल्लक");
+		c.apply(h1, 9).setCellStyle(headerStyle);
+
+		c.apply(h1, 11).setCellValue("शेरा Arrears");
+		c.apply(h1, 11).setCellStyle(headerStyle);
+
+		// ================= ROW 5 SUB HEADER =================
+		Row h2 = sheet.createRow(r++);
+		c.apply(h2, 0).setCellValue(year);
+		c.apply(h2, 1).setCellValue("रु.");
+		c.apply(h2, 2).setCellValue("पै.");
+		c.apply(h2, 3).setCellValue("रु.");
+		c.apply(h2, 4).setCellValue("पै.");
+		c.apply(h2, 5).setCellValue("रु.");
+		c.apply(h2, 6).setCellValue("पै.");
+		c.apply(h2, 7).setCellValue("रु.");
+		c.apply(h2, 8).setCellValue("पै.");
+		c.apply(h2, 9).setCellValue("रु.");
+		c.apply(h2, 10).setCellValue("पै.");
+		for (int i = 0; i <= 11; i++) {
+			c.apply(h1, i).setCellStyle(borderBold);
+			c.apply(h2, i).setCellStyle(borderBold);
+		}
+		// ================= MONTH DATA =================
+		int startMonthRow = r;
+		for (JsonNode m : months) {
+			Row dr = sheet.createRow(r++);
+			c.apply(dr, 0).setCellValue(m.get("month").asText());
+			c.apply(dr, 1).setCellValue(m.get("purnaRupyaMadhilVargni").asDouble());
+			c.apply(dr, 3).setCellValue(m.get("kadhlelyaRakmanchiParatFed").asDouble());
+			c.apply(dr, 5).setCellValue(m.get("ekun").asDouble());
+			c.apply(dr, 7).setCellValue(m.get("kadhlelyaRakam").asDouble());
+			c.apply(dr, 11).setCellValue(m.get("sheraOrArrears").asText());
+			for (int i = 0; i <= 11; i++) {
+				if (i == 0 || i == 11) {
+					c.apply(dr, i).setCellStyle(borderLeft); // month / shera
+				} else {
+					c.apply(dr, i).setCellStyle(borderCenter);
+				}
+			}
+
+		}
+
+		int endMonthRow = r - 1;
+
+		// ================= J COLUMN RUNNING BALANCE =================
+		// Excel rows: startMonthRow+1 = Row 6, endMonthRow+1 = Row 19
+		// Columns: F = 5, H = 7, J = 9
+
+		double pasunchiShillak = previous.get("pasunchiShillak").asDouble();
+
+		// ---- J6 = pasunchiShillak + F6 ----
+		Row firstMonthRow = sheet.getRow(startMonthRow);
+		Cell jFirst = c.apply(firstMonthRow, 9);
+		jFirst.setCellFormula(pasunchiShillak + "+F" + (startMonthRow + 1));
+		jFirst.setCellStyle(borderCenter);
+
+		// ---- J7 to J19 : J(n) = J(n-1) + F(n) - H(n) ----
+		for (int excelRow = startMonthRow + 2; excelRow <= endMonthRow + 1; excelRow++) {
+
+			Row rr = sheet.getRow(excelRow - 1);
+			Cell jCell = c.apply(rr, 9);
+
+			jCell.setCellFormula("J" + (excelRow - 1) + "+F" + excelRow + "-H" + excelRow);
+			jCell.setCellStyle(borderCenter);
+		}
+
+		// ================= TOTAL ROW =================
+		Row total = sheet.createRow(r++);
+		c.apply(total, 0).setCellValue("एकूण रू.");
+		c.apply(total, 1).setCellFormula("SUM(B" + (startMonthRow + 1) + ":B" + (endMonthRow + 1) + ")");
+		c.apply(total, 3).setCellFormula("SUM(D" + (startMonthRow + 1) + ":D" + (endMonthRow + 1) + ")");
+		c.apply(total, 5).setCellFormula("SUM(F" + (startMonthRow + 1) + ":F" + (endMonthRow + 1) + ")");
+		c.apply(total, 7).setCellFormula("SUM(H" + (startMonthRow + 1) + ":H" + (endMonthRow + 1) + ")");
+
+		// ---- J20 = SUM(J6:J19) ----
+		Row totalRowRef = sheet.getRow(endMonthRow + 1); // this will be TOTAL row
+		Cell jTotal = c.apply(totalRowRef, 9);
+		jTotal.setCellFormula("SUM(J" + (startMonthRow + 1) + ":J" + (endMonthRow + 1) + ")");
+		jTotal.setCellStyle(borderBold);
+		// ================= PREVIOUS YEAR BLOCK =================
+		Row py1 = sheet.createRow(r++);
+		sheet.addMergedRegion(new CellRangeAddress(py1.getRowNum(), py1.getRowNum(), 1, 8));
+		c.apply(py1, 1).setCellValue(year + " पासूनची शिल्लक");
+		c.apply(py1, 9).setCellValue(previous.get("pasunchiShillak").asDouble());
+
+		Row py2 = sheet.createRow(r++);
+		sheet.addMergedRegion(new CellRangeAddress(py2.getRowNum(), py2.getRowNum(), 1, 8));
+		c.apply(py2, 1).setCellValue("वरीलप्रमाणे ठेवी व परतफेडीच्या रक्कमा");
+		c.apply(py2, 9).setCellValue(previous.get("varilPramaneThevi").asDouble());
+
+		Row py3 = sheet.createRow(r++);
+		sheet.addMergedRegion(new CellRangeAddress(py3.getRowNum(), py3.getRowNum(), 1, 8));
+		c.apply(py3, 1).setCellValue(year + " व्याज");
+		c.apply(py3, 9).setCellValue(previous.get("vyaj").asDouble());
+
+		Row py4 = sheet.createRow(r++);
+		sheet.addMergedRegion(new CellRangeAddress(py4.getRowNum(), py4.getRowNum(), 1, 8));
+		c.apply(py4, 1).setCellValue("सातवा वेतन आयोगाच्या फरकाची चौथ्या  हप्त्याची फरकाची व्याजासह जमा रक्कम");
+		c.apply(py4, 9).setCellValue(previous.get("sattvaVetanAyogyaFarkachi").asDouble());
+
+		// ================= GRAND TOTAL =================
+		Row gt = sheet.createRow(r++);
+		c.apply(gt, 8).setCellValue("एकूण");
+		c.apply(gt, 9).setCellFormula("J" + (py1.getRowNum() + 1) + "+J" + (py2.getRowNum() + 1) + "+J"
+				+ (py3.getRowNum() + 1) + "+J" + (py4.getRowNum() + 1));
+		for (int i = 0; i <= 11; i++) {
+			c.apply(gt, i).setCellStyle(borderBold);
+		}
+		// TOTAL ROW (Row 20)
+		for (int i = 0; i <= 11; i++) {
+			if (i == 0) {
+				c.apply(total, i).setCellStyle(borderBoldLeft);
+			} else {
+				c.apply(total, i).setCellStyle(borderBold);
+			}
+		}
+
+		for (Row rr : List.of(py1, py2, py3, py4)) {
+			for (int i = 0; i <= 11; i++) {
+				if (i <= 8) {
+					c.apply(rr, i).setCellStyle(borderBoldLeft);
+				} else {
+					c.apply(rr, i).setCellStyle(borderCenter);
+				}
+			}
+		}
+
+		// ================= ROW 26 =================
+		Row r26 = sheet.createRow(r++);
+
+		c.apply(r26, 0).setCellValue("नोंदवणारा");
+		c.apply(r26, 0).setCellStyle(borderBoldLeft);
+
+		mergeWithBorder(sheet, r26.getRowNum(), r26.getRowNum(), 4, 8);
+		c.apply(r26, 4).setCellValue("सातव्या वेतन आयोगाच्या फरकाची चौथ्या हप्त्याची व्याजासह वजा रक्कम");
+		c.apply(r26, 4).setCellStyle(borderLeft);
+
+		c.apply(r26, 9).setCellValue("------>");
+		c.apply(r26, 9).setCellStyle(borderCenter);
+
+		mergeWithBorder(sheet, r26.getRowNum(), r26.getRowNum(), 10, 11);
+		c.apply(r26, 10).setCellValue(previous.get("sattvaVetanAyogyaFarkachi").asDouble());
+		c.apply(r26, 10).setCellStyle(borderCenter);
+
+		applyRowBorder(r26, 11, borderBoldLeft, borderCenter);
+
+		// ================= ROW 27 =================
+		// ================= ROW 27 =================
+		Row r27 = sheet.createRow(r++);
+
+		// A col
+		c.apply(r27, 0).setCellValue("पडताळणारा");
+		c.apply(r27, 0).setCellStyle(borderBoldLeft);
+
+		// B–I merged blank
+		mergeWithBorder(sheet, r27.getRowNum(), r27.getRowNum(), 1, 8);
+
+		// ✅ J27 = SAME EKUN (933391)
+		c.apply(r27, 9).setCellFormula("J21+J22+J23+J24");
+		c.apply(r27, 9).setCellStyle(borderBold);
+
+		// L col = padtalnara (DB)
+		c.apply(r27, 11).setCellValue(previous.get("padtalnara").asDouble());
+		c.apply(r27, 11).setCellStyle(borderCenter);
+
+		// ================= ROW 28 =================
+		Row r28 = sheet.createRow(r++);
+
+		c.apply(r28, 0).setCellValue("तपासणारा");
+		c.apply(r28, 0).setCellStyle(borderBoldLeft);
+
+		mergeWithBorder(sheet, r28.getRowNum(), r28.getRowNum(), 1, 8);
+		c.apply(r28, 1).setCellValue("वजा वरील प्रमाणे काढलेल्या रकमा");
+		c.apply(r28, 1).setCellStyle(borderLeft);
+
+		c.apply(r28, 9).setCellFormula("H20");
+		c.apply(r28, 9).setCellStyle(borderCenter);
+
+		applyRowBorder(r28, 11, borderBoldLeft, borderCenter);
+
+		// ================= ROW 29 =================
+		Row r29 = sheet.createRow(r++);
+
+		mergeWithBorder(sheet, r29.getRowNum(), r29.getRowNum(), 1, 8);
+		c.apply(r29, 1).setCellValue(employee.get("payScaleAsOn")+ " रोजी असलेली शिल्लक");
+		c.apply(r29, 1).setCellStyle(borderBoldLeft);
+
+		c.apply(r29, 9).setCellFormula("J27-J28");
+		c.apply(r29, 9).setCellStyle(borderCenter);
+
+		c.apply(r29, 11).setCellFormula("L27-" + previous.get("sattvaVetanAyogyaFarkachi").asDouble());
+		c.apply(r29, 11).setCellStyle(borderCenter);
+
+		applyRowBorder(r29, 11, borderBoldLeft, borderCenter);
+
+		r += 2;
+		// ================= FOOTER (NO BORDER) =================
+
+		Row f32 = sheet.createRow(r++);
+		sheet.addMergedRegion(new CellRangeAddress(f32.getRowNum(), f32.getRowNum(), 9, 11));
+		c.apply(f32, 9).setCellValue("उप अधीक्षक अभियंता,");
+		c.apply(f32, 9).setCellStyle(centerText); // ❌ no border style
+
+		Row f33 = sheet.createRow(r++);
+		sheet.addMergedRegion(new CellRangeAddress(f33.getRowNum(), f33.getRowNum(), 9, 11));
+		c.apply(f33, 9).setCellValue("पुणे पाटबंधारे प्रकल्प मंडळ,");
+		c.apply(f33, 9).setCellStyle(centerText);
+
+		Row f34 = sheet.createRow(r++);
+		sheet.addMergedRegion(new CellRangeAddress(f34.getRowNum(), f34.getRowNum(), 9, 11));
+		c.apply(f34, 9).setCellValue("पुणे");
+		c.apply(f34, 9).setCellStyle(centerText);
+
+		r++; // spacer
+
+		// ================= ROW 36 HEADER =================
+		// ================= ROW 36 HEADER =================
+		Row h36 = sheet.createRow(r++);
+
+		// B–D merged
+		mergeWithBorderForBhanini(sheet, h36.getRowNum(), h36.getRowNum(), 1, 3, borderBold);
+		c.apply(h36, 1).setCellValue("मागील हप्ता शिल्लक");
+
+		// E–F merged
+		mergeWithBorderForBhanini(sheet, h36.getRowNum(), h36.getRowNum(), 4, 5, borderBold);
+		c.apply(h36, 4).setCellValue("पाचवा हप्ता जमा");
+
+		// G–I merged
+		mergeWithBorderForBhanini(sheet, h36.getRowNum(), h36.getRowNum(), 6, 8, borderBold);
+		c.apply(h36, 6).setCellValue("पाचवा हप्ता 7/2023 पासून व्याज");
+
+		// A, J, K, L columns – normal border
+		for (int i : new int[] { 0, 9, 10, 11 }) {
+			c.apply(h36, i).setCellStyle(borderBold);
+		}
+
+		Row r37 = sheet.createRow(r++);
+
+		c.apply(r37, 0).setCellValue("खात्यावर जमा रक्कम");
+		c.apply(r37, 0).setCellStyle(borderLeft);
+
+		// B col = L29
+		c.apply(r37, 1).setCellFormula("L29");
+
+		// F col
+		c.apply(r37, 5).setCellValue(khata.get("panchwaHaftaJama").asDouble());
+
+		// H col
+		c.apply(r37, 7).setCellValue(khata.get("panchwaHaftaJuly2023PasunVyaj").asDouble());
+		applyRowBorder(r37, 11, borderLeft, borderCenter);
+		// Row 38
+		Row r38 = sheet.createRow(r++);
+		c.apply(r38, 5).setCellFormula("F37*7.1%");
+		c.apply(r38, 7).setCellFormula("H37*7.1%");
+		applyRowBorder(r38, 11, borderLeft, borderCenter);
+		// Row 39
+		Row r39 = sheet.createRow(r++);
+		c.apply(r39, 5).setCellFormula("F38*12");
+		c.apply(r39, 7).setCellFormula("H38*12");
+		applyRowBorder(r39, 11, borderLeft, borderCenter);
+		// Row 40
+		Row r40 = sheet.createRow(r++);
+		c.apply(r40, 5).setCellFormula("F39/12");
+		c.apply(r40, 7).setCellFormula("H39/12");
+		applyRowBorder(r40, 11, borderLeft, borderCenter);
+		// Row 41
+		Row r41 = sheet.createRow(r++);
+		c.apply(r41, 5).setCellFormula("F40/12");
+		c.apply(r41, 7).setCellFormula("H40/12");
+		applyRowBorder(r41, 11, borderLeft, borderCenter);
+		// Row 42
+		Row r42 = sheet.createRow(r++);
+		c.apply(r42, 5).setCellFormula("F41*9");
+		c.apply(r42, 7).setCellFormula("H41*13");
+		applyRowBorder(r42, 11, borderLeft, borderCenter);
+		// Row 43
+		Row r43 = sheet.createRow(r++);
+		c.apply(r43, 5).setCellFormula("D42+F42");
+		c.apply(r43, 7).setCellFormula("F43+H42");
+		applyRowBorder(r43, 11, borderLeft, borderCenter);
+
+		// ================= WRITE =================
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Bhanini.xlsx\"")
+				.contentType(
+						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	private void applyBorderToMergedRegion(Sheet sheet, CellRangeAddress region) {
+
+		RegionUtil.setBorderTop(BorderStyle.THIN, region, sheet);
+		RegionUtil.setBorderBottom(BorderStyle.THIN, region, sheet);
+		RegionUtil.setBorderLeft(BorderStyle.THIN, region, sheet);
+		RegionUtil.setBorderRight(BorderStyle.THIN, region, sheet);
+	}
+
+	private void mergeWithBorder(Sheet sheet, int row1, int row2, int col1, int col2) {
+
+		CellRangeAddress region = new CellRangeAddress(row1, row2, col1, col2);
+
+		sheet.addMergedRegion(region);
+
+		RegionUtil.setBorderTop(BorderStyle.THIN, region, sheet);
+		RegionUtil.setBorderBottom(BorderStyle.THIN, region, sheet);
+		RegionUtil.setBorderLeft(BorderStyle.THIN, region, sheet);
+		RegionUtil.setBorderRight(BorderStyle.THIN, region, sheet);
+	}
+
+	private void mergeWithBorderForBhanini(XSSFSheet sheet, int firstRow, int lastRow, int firstCol, int lastCol,
+			XSSFCellStyle style) {
+		CellRangeAddress region = new CellRangeAddress(firstRow, lastRow, firstCol, lastCol);
+
+		sheet.addMergedRegion(region);
+
+		RegionUtil.setBorderTop(BorderStyle.THIN, region, sheet);
+		RegionUtil.setBorderBottom(BorderStyle.THIN, region, sheet);
+		RegionUtil.setBorderLeft(BorderStyle.THIN, region, sheet);
+		RegionUtil.setBorderRight(BorderStyle.THIN, region, sheet);
+
+		// apply style to top-left cell
+		Row row = sheet.getRow(firstRow);
+		if (row == null)
+			row = sheet.createRow(firstRow);
+		Cell cell = row.getCell(firstCol);
+		if (cell == null)
+			cell = row.createCell(firstCol);
+		cell.setCellStyle(style);
+	}
+
+	private void applyRowBorder(Row row, int lastCol, CellStyle left, CellStyle center) {
+		for (int i = 0; i <= lastCol; i++) {
+			Cell cell = row.getCell(i);
+			if (cell == null)
+				cell = row.createCell(i);
+			if (i == 0)
+				cell.setCellStyle(left);
+			else
+				cell.setCellStyle(center);
+		}
 	}
 
 }

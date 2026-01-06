@@ -6,11 +6,13 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ResponseEntity;
 
 import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRequest;
+import com.pipc.dashboard.bhusmapadan.response.BhaniniResponse;
 import com.pipc.dashboard.bhusmapadan.response.PraptraMasterDataResponse;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.AppealWrapper2;
+import com.pipc.dashboard.establishment.request.BhaniniRequest;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
@@ -92,5 +94,11 @@ public interface EstablishmentService {
 	PraptraMasterDataResponse getKaryaratGopniyaAhwal(String year, String type);
 
 	ResponseEntity<InputStreamResource> downloadKaryaratGopniyaAhwal(String year, String type) throws IOException;
+
+	BhaniniResponse saveOrUpdateBhaniniData(BhaniniRequest request);
+
+	BhaniniResponse getBhaniniData(String employeeName, String year);
+
+	ResponseEntity<InputStreamResource> downloadBhaniniData(String year, String employeeName)throws IOException;
 
 }

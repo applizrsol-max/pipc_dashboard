@@ -13,12 +13,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRequest;
+import com.pipc.dashboard.bhusmapadan.response.BhaniniResponse;
 import com.pipc.dashboard.bhusmapadan.response.PraptraMasterDataResponse;
 import com.pipc.dashboard.business.EstablishmentBusiness;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.AppealWrapper2;
+import com.pipc.dashboard.establishment.request.BhaniniRequest;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
@@ -310,5 +312,28 @@ public class EstablishmentController {
 
 		log.info("DOWNLOAD KaryaratGopniyaAhwal | year={} | type={}", year, type);
 		return establishmentBusiness.downloadKaryaratGopniyaAhwal(year, type);
+	}
+
+	@PostMapping("/saveOrUpdateBhaniniData")
+	public BhaniniResponse saveOrUpdateBhaniniData(@RequestBody BhaniniRequest request) {
+
+		log.info("START saveOrUpdateBhaniniData | year={} | name={}", request.getYear(),
+				request.getEmployee().getName());
+		return establishmentBusiness.saveOrUpdateBhaniniData(request);
+	}
+
+	@GetMapping("/getBhaniniData")
+	public BhaniniResponse getBhaniniData(@RequestParam String employeeName, @RequestParam String year) {
+
+		log.info("FETCH getBhaniniData | year={} | employeeName={}", year, employeeName);
+		return establishmentBusiness.getBhaniniData(employeeName, year);
+	}
+	
+	@GetMapping("/downloadBhaniniData")
+	public ResponseEntity<InputStreamResource> downloadBhaniniData(@RequestParam String year,
+			@RequestParam String employeeName) throws IOException {
+
+		log.info("DOWNLOAD downloadBhaniniData | year={} | employeeName={}", year, employeeName);
+		return establishmentBusiness.downloadBhaniniData(year, employeeName);
 	}
 }
