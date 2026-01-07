@@ -2,6 +2,7 @@ package com.pipc.dashboard.serviceimpl;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +13,7 @@ import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.pipc.dashboard.bhusmapadan.repository.Praptra1MasterDataEntity;
 import com.pipc.dashboard.bhusmapadan.repository.Praptra1MasterDataRepository;
 import com.pipc.dashboard.bhusmapadan.repository.Praptra2MasterDataEntity;
@@ -168,7 +170,7 @@ public class BhusampadanServiceImpl implements BhusampadanService {
 	public PraptraMasterDataResponse getPraptraMasterData(String year) {
 
 		String corrId = MDC.get("correlationId");
-		log.info("getPraptraMasterData START | year={} | projectName={} | corrId={}", year,  corrId);
+		log.info("getPraptraMasterData START | year={} | projectName={} | corrId={}", year, corrId);
 
 		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
 		ApplicationError error = new ApplicationError();
@@ -202,12 +204,21 @@ public class BhusampadanServiceImpl implements BhusampadanService {
 
 			for (Map.Entry<String, List<PraptraMasterDataEntity>> entry : grouped.entrySet()) {
 
+				// 🔽 SORT BY data.srNo
+				List<PraptraMasterDataEntity> sortedEntities = entry.getValue().stream()
+						.sorted(Comparator.comparingInt(e -> {
+							if (e.getData() != null && e.getData().has("srNo") && !e.getData().get("srNo").isNull()) {
+								return e.getData().get("srNo").asInt();
+							}
+							return Integer.MAX_VALUE; // srNo missing → last
+						})).toList();
+
 				Map<String, Object> projectBlock = new LinkedHashMap<>();
 				projectBlock.put("projectName", entry.getKey());
 
 				List<Map<String, Object>> rows = new ArrayList<>();
 
-				for (PraptraMasterDataEntity e : entry.getValue()) {
+				for (PraptraMasterDataEntity e : sortedEntities) {
 
 					Map<String, Object> row = new LinkedHashMap<>();
 					row.put("rowId", e.getRowId());
@@ -476,6 +487,23 @@ public class BhusampadanServiceImpl implements BhusampadanService {
 			case 3 -> praptra3MasterDataRepository.findAllByYearAndProjectName(year, projectName);
 			default -> List.of();
 			};
+
+			// 🔽 SORT BY data.srNo
+			entities = entities.stream().sorted(Comparator.comparingInt(obj -> {
+				JsonNode data = null;
+
+				if (obj instanceof Praptra1MasterDataEntity e)
+					data = e.getData();
+				else if (obj instanceof Praptra2MasterDataEntity e)
+					data = e.getData();
+				else if (obj instanceof Praptra3MasterDataEntity e)
+					data = e.getData();
+
+				if (data != null && data.has("srNo") && !data.get("srNo").isNull()) {
+					return data.get("srNo").asInt();
+				}
+				return Integer.MAX_VALUE; // srNo missing → last
+			})).toList();
 
 			List<Map<String, Object>> dataList = new ArrayList<>();
 
