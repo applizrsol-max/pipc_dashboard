@@ -8,7 +8,7 @@ public interface BhusampadanBusiness {
 
 	PraptraMasterDataResponse processPraptraMasterData(PraptraMasterDataRequest request);
 
-	PraptraMasterDataResponse getPraptraMasterData(String year, String projectName);
+	PraptraMasterDataResponse getPraptraMasterData(String year);
 
 	PraptraMasterDataResponse savePraptra1MasterData(PraptraMasterDataRequest request);
 

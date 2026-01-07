@@ -36,11 +36,11 @@ public class BhusampadanController {
 	}
 
 	@GetMapping("/getPrapatraMasterData")
-	public PraptraMasterDataResponse getPraptraMasterData(@RequestParam String year, @RequestParam String projectName) {
+	public PraptraMasterDataResponse getPraptraMasterData(@RequestParam String year) {
 
 		log.debug("Get Prapatra Master Data | year={} | corrId={}", year, MDC.get("correlationId"));
 
-		return bhusampadanBusiness.getPraptraMasterData(year, projectName);
+		return bhusampadanBusiness.getPraptraMasterData(year);
 	}
 
 	/*

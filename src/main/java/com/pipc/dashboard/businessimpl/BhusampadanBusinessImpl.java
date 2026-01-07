@@ -22,8 +22,8 @@ public class BhusampadanBusinessImpl implements BhusampadanBusiness {
 	}
 
 	@Override
-	public PraptraMasterDataResponse getPraptraMasterData(String year, String projectName) {
-		return this.bhusampadanService.getPraptraMasterData(year, projectName);
+	public PraptraMasterDataResponse getPraptraMasterData(String year) {
+		return this.bhusampadanService.getPraptraMasterData(year);
 	}
 
 	@Override

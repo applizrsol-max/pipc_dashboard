@@ -165,10 +165,10 @@ public class BhusampadanServiceImpl implements BhusampadanService {
 
 	@Override
 	@Transactional(readOnly = true)
-	public PraptraMasterDataResponse getPraptraMasterData(String year, String projectName) {
+	public PraptraMasterDataResponse getPraptraMasterData(String year) {
 
 		String corrId = MDC.get("correlationId");
-		log.info("getPraptraMasterData START | year={} | projectName={} | corrId={}", year, projectName, corrId);
+		log.info("getPraptraMasterData START | year={} | projectName={} | corrId={}", year,  corrId);
 
 		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
 		ApplicationError error = new ApplicationError();
@@ -183,8 +183,7 @@ public class BhusampadanServiceImpl implements BhusampadanService {
 				return response;
 			}
 
-			List<PraptraMasterDataEntity> entities = praptraMasterDataRepository.findAllByYearAndProjectName(year,
-					projectName);
+			List<PraptraMasterDataEntity> entities = praptraMasterDataRepository.findAllByYear(year);
 
 			if (entities.isEmpty()) {
 				error.setErrorCode("404");
