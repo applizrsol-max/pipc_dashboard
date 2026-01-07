@@ -7,9 +7,7 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
-import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRequest;
 import com.pipc.dashboard.bhusmapadan.response.BhaniniResponse;
-import com.pipc.dashboard.bhusmapadan.response.PraptraMasterDataResponse;
 import com.pipc.dashboard.business.EstablishmentBusiness;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
@@ -19,12 +17,14 @@ import com.pipc.dashboard.establishment.request.BhaniniRequest;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
+import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
+import com.pipc.dashboard.establishment.response.MasterDataResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
 import com.pipc.dashboard.service.EstablishmentService;
 
@@ -133,12 +133,12 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	}
 
 	@Override
-	public PraptraMasterDataResponse saveMasterData(PraptraMasterDataRequest request) {
+	public MasterDataResponse saveMasterData(MasterDataRequest request) {
 		return establishmentService.saveMasterData(request);
 	}
 
 	@Override
-	public PraptraMasterDataResponse getMasterData(String year) {
+	public MasterDataResponse getMasterData(String year) {
 		return establishmentService.getMasterData(year);
 	}
 
@@ -148,12 +148,12 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	}
 
 	@Override
-	public PraptraMasterDataResponse saveCrFileList(PraptraMasterDataRequest request) {
+	public MasterDataResponse saveCrFileList(MasterDataRequest request) {
 		return establishmentService.saveCrFileList(request);
 	}
 
 	@Override
-	public PraptraMasterDataResponse getCrFileList(String year) {
+	public MasterDataResponse getCrFileList(String year) {
 		return establishmentService.getCrFileList(year);
 	}
 
@@ -163,12 +163,12 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	}
 
 	@Override
-	public PraptraMasterDataResponse saveCrFileRtrList(PraptraMasterDataRequest request) {
+	public MasterDataResponse saveCrFileRtrList(MasterDataRequest request) {
 		return establishmentService.saveCrFileRtrList(request);
 	}
 
 	@Override
-	public PraptraMasterDataResponse getCrFileRtrList(String year) {
+	public MasterDataResponse getCrFileRtrList(String year) {
 		return establishmentService.getCrFileRtrList(year);
 	}
 
@@ -178,12 +178,12 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	}
 
 	@Override
-	public PraptraMasterDataResponse saveMahaparRegister(MahaparRegisterRequest request) {
+	public MasterDataResponse saveMahaparRegister(MahaparRegisterRequest request) {
 		return establishmentService.saveMahaparRegister(request);
 	}
 
 	@Override
-	public PraptraMasterDataResponse getMahaparRegister(String year) {
+	public MasterDataResponse getMahaparRegister(String year) {
 		return establishmentService.getMahaparRegister(year);
 	}
 
@@ -193,12 +193,12 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	}
 
 	@Override
-	public PraptraMasterDataResponse saveKaryaratGopniyaAhwal(MahaparRegisterRequest request) {
+	public MasterDataResponse saveKaryaratGopniyaAhwal(MahaparRegisterRequest request) {
 		return establishmentService.saveKaryaratGopniyaAhwal(request);
 	}
 
 	@Override
-	public PraptraMasterDataResponse getKaryaratGopniyaAhwal(String year, String type) {
+	public MasterDataResponse getKaryaratGopniyaAhwal(String year, String type) {
 		return establishmentService.getKaryaratGopniyaAhwal(year, type);
 	}
 

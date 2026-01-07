@@ -41,4 +41,6 @@ public interface PraptraMasterDataRepository extends JpaRepository<PraptraMaster
 			""", nativeQuery = true)
 	List<PraptraMasterDataEntity> findAllByYear(@Param("year") String year);
 
+	List<PraptraMasterDataEntity> findAllByYearAndProjectName(String year, String projectName);
+
 }

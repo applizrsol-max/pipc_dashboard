@@ -8,6 +8,6 @@ import lombok.Data;
 public class PraptraMasterDataRequest {
 
 	private String year;
-
-	private List<PraptraMasterDataRowRequest> rows;
+	private List<ProjectBlock> projects;
+	
 }

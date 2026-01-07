@@ -13,33 +13,26 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 public interface Praptra2MasterDataRepository extends JpaRepository<Praptra2MasterDataEntity, Long> {
 
-	// 🔍 FIND FOR UPDATE
-	@Query(value = """
-			SELECT * FROM praptra2_master_data
-			WHERE year = :year
-			  AND row_id = :rowId
-			  AND data->>'projectName' = :projectName
-			""", nativeQuery = true)
+	@Query("""
+			SELECT p FROM Praptra2MasterDataEntity p
+			WHERE p.year = :year
+			  AND p.rowId = :rowId
+			  AND p.projectName = :projectName
+			""")
 	Optional<Praptra2MasterDataEntity> findByYearRowIdAndProjectName(@Param("year") String year,
 			@Param("rowId") Long rowId, @Param("projectName") String projectName);
 
-	// 🔴 HARD DELETE (deleteId MANDATORY)
 	@Modifying
 	@Transactional
-	@Query(value = """
-			DELETE FROM praptra2_master_data
-			WHERE year = :year
-			  AND delete_id = :deleteId
-			  AND data->>'projectName' = :projectName
-			""", nativeQuery = true)
+	@Query("""
+			DELETE FROM Praptra2MasterDataEntity p
+			WHERE p.year = :year
+			  AND p.projectName = :projectName
+			  AND p.deleteId = :deleteId
+			""")
 	void deleteByYearProjectNameAndDeleteId(@Param("year") String year, @Param("projectName") String projectName,
 			@Param("deleteId") Long deleteId);
 
-	// 📥 GET – YEAR WISE
-	@Query(value = """
-			SELECT * FROM praptra2_master_data
-			WHERE year = :year
-			ORDER BY row_id
-			""", nativeQuery = true)
-	List<Praptra2MasterDataEntity> findAllByYear(@Param("year") String year);
+	List<Praptra2MasterDataEntity> findAllByYearAndProjectName(String year, String projectName);
+
 }

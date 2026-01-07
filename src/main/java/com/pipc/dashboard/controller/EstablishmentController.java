@@ -12,9 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRequest;
 import com.pipc.dashboard.bhusmapadan.response.BhaniniResponse;
-import com.pipc.dashboard.bhusmapadan.response.PraptraMasterDataResponse;
 import com.pipc.dashboard.business.EstablishmentBusiness;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
@@ -24,12 +22,14 @@ import com.pipc.dashboard.establishment.request.BhaniniRequest;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
+import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
+import com.pipc.dashboard.establishment.response.MasterDataResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
 
 import lombok.RequiredArgsConstructor;
@@ -210,14 +210,14 @@ public class EstablishmentController {
 	 */
 
 	@PostMapping("/saveMasterData")
-	public PraptraMasterDataResponse saveMasterData(@RequestBody PraptraMasterDataRequest request) {
+	public MasterDataResponse saveMasterData(@RequestBody MasterDataRequest request) {
 
 		log.info("START saveMasterData | year={}", request.getYear());
 		return establishmentBusiness.saveMasterData(request);
 	}
 
 	@GetMapping("/getMasterData")
-	public PraptraMasterDataResponse getMasterData(@RequestParam String year) {
+	public MasterDataResponse getMasterData(@RequestParam String year) {
 		log.info("FETCH MasterData | year={}", year);
 		return establishmentBusiness.getMasterData(year);
 	}
@@ -231,14 +231,14 @@ public class EstablishmentController {
 	}
 
 	@PostMapping("/saveCrFileList")
-	public PraptraMasterDataResponse saveCrFileList(@RequestBody PraptraMasterDataRequest request) {
+	public MasterDataResponse saveCrFileList(@RequestBody MasterDataRequest request) {
 
 		log.info("START saveCrFileList | year={}", request.getYear());
 		return establishmentBusiness.saveCrFileList(request);
 	}
 
 	@GetMapping("/getCrFileList")
-	public PraptraMasterDataResponse getCrFileList(@RequestParam String year) {
+	public MasterDataResponse getCrFileList(@RequestParam String year) {
 		log.info("FETCH CrFileList | year={}", year);
 		return establishmentBusiness.getCrFileList(year);
 	}
@@ -252,14 +252,14 @@ public class EstablishmentController {
 	}
 
 	@PostMapping("/saveCrFileRtrList")
-	public PraptraMasterDataResponse saveCrFileRtrList(@RequestBody PraptraMasterDataRequest request) {
+	public MasterDataResponse saveCrFileRtrList(@RequestBody MasterDataRequest request) {
 
 		log.info("START saveCrFileRtrList | year={}", request.getYear());
 		return establishmentBusiness.saveCrFileRtrList(request);
 	}
 
 	@GetMapping("/getCrFileRtrList")
-	public PraptraMasterDataResponse getCrFileRtrList(@RequestParam String year) {
+	public MasterDataResponse getCrFileRtrList(@RequestParam String year) {
 		log.info("FETCH CrFileRtrList | year={}", year);
 		return establishmentBusiness.getCrFileRtrList(year);
 	}
@@ -273,14 +273,14 @@ public class EstablishmentController {
 	}
 
 	@PostMapping("/saveMahaparRegister")
-	public PraptraMasterDataResponse saveMahaparRegister(@RequestBody MahaparRegisterRequest request) {
+	public MasterDataResponse saveMahaparRegister(@RequestBody MahaparRegisterRequest request) {
 
 		log.info("START saveMahaparRegister | year={}", request.getYear());
 		return establishmentBusiness.saveMahaparRegister(request);
 	}
 
 	@GetMapping("/getMahaparRegister")
-	public PraptraMasterDataResponse getMahaparRegister(@RequestParam String year) {
+	public MasterDataResponse getMahaparRegister(@RequestParam String year) {
 		log.info("FETCH MahaparRegister | year={}", year);
 		return establishmentBusiness.getMahaparRegister(year);
 	}
@@ -293,14 +293,14 @@ public class EstablishmentController {
 	}
 
 	@PostMapping("/saveKaryaratGopniyaAhwal")
-	public PraptraMasterDataResponse saveKaryaratGopniyaAhwal(@RequestBody MahaparRegisterRequest request) {
+	public MasterDataResponse saveKaryaratGopniyaAhwal(@RequestBody MahaparRegisterRequest request) {
 
 		log.info("START saveKaryaratGopniyaAhwal | year={}", request.getYear());
 		return establishmentBusiness.saveKaryaratGopniyaAhwal(request);
 	}
 
 	@GetMapping("/getKaryaratGopniyaAhwal")
-	public PraptraMasterDataResponse getKaryaratGopniyaAhwal(@RequestParam String year, @RequestParam String type) {
+	public MasterDataResponse getKaryaratGopniyaAhwal(@RequestParam String year, @RequestParam String type) {
 
 		log.info("FETCH KaryaratGopniyaAhwal | year={} | type={}", year, type);
 		return establishmentBusiness.getKaryaratGopniyaAhwal(year, type);

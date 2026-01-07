@@ -49,10 +49,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRequest;
 import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRowRequest;
 import com.pipc.dashboard.bhusmapadan.response.BhaniniResponse;
-import com.pipc.dashboard.bhusmapadan.response.PraptraMasterDataResponse;
 import com.pipc.dashboard.establishment.repository.AgendaOfficerEntity;
 import com.pipc.dashboard.establishment.repository.AgendaOfficerRepository;
 import com.pipc.dashboard.establishment.repository.AgendaSecBRepository;
@@ -97,6 +95,7 @@ import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRowRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterSectionRequest;
+import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRow;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
@@ -104,6 +103,7 @@ import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
+import com.pipc.dashboard.establishment.response.MasterDataResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
 import com.pipc.dashboard.service.EstablishmentService;
 import com.pipc.dashboard.utility.ApplicationError;
@@ -2506,9 +2506,9 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 	@Override
 	@Transactional
-	public PraptraMasterDataResponse saveMasterData(PraptraMasterDataRequest request) {
+	public MasterDataResponse saveMasterData(MasterDataRequest request) {
 
-		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		MasterDataResponse response = new MasterDataResponse();
 		ApplicationError error = new ApplicationError();
 
 		final String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
@@ -2600,9 +2600,9 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	}
 
 	@Override
-	public PraptraMasterDataResponse getMasterData(String year) {
+	public MasterDataResponse getMasterData(String year) {
 
-		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		MasterDataResponse response = new MasterDataResponse();
 		ApplicationError error = new ApplicationError();
 		List<Map<String, Object>> list = new ArrayList<>();
 
@@ -2904,9 +2904,9 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 	@Override
 	@Transactional
-	public PraptraMasterDataResponse saveCrFileList(PraptraMasterDataRequest request) {
+	public MasterDataResponse saveCrFileList(MasterDataRequest request) {
 
-		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		MasterDataResponse response = new MasterDataResponse();
 		ApplicationError error = new ApplicationError();
 
 		final String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
@@ -2993,9 +2993,9 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	}
 
 	@Override
-	public PraptraMasterDataResponse getCrFileList(String year) {
+	public MasterDataResponse getCrFileList(String year) {
 
-		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		MasterDataResponse response = new MasterDataResponse();
 		ApplicationError error = new ApplicationError();
 		final String corrId = MDC.get("correlationId");
 
@@ -3127,9 +3127,9 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 	@Transactional
 	@Override
-	public PraptraMasterDataResponse saveCrFileRtrList(PraptraMasterDataRequest request) {
+	public MasterDataResponse saveCrFileRtrList(MasterDataRequest request) {
 
-		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		MasterDataResponse response = new MasterDataResponse();
 		ApplicationError error = new ApplicationError();
 
 		final String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
@@ -3216,9 +3216,9 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	}
 
 	@Override
-	public PraptraMasterDataResponse getCrFileRtrList(String year) {
+	public MasterDataResponse getCrFileRtrList(String year) {
 
-		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		MasterDataResponse response = new MasterDataResponse();
 		ApplicationError error = new ApplicationError();
 		final String corrId = MDC.get("correlationId");
 
@@ -3349,9 +3349,9 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 	@Transactional
 	@Override
-	public PraptraMasterDataResponse saveMahaparRegister(MahaparRegisterRequest request) {
+	public MasterDataResponse saveMahaparRegister(MahaparRegisterRequest request) {
 
-		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		MasterDataResponse response = new MasterDataResponse();
 		ApplicationError error = new ApplicationError();
 
 		final String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
@@ -3464,9 +3464,9 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	}
 
 	@Override
-	public PraptraMasterDataResponse getMahaparRegister(String year) {
+	public MasterDataResponse getMahaparRegister(String year) {
 
-		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		MasterDataResponse response = new MasterDataResponse();
 		ApplicationError error = new ApplicationError();
 		final String corrId = MDC.get("correlationId");
 
@@ -3706,9 +3706,9 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 	@Transactional
 	@Override
-	public PraptraMasterDataResponse saveKaryaratGopniyaAhwal(MahaparRegisterRequest request) {
+	public MasterDataResponse saveKaryaratGopniyaAhwal(MahaparRegisterRequest request) {
 
-		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		MasterDataResponse response = new MasterDataResponse();
 		ApplicationError error = new ApplicationError();
 
 		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
@@ -3865,9 +3865,9 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	}
 
 	@Override
-	public PraptraMasterDataResponse getKaryaratGopniyaAhwal(String year, String type) {
+	public MasterDataResponse getKaryaratGopniyaAhwal(String year, String type) {
 
-		PraptraMasterDataResponse response = new PraptraMasterDataResponse();
+		MasterDataResponse response = new MasterDataResponse();
 		final String corrId = MDC.get("correlationId");
 		final boolean isRetired = "Retired".equalsIgnoreCase(type);
 
@@ -4490,7 +4490,6 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 		XSSFWorkbook wb = new XSSFWorkbook();
 		XSSFSheet sheet = wb.createSheet("Bhanini");
-	
 
 		sheet.setColumnWidth(0, 6000); // Month
 		sheet.setColumnWidth(1, 4500);
@@ -4553,17 +4552,16 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		XSSFCellStyle borderBoldLeft = wb.createCellStyle();
 		borderBoldLeft.cloneStyleFrom(borderLeft);
 		borderBoldLeft.setFont(bold);
-		
+
 		XSSFCellStyle headerStyle = wb.createCellStyle();
 		headerStyle.setAlignment(HorizontalAlignment.CENTER);
 		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-		headerStyle.setWrapText(true);   // 🔴 ये MUST है
+		headerStyle.setWrapText(true); // 🔴 ये MUST है
 		headerStyle.setFont(bold);
 		headerStyle.setBorderBottom(BorderStyle.THIN);
 		headerStyle.setBorderTop(BorderStyle.THIN);
 		headerStyle.setBorderLeft(BorderStyle.THIN);
 		headerStyle.setBorderRight(BorderStyle.THIN);
-
 
 		// Utility
 		BiFunction<Row, Integer, Cell> c = (r, i) -> r.getCell(i) == null ? r.createCell(i) : r.getCell(i);
@@ -4579,7 +4577,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		// ================= ROW 2 =================
 		Row r2 = sheet.createRow(r++);
 		c.apply(r2, 0).setCellValue("सन " + year);
-		c.apply(r2, 7).setCellValue("अअपुपाप्रमं/"+root.get("aaPupram"));
+		c.apply(r2, 7).setCellValue("अअपुपाप्रमं/" + root.get("aaPupram"));
 		sheet.addMergedRegion(new CellRangeAddress(1, 1, 7, 8));
 
 		// ================= ROW 3 =================
@@ -4791,7 +4789,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		Row r29 = sheet.createRow(r++);
 
 		mergeWithBorder(sheet, r29.getRowNum(), r29.getRowNum(), 1, 8);
-		c.apply(r29, 1).setCellValue(employee.get("payScaleAsOn")+ " रोजी असलेली शिल्लक");
+		c.apply(r29, 1).setCellValue(employee.get("payScaleAsOn") + " रोजी असलेली शिल्लक");
 		c.apply(r29, 1).setCellStyle(borderBoldLeft);
 
 		c.apply(r29, 9).setCellFormula("J27-J28");
@@ -4897,14 +4895,6 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				.contentType(
 						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
 				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
-	}
-
-	private void applyBorderToMergedRegion(Sheet sheet, CellRangeAddress region) {
-
-		RegionUtil.setBorderTop(BorderStyle.THIN, region, sheet);
-		RegionUtil.setBorderBottom(BorderStyle.THIN, region, sheet);
-		RegionUtil.setBorderLeft(BorderStyle.THIN, region, sheet);
-		RegionUtil.setBorderRight(BorderStyle.THIN, region, sheet);
 	}
 
 	private void mergeWithBorder(Sheet sheet, int row1, int row2, int col1, int col2) {

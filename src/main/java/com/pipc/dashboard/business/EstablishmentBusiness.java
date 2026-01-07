@@ -5,9 +5,7 @@ import java.io.IOException;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ResponseEntity;
 
-import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRequest;
 import com.pipc.dashboard.bhusmapadan.response.BhaniniResponse;
-import com.pipc.dashboard.bhusmapadan.response.PraptraMasterDataResponse;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
@@ -16,12 +14,14 @@ import com.pipc.dashboard.establishment.request.BhaniniRequest;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
+import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
+import com.pipc.dashboard.establishment.response.MasterDataResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
 
 public interface EstablishmentBusiness {
@@ -65,33 +65,33 @@ public interface EstablishmentBusiness {
 
 	ResponseEntity<InputStreamResource> downloadAppealArj2(String year) throws IOException;
 
-	PraptraMasterDataResponse saveMasterData(PraptraMasterDataRequest request);
+	MasterDataResponse saveMasterData(MasterDataRequest request);
 
-	PraptraMasterDataResponse getMasterData(String year);
+	MasterDataResponse getMasterData(String year);
 
 	ResponseEntity<InputStreamResource> downloadMasterData(String year) throws IOException;
 
-	PraptraMasterDataResponse saveCrFileList(PraptraMasterDataRequest request);
+	MasterDataResponse saveCrFileList(MasterDataRequest request);
 
-	PraptraMasterDataResponse getCrFileList(String year);
+	MasterDataResponse getCrFileList(String year);
 
 	ResponseEntity<InputStreamResource> downloadCrFileList(String year) throws IOException;
 
-	PraptraMasterDataResponse saveCrFileRtrList(PraptraMasterDataRequest request);
+	MasterDataResponse saveCrFileRtrList(MasterDataRequest request);
 
-	PraptraMasterDataResponse getCrFileRtrList(String year);
+	MasterDataResponse getCrFileRtrList(String year);
 
 	ResponseEntity<InputStreamResource> downloadCrFileRtrList(String year) throws IOException;
 
-	PraptraMasterDataResponse getMahaparRegister(String year);
+	MasterDataResponse getMahaparRegister(String year);
 
-	PraptraMasterDataResponse saveMahaparRegister(MahaparRegisterRequest request);
+	MasterDataResponse saveMahaparRegister(MahaparRegisterRequest request);
 
 	ResponseEntity<InputStreamResource> downloadMahaparRegister(String year) throws IOException;
 
-	PraptraMasterDataResponse saveKaryaratGopniyaAhwal(MahaparRegisterRequest request);
+	MasterDataResponse saveKaryaratGopniyaAhwal(MahaparRegisterRequest request);
 
-	PraptraMasterDataResponse getKaryaratGopniyaAhwal(String year, String type);
+	MasterDataResponse getKaryaratGopniyaAhwal(String year, String type);
 
 	ResponseEntity<InputStreamResource> downloadKaryaratGopniyaAhwal(String year, String type) throws IOException;
 

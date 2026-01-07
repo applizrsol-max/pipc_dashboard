@@ -23,7 +23,7 @@ public class Praptra2MasterDataEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-
+	private String projectName;
 	// 🔑 Identification
 	private String year;
 	private Long rowId;

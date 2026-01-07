@@ -2,23 +2,24 @@ package com.pipc.dashboard.business;
 
 import com.pipc.dashboard.bhusmapadan.request.PraptraMasterDataRequest;
 import com.pipc.dashboard.bhusmapadan.response.PraptraMasterDataResponse;
+import com.pipc.dashboard.establishment.response.MasterDataResponse;
 
 public interface BhusampadanBusiness {
 
 	PraptraMasterDataResponse processPraptraMasterData(PraptraMasterDataRequest request);
 
-	PraptraMasterDataResponse getPraptraMasterData(String year);
+	PraptraMasterDataResponse getPraptraMasterData(String year, String projectName);
 
 	PraptraMasterDataResponse savePraptra1MasterData(PraptraMasterDataRequest request);
 
-	PraptraMasterDataResponse getPraptra1MasterData(String year);
+	MasterDataResponse getPraptra1MasterData(String year, String projectName);
 
 	PraptraMasterDataResponse savePraptra2MasterData(PraptraMasterDataRequest request);
 
-	PraptraMasterDataResponse getPraptra2MasterData(String year);
+	MasterDataResponse getPraptra2MasterData(String year, String projectName);
 
 	PraptraMasterDataResponse savePraptra3MasterData(PraptraMasterDataRequest request);
 
-	PraptraMasterDataResponse getPraptra3MasterData(String year);
+	MasterDataResponse getPraptra3MasterData(String year, String projectName);
 
 }

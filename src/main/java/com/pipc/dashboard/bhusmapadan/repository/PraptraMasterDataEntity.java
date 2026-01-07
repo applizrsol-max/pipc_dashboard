@@ -29,6 +29,7 @@ public class PraptraMasterDataEntity {
 	private Long rowId;
 	private Long deleteId;
 
+	private String projectName;
 	@JdbcTypeCode(SqlTypes.JSON)
 	@Column(columnDefinition = "jsonb")
 	private JsonNode data; // contains projectName

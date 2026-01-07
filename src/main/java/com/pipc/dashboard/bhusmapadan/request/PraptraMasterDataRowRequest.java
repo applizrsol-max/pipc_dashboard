@@ -11,5 +11,5 @@ public class PraptraMasterDataRowRequest {
 	private Long deleteId; // long (only for delete)
 	private String flag; // only "D" or blank
 
-	private JsonNode data; // MUST contain projectName
+	private JsonNode data; 
 }
