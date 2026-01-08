@@ -15,6 +15,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
@@ -73,6 +74,8 @@ import com.pipc.dashboard.establishment.repository.EmployeePostingEntity;
 import com.pipc.dashboard.establishment.repository.EmployeePostingRepository;
 import com.pipc.dashboard.establishment.repository.IncomeTaxDeductionEntity;
 import com.pipc.dashboard.establishment.repository.IncomeTaxDeductionRepository;
+import com.pipc.dashboard.establishment.repository.JeReturnEntity;
+import com.pipc.dashboard.establishment.repository.JeReturnRepository;
 import com.pipc.dashboard.establishment.repository.KaryaratGopniyaAhwalEntity;
 import com.pipc.dashboard.establishment.repository.KaryaratGopniyaAhwalRepository;
 import com.pipc.dashboard.establishment.repository.MahaparRegisterEntity;
@@ -92,6 +95,7 @@ import com.pipc.dashboard.establishment.request.AppealWrapper2;
 import com.pipc.dashboard.establishment.request.BhaniniRequest;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
+import com.pipc.dashboard.establishment.request.JeReturnRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRowRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterSectionRequest;
@@ -103,6 +107,7 @@ import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
+import com.pipc.dashboard.establishment.response.JeReturnResponse;
 import com.pipc.dashboard.establishment.response.MasterDataResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
 import com.pipc.dashboard.service.EstablishmentService;
@@ -131,6 +136,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	private final MahaparRegisterRepository mahaparRegisterRepository;
 	private final KaryaratGopniyaAhwalRepository karyaratGopniyaAhwalRepository;
 	private final RtrGopniyaAhwalRepository rtrGopniyaAhwalRepository;
+	private final JeReturnRepository jeReturnRepository;
 	@Autowired
 	private ObjectMapper objectMapper;
 	private final BhaniniRepo bhaniniRepo;
@@ -4940,6 +4946,144 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 			else
 				cell.setCellStyle(center);
 		}
+	}
+
+	@Override
+	@Transactional
+	public JeReturnResponse saveOrUpdateJeReturn(JeReturnRequest req) {
+
+		JeReturnResponse response = new JeReturnResponse();
+		ApplicationError error = new ApplicationError();
+
+		String year = req.getYear();
+		String upAdhikshak = req.getUpAdhikshakAbhiyanta();
+		String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		log.info("JeReturn SAVE START | year={} | divisions={}", year,
+				req.getDivision() != null ? req.getDivision().size() : 0);
+
+		try {
+			for (JeReturnRequest.DivisionDto division : req.getDivision()) {
+
+				String office = division.getKaryalayacheNav();
+				log.debug("Processing division | office={}", office);
+
+				for (JeReturnRequest.RowDto row : division.getRows()) {
+
+					Long rowId = row.getRowId();
+					Long deleteId = row.getDeleteId();
+					String flag = Optional.ofNullable(row.getFlag()).orElse("");
+
+					// ---------------- DELETE ----------------
+					if ("D".equalsIgnoreCase(flag) && deleteId != null) {
+
+						log.info("DELETE requested | year={} | office={} | deleteId={}", year, office, deleteId);
+
+						jeReturnRepository.findByDeleteIdAndYearAndKaryalayacheNav(deleteId, year, office)
+								.ifPresent(jeReturnRepository::delete);
+
+						continue;
+					}
+
+					// ---------------- CREATE / UPDATE ----------------
+					Optional<JeReturnEntity> existingOpt = jeReturnRepository
+							.findByRowIdAndYearAndKaryalayacheNav(rowId, year, office);
+
+					JeReturnEntity entity = existingOpt.orElseGet(JeReturnEntity::new);
+
+					boolean isCreate = (entity.getId() == null);
+
+					entity.setRowId(rowId);
+					entity.setDeleteId(deleteId);
+					entity.setYear(year);
+					entity.setKaryalayacheNav(office);
+					entity.setUpAdhikshakAbhiyanta(upAdhikshak);
+					entity.setData(row.getData());
+
+					if (isCreate) {
+						entity.setFlag("C");
+						entity.setCreatedBy(user);
+						log.debug("CREATE entity | rowId={} | office={}", rowId, office);
+					} else {
+						entity.setFlag("U");
+						log.debug("UPDATE entity | rowId={} | office={}", rowId, office);
+					}
+
+					entity.setUpdatedBy(user);
+					jeReturnRepository.save(entity);
+				}
+			}
+
+			response.setMessage("Success");
+			error.setErrorCode("200");
+			error.setErrorDescription("JE Return saved successfully");
+
+			log.info("JeReturn SAVE SUCCESS | year={}", year);
+
+		} catch (Exception ex) {
+
+			log.error("JeReturn SAVE FAILED | year={} | error={}", year, ex.getMessage(), ex);
+
+			response.setMessage("Failed");
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+		}
+
+		response.setErrorDetails(error);
+		return response;
+	}
+
+	@Override
+	public JeReturnResponse getJeReturnData(String year) {
+
+		JeReturnResponse response = new JeReturnResponse();
+		ApplicationError error = new ApplicationError();
+
+		log.info("JeReturn GET START | year={}", year);
+
+		try {
+			List<JeReturnEntity> list = jeReturnRepository.findByYear(year);
+
+			// ---------- GROUP BY karyalayacheNav ----------
+			Map<String, List<JeReturnEntity>> grouped = list.stream()
+					.sorted(Comparator.comparingLong(JeReturnEntity::getRowId)).collect(Collectors
+							.groupingBy(JeReturnEntity::getKaryalayacheNav, LinkedHashMap::new, Collectors.toList()));
+
+			// ---------- BUILD RESPONSE ----------
+			List<Map<String, Object>> divisions = new ArrayList<>();
+
+			for (Map.Entry<String, List<JeReturnEntity>> entry : grouped.entrySet()) {
+
+				Map<String, Object> div = new LinkedHashMap<>();
+				div.put("karyalayacheNav", entry.getKey());
+				div.put("rows", entry.getValue());
+
+				divisions.add(div);
+			}
+
+			Map<String, Object> finalData = new LinkedHashMap<>();
+			finalData.put("year", year);
+			finalData.put("division", divisions);
+
+			response.setData(finalData);
+			response.setMessage("Success");
+
+			error.setErrorCode("200");
+			error.setErrorDescription("JE Return fetched successfully");
+
+			log.info("JeReturn GET SUCCESS | year={} | divisions={}", year, divisions.size());
+
+		} catch (Exception ex) {
+
+			log.error("JeReturn GET FAILED | year={} | error={}", year, ex.getMessage(), ex);
+
+			response.setMessage("Failed");
+			error.setErrorCode("500");
+			error.setErrorDescription(ex.getMessage());
+		}
+
+		response.setErrorDetails(error);
+		return response;
 	}
 
 }

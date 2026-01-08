@@ -16,6 +16,7 @@ import com.pipc.dashboard.establishment.request.AppealWrapper2;
 import com.pipc.dashboard.establishment.request.BhaniniRequest;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
+import com.pipc.dashboard.establishment.request.JeReturnRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
 import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
@@ -24,6 +25,7 @@ import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
+import com.pipc.dashboard.establishment.response.JeReturnResponse;
 import com.pipc.dashboard.establishment.response.MasterDataResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
 import com.pipc.dashboard.service.EstablishmentService;
@@ -221,7 +223,17 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	@Override
 	public ResponseEntity<InputStreamResource> downloadBhaniniData(String year, String employeeName)
 			throws IOException {
-		return establishmentService.downloadBhaniniData(year,employeeName);
+		return establishmentService.downloadBhaniniData(year, employeeName);
+	}
+
+	@Override
+	public JeReturnResponse saveOrUpdateJeReturn(JeReturnRequest request) {
+		return establishmentService.saveOrUpdateJeReturn(request);
+	}
+
+	@Override
+	public JeReturnResponse getJeReturnData(String year) {
+		return establishmentService.getJeReturnData(year);
 	}
 
 }

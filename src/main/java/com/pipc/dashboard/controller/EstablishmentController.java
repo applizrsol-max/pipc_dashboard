@@ -21,6 +21,7 @@ import com.pipc.dashboard.establishment.request.AppealWrapper2;
 import com.pipc.dashboard.establishment.request.BhaniniRequest;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
+import com.pipc.dashboard.establishment.request.JeReturnRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
 import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
@@ -29,6 +30,7 @@ import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
+import com.pipc.dashboard.establishment.response.JeReturnResponse;
 import com.pipc.dashboard.establishment.response.MasterDataResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
 
@@ -328,12 +330,26 @@ public class EstablishmentController {
 		log.info("FETCH getBhaniniData | year={} | employeeName={}", year, employeeName);
 		return establishmentBusiness.getBhaniniData(employeeName, year);
 	}
-	
+
 	@GetMapping("/downloadBhaniniData")
 	public ResponseEntity<InputStreamResource> downloadBhaniniData(@RequestParam String year,
 			@RequestParam String employeeName) throws IOException {
 
 		log.info("DOWNLOAD downloadBhaniniData | year={} | employeeName={}", year, employeeName);
 		return establishmentBusiness.downloadBhaniniData(year, employeeName);
+	}
+
+	@PostMapping("/saveOrUpdateJeReturn")
+	public JeReturnResponse saveOrUpdateJeReturn(@RequestBody JeReturnRequest request) {
+
+		log.info("START saveOrUpdateBhaniniData | year={}", request.getYear());
+		return establishmentBusiness.saveOrUpdateJeReturn(request);
+	}
+
+	@GetMapping("/getJeReturnData")
+	public JeReturnResponse getJeReturnData(@RequestParam String year) {
+
+		log.info("FETCH getJeReturnData | year={} ", year);
+		return establishmentBusiness.getJeReturnData(year);
 	}
 }
