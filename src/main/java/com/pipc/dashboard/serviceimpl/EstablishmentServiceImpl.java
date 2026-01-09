@@ -14,7 +14,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -4484,422 +4483,192 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	@Override
 	public ResponseEntity<InputStreamResource> downloadBhaniniData(String year, String employeeName)
 			throws IOException {
-		Optional<BhaniniEntity> entityOpt = bhaniniRepo.findByEmployeeNameAndYear(employeeName, year);
 
-		ObjectMapper mapper = new ObjectMapper();
-		JsonNode root = entityOpt.get().getData();
-
-		JsonNode employee = root.get("employee");
-		JsonNode previous = root.get("previousYearPending");
-		JsonNode khata = root.get("khatyavarJamaRakam");
-		JsonNode months = root.get("monthlyDetails");
+		List<JeReturnEntity> list = jeReturnRepository.findByYear(year);
 
 		XSSFWorkbook wb = new XSSFWorkbook();
-		XSSFSheet sheet = wb.createSheet("Bhanini");
+		XSSFSheet sh = wb.createSheet("JE Return");
 
-		sheet.setColumnWidth(0, 6000); // Month
-		sheet.setColumnWidth(1, 4500);
-		sheet.setColumnWidth(2, 3000);
-		sheet.setColumnWidth(3, 4500);
-		sheet.setColumnWidth(4, 3000);
-		sheet.setColumnWidth(5, 4500);
-		sheet.setColumnWidth(6, 3000);
-		sheet.setColumnWidth(7, 4500);
-		sheet.setColumnWidth(8, 3000);
-		sheet.setColumnWidth(9, 7000); // Interest calculation
-		sheet.setColumnWidth(10, 3000);
-		sheet.setColumnWidth(11, 8000); // Shera / Arrears
+		// ---------------- FONTS ----------------
+		Font normal10 = wb.createFont();
+		normal10.setFontHeightInPoints((short) 10);
 
-		// ================= STYLES =================
-		XSSFFont bold = wb.createFont();
-		bold.setBold(true);
-		XSSFFont normal = wb.createFont();
+		Font bold10 = wb.createFont();
+		bold10.setBold(true);
+		bold10.setFontHeightInPoints((short) 10);
 
-		XSSFCellStyle centerBold = wb.createCellStyle();
-		centerBold.setFont(bold);
-		centerBold.setAlignment(HorizontalAlignment.CENTER);
-		centerBold.setVerticalAlignment(VerticalAlignment.CENTER);
+		// ---------------- STYLES ----------------
+		CellStyle center = style(wb, normal10);
+		CellStyle boldCenter = style(wb, bold10);
 
-		XSSFCellStyle leftBold = wb.createCellStyle();
-		leftBold.setFont(bold);
-		leftBold.setAlignment(HorizontalAlignment.LEFT);
+		CellStyle numberBold = style(wb, bold10);
 
-		XSSFCellStyle center = wb.createCellStyle();
-		center.setAlignment(HorizontalAlignment.CENTER);
+		CellStyle left = style(wb, normal10);
+		left.setAlignment(HorizontalAlignment.LEFT);
 
-		XSSFCellStyle border = wb.createCellStyle();
-		border.setBorderBottom(BorderStyle.THIN);
-		border.setBorderTop(BorderStyle.THIN);
-		border.setBorderLeft(BorderStyle.THIN);
-		border.setBorderRight(BorderStyle.THIN);
+		CellStyle footerRight = wb.createCellStyle();
+		footerRight.setAlignment(HorizontalAlignment.RIGHT);
+		footerRight.setFont(bold10);
 
-		// ---------- BORDERED STYLES ----------
-		XSSFCellStyle borderCenter = wb.createCellStyle();
-		borderCenter.setBorderBottom(BorderStyle.THIN);
-		borderCenter.setBorderTop(BorderStyle.THIN);
-		borderCenter.setBorderLeft(BorderStyle.THIN);
-		borderCenter.setBorderRight(BorderStyle.THIN);
-		borderCenter.setAlignment(HorizontalAlignment.CENTER);
-		borderCenter.setVerticalAlignment(VerticalAlignment.CENTER);
+		int rowIdx = 0;
 
-		XSSFCellStyle borderLeft = wb.createCellStyle();
-		borderLeft.cloneStyleFrom(borderCenter);
-		borderLeft.setAlignment(HorizontalAlignment.LEFT);
+		// =====================================================
+		// 1) TITLE ROW
+		// =====================================================
+		String title = "(संघटन तक्ता) कनिष्ठ अभियंता / शाखा अभियंता / सहाय्यक अभियंता श्रेणी-2 "
+				+ "या संवर्गातील कार्यालय व कर्मचारी यांची नावानिशी माहिती. ऑगस्ट " + year;
 
-		XSSFCellStyle borderBold = wb.createCellStyle();
-		borderBold.cloneStyleFrom(borderCenter);
-		borderBold.setFont(bold);
-		// -------- CENTER TEXT (NO BORDER) --------
-		XSSFCellStyle centerText = wb.createCellStyle();
-		centerText.setAlignment(HorizontalAlignment.CENTER);
-		centerText.setVerticalAlignment(VerticalAlignment.CENTER);
-		centerText.setFont(normal); // या boldFont अगर signature bold चाहिए
+		rowIdx = merge(sh, rowIdx, title, boldCenter, 17);
 
-		XSSFCellStyle borderBoldLeft = wb.createCellStyle();
-		borderBoldLeft.cloneStyleFrom(borderLeft);
-		borderBoldLeft.setFont(bold);
+		// =====================================================
+		// 2) HEADER ROW 2
+		// =====================================================
+		Row h1 = sh.createRow(rowIdx++);
 
-		XSSFCellStyle headerStyle = wb.createCellStyle();
-		headerStyle.setAlignment(HorizontalAlignment.CENTER);
-		headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-		headerStyle.setWrapText(true); // 🔴 ये MUST है
-		headerStyle.setFont(bold);
-		headerStyle.setBorderBottom(BorderStyle.THIN);
-		headerStyle.setBorderTop(BorderStyle.THIN);
-		headerStyle.setBorderLeft(BorderStyle.THIN);
-		headerStyle.setBorderRight(BorderStyle.THIN);
+		String[] h1Vals = { "अ.क्र.", "कार्यालयाचे नाव", "मंजूर पदे", "", "", "कार्यरत पदे", "", "", "रिक्त पदे", "",
+				"", "अभियंता यांची नावे", "", "", "", "", "", "" };
 
-		// Utility
-		BiFunction<Row, Integer, Cell> c = (r, i) -> r.getCell(i) == null ? r.createCell(i) : r.getCell(i);
-
-		int r = 0;
-
-		// ================= ROW 1 =================
-		Row r1 = sheet.createRow(r++);
-		c.apply(r1, 0).setCellValue("चतुर्थश्रेणी कर्मचारी सर्वसाधारण भविष्यनिर्वाह निधी लेखा - नमुना एक");
-		c.apply(r1, 0).setCellStyle(centerBold);
-		sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 11));
-
-		// ================= ROW 2 =================
-		Row r2 = sheet.createRow(r++);
-		c.apply(r2, 0).setCellValue("सन " + year);
-		c.apply(r2, 7).setCellValue("अअपुपाप्रमं/" + root.get("aaPupram"));
-		sheet.addMergedRegion(new CellRangeAddress(1, 1, 7, 8));
-
-		// ================= ROW 3 =================
-		Row r3 = sheet.createRow(r++);
-		c.apply(r3, 0).setCellValue("नांव " + employee.get("name").asText());
-		c.apply(r3, 6).setCellValue("अधिकृत पदनाम : " + employee.get("designation").asText());
-		sheet.addMergedRegion(new CellRangeAddress(2, 2, 6, 8));
-
-		// ================= ROW 4 HEADER =================
-		Row h1 = sheet.createRow(r++);
-		h1.setHeightInPoints(42);
-		c.apply(h1, 0).setCellValue("मागील वर्षाच्या 31 मार्चचे वेतन");
-		c.apply(h1, 0).setCellStyle(headerStyle);
-		sheet.addMergedRegion(new CellRangeAddress(3, 3, 1, 2));
-		c.apply(h1, 1).setCellValue("पूर्ण रुपया मधील वर्गणी");
-
-		sheet.addMergedRegion(new CellRangeAddress(3, 3, 3, 4));
-		c.apply(h1, 3).setCellValue("काढलेल्या रकमांची परतफेड");
-
-		sheet.addMergedRegion(new CellRangeAddress(3, 3, 5, 6));
-		c.apply(h1, 5).setCellValue("एकूण");
-
-		sheet.addMergedRegion(new CellRangeAddress(3, 3, 7, 8));
-		c.apply(h1, 7).setCellValue("काढलेल्या रक्कमा");
-
-		sheet.addMergedRegion(new CellRangeAddress(3, 3, 9, 10));
-		c.apply(h1, 9).setCellValue("ज्यावरील व्याजाची गणना होते अशी मासिक शिल्लक");
-		c.apply(h1, 9).setCellStyle(headerStyle);
-
-		c.apply(h1, 11).setCellValue("शेरा Arrears");
-		c.apply(h1, 11).setCellStyle(headerStyle);
-
-		// ================= ROW 5 SUB HEADER =================
-		Row h2 = sheet.createRow(r++);
-		c.apply(h2, 0).setCellValue(year);
-		c.apply(h2, 1).setCellValue("रु.");
-		c.apply(h2, 2).setCellValue("पै.");
-		c.apply(h2, 3).setCellValue("रु.");
-		c.apply(h2, 4).setCellValue("पै.");
-		c.apply(h2, 5).setCellValue("रु.");
-		c.apply(h2, 6).setCellValue("पै.");
-		c.apply(h2, 7).setCellValue("रु.");
-		c.apply(h2, 8).setCellValue("पै.");
-		c.apply(h2, 9).setCellValue("रु.");
-		c.apply(h2, 10).setCellValue("पै.");
-		for (int i = 0; i <= 11; i++) {
-			c.apply(h1, i).setCellStyle(borderBold);
-			c.apply(h2, i).setCellStyle(borderBold);
+		for (int i = 0; i < h1Vals.length; i++) {
+			put(h1, i, h1Vals[i], boldCenter);
 		}
-		// ================= MONTH DATA =================
-		int startMonthRow = r;
-		for (JsonNode m : months) {
-			Row dr = sheet.createRow(r++);
-			c.apply(dr, 0).setCellValue(m.get("month").asText());
-			c.apply(dr, 1).setCellValue(m.get("purnaRupyaMadhilVargni").asDouble());
-			c.apply(dr, 3).setCellValue(m.get("kadhlelyaRakmanchiParatFed").asDouble());
-			c.apply(dr, 5).setCellValue(m.get("ekun").asDouble());
-			c.apply(dr, 7).setCellValue(m.get("kadhlelyaRakam").asDouble());
-			c.apply(dr, 11).setCellValue(m.get("sheraOrArrears").asText());
-			for (int i = 0; i <= 11; i++) {
-				if (i == 0 || i == 11) {
-					c.apply(dr, i).setCellStyle(borderLeft); // month / shera
-				} else {
-					c.apply(dr, i).setCellStyle(borderCenter);
+
+		sh.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h1.getRowNum(), 2, 4));
+		sh.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h1.getRowNum(), 5, 7));
+		sh.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h1.getRowNum(), 8, 10));
+		sh.addMergedRegion(new CellRangeAddress(h1.getRowNum(), h1.getRowNum(), 11, 17));
+
+		// =====================================================
+		// 3) HEADER ROW 3
+		// =====================================================
+		Row h2 = sh.createRow(rowIdx++);
+
+		String[] h2Vals = { "", "", "क.अ./ शा.अ", "स.अ.श्रे-2", "एकूण", "क.अ./ शा.अ", "स.अ.श्रे-2", "एकूण",
+				"क.अ./ शा.अ", "स.अ.श्रे-2", "एकूण", "", "", "", "", "", "" };
+
+		for (int i = 0; i < h2Vals.length; i++) {
+			put(h2, i, h2Vals[i], boldCenter);
+		}
+
+		// =====================================================
+		// DATA
+		// =====================================================
+		int startDataRow = rowIdx;
+
+		int sumC = 0, sumD = 0, sumE = 0;
+		int sumF = 0, sumG = 0, sumH = 0;
+		int sumI = 0, sumJ = 0, sumK = 0;
+
+		for (JeReturnEntity e : list) {
+
+			JsonNode d = e.getData();
+
+			int c = d.path("manjurPad").path("kanishthaAbhiyanta").asInt();
+			int d1 = d.path("manjurPad").path("shakhaAbhiyanta").asInt();
+			int eTot = c + d1;
+
+			int f = d.path("karyaratPad").path("kanishthaAbhiyanta").asInt();
+			int g = d.path("karyaratPad").path("shakhaAbhiyanta").asInt();
+			int hTot = f + g;
+
+			int i = d.path("riktaPad").path("kanishthaAbhiyanta").asInt();
+			int j = d.path("riktaPad").path("shakhaAbhiyanta").asInt();
+			int kTot = i + j;
+
+			sumC += c;
+			sumD += d1;
+			sumE += eTot;
+			sumF += f;
+			sumG += g;
+			sumH += hTot;
+			sumI += i;
+			sumJ += j;
+			sumK += kTot;
+
+			Row r = sh.createRow(rowIdx++);
+
+			put(r, 0, e.getRowId(), center);
+			put(r, 1, e.getKaryalayacheNav(), left);
+
+			put(r, 2, c, numberBold);
+			put(r, 3, d1, numberBold);
+			put(r, 4, eTot, numberBold);
+
+			put(r, 5, f, numberBold);
+			put(r, 6, g, numberBold);
+			put(r, 7, hTot, numberBold);
+
+			put(r, 8, i, numberBold);
+			put(r, 9, j, numberBold);
+			put(r, 10, kTot, numberBold);
+
+			// Engineers
+			JsonNode sec = d.get("abhiyantaYanchiYadi");
+			int col = 11;
+			for (JsonNode s : sec) {
+				StringBuilder sb = new StringBuilder();
+				sb.append(s.get("section").asText()).append("\n");
+				for (JsonNode en : s.get("engineers")) {
+					sb.append(en.asText()).append("\n");
 				}
-			}
-
-		}
-
-		int endMonthRow = r - 1;
-
-		// ================= J COLUMN RUNNING BALANCE =================
-		// Excel rows: startMonthRow+1 = Row 6, endMonthRow+1 = Row 19
-		// Columns: F = 5, H = 7, J = 9
-
-		double pasunchiShillak = previous.get("pasunchiShillak").asDouble();
-
-		// ---- J6 = pasunchiShillak + F6 ----
-		Row firstMonthRow = sheet.getRow(startMonthRow);
-		Cell jFirst = c.apply(firstMonthRow, 9);
-		jFirst.setCellFormula(pasunchiShillak + "+F" + (startMonthRow + 1));
-		jFirst.setCellStyle(borderCenter);
-
-		// ---- J7 to J19 : J(n) = J(n-1) + F(n) - H(n) ----
-		for (int excelRow = startMonthRow + 2; excelRow <= endMonthRow + 1; excelRow++) {
-
-			Row rr = sheet.getRow(excelRow - 1);
-			Cell jCell = c.apply(rr, 9);
-
-			jCell.setCellFormula("J" + (excelRow - 1) + "+F" + excelRow + "-H" + excelRow);
-			jCell.setCellStyle(borderCenter);
-		}
-
-		// ================= TOTAL ROW =================
-		Row total = sheet.createRow(r++);
-		c.apply(total, 0).setCellValue("एकूण रू.");
-		c.apply(total, 1).setCellFormula("SUM(B" + (startMonthRow + 1) + ":B" + (endMonthRow + 1) + ")");
-		c.apply(total, 3).setCellFormula("SUM(D" + (startMonthRow + 1) + ":D" + (endMonthRow + 1) + ")");
-		c.apply(total, 5).setCellFormula("SUM(F" + (startMonthRow + 1) + ":F" + (endMonthRow + 1) + ")");
-		c.apply(total, 7).setCellFormula("SUM(H" + (startMonthRow + 1) + ":H" + (endMonthRow + 1) + ")");
-
-		// ---- J20 = SUM(J6:J19) ----
-		Row totalRowRef = sheet.getRow(endMonthRow + 1); // this will be TOTAL row
-		Cell jTotal = c.apply(totalRowRef, 9);
-		jTotal.setCellFormula("SUM(J" + (startMonthRow + 1) + ":J" + (endMonthRow + 1) + ")");
-		jTotal.setCellStyle(borderBold);
-		// ================= PREVIOUS YEAR BLOCK =================
-		Row py1 = sheet.createRow(r++);
-		sheet.addMergedRegion(new CellRangeAddress(py1.getRowNum(), py1.getRowNum(), 1, 8));
-		c.apply(py1, 1).setCellValue(year + " पासूनची शिल्लक");
-		c.apply(py1, 9).setCellValue(previous.get("pasunchiShillak").asDouble());
-
-		Row py2 = sheet.createRow(r++);
-		sheet.addMergedRegion(new CellRangeAddress(py2.getRowNum(), py2.getRowNum(), 1, 8));
-		c.apply(py2, 1).setCellValue("वरीलप्रमाणे ठेवी व परतफेडीच्या रक्कमा");
-		c.apply(py2, 9).setCellValue(previous.get("varilPramaneThevi").asDouble());
-
-		Row py3 = sheet.createRow(r++);
-		sheet.addMergedRegion(new CellRangeAddress(py3.getRowNum(), py3.getRowNum(), 1, 8));
-		c.apply(py3, 1).setCellValue(year + " व्याज");
-		c.apply(py3, 9).setCellValue(previous.get("vyaj").asDouble());
-
-		Row py4 = sheet.createRow(r++);
-		sheet.addMergedRegion(new CellRangeAddress(py4.getRowNum(), py4.getRowNum(), 1, 8));
-		c.apply(py4, 1).setCellValue("सातवा वेतन आयोगाच्या फरकाची चौथ्या  हप्त्याची फरकाची व्याजासह जमा रक्कम");
-		c.apply(py4, 9).setCellValue(previous.get("sattvaVetanAyogyaFarkachi").asDouble());
-
-		// ================= GRAND TOTAL =================
-		Row gt = sheet.createRow(r++);
-		c.apply(gt, 8).setCellValue("एकूण");
-		c.apply(gt, 9).setCellFormula("J" + (py1.getRowNum() + 1) + "+J" + (py2.getRowNum() + 1) + "+J"
-				+ (py3.getRowNum() + 1) + "+J" + (py4.getRowNum() + 1));
-		for (int i = 0; i <= 11; i++) {
-			c.apply(gt, i).setCellStyle(borderBold);
-		}
-		// TOTAL ROW (Row 20)
-		for (int i = 0; i <= 11; i++) {
-			if (i == 0) {
-				c.apply(total, i).setCellStyle(borderBoldLeft);
-			} else {
-				c.apply(total, i).setCellStyle(borderBold);
+				put(r, col++, sb.toString(), left);
 			}
 		}
 
-		for (Row rr : List.of(py1, py2, py3, py4)) {
-			for (int i = 0; i <= 11; i++) {
-				if (i <= 8) {
-					c.apply(rr, i).setCellStyle(borderBoldLeft);
-				} else {
-					c.apply(rr, i).setCellStyle(borderCenter);
-				}
-			}
-		}
+		// =====================================================
+		// TOTAL ROW
+		// =====================================================
+		Row tr = sh.createRow(rowIdx++);
 
-		// ================= ROW 26 =================
-		Row r26 = sheet.createRow(r++);
+		sh.addMergedRegion(new CellRangeAddress(tr.getRowNum(), tr.getRowNum(), 0, 1));
+		put(tr, 0, "एकुण", boldCenter);
 
-		c.apply(r26, 0).setCellValue("नोंदवणारा");
-		c.apply(r26, 0).setCellStyle(borderBoldLeft);
+		put(tr, 2, sumC, numberBold);
+		put(tr, 3, sumD, numberBold);
+		put(tr, 4, sumE, numberBold);
 
-		mergeWithBorder(sheet, r26.getRowNum(), r26.getRowNum(), 4, 8);
-		c.apply(r26, 4).setCellValue("सातव्या वेतन आयोगाच्या फरकाची चौथ्या हप्त्याची व्याजासह वजा रक्कम");
-		c.apply(r26, 4).setCellStyle(borderLeft);
+		put(tr, 5, sumF, numberBold);
+		put(tr, 6, sumG, numberBold);
+		put(tr, 7, sumH, numberBold);
 
-		c.apply(r26, 9).setCellValue("------>");
-		c.apply(r26, 9).setCellStyle(borderCenter);
+		put(tr, 8, sumI, numberBold);
+		put(tr, 9, sumJ, numberBold);
+		put(tr, 10, sumK, numberBold);
 
-		mergeWithBorder(sheet, r26.getRowNum(), r26.getRowNum(), 10, 11);
-		c.apply(r26, 10).setCellValue(previous.get("sattvaVetanAyogyaFarkachi").asDouble());
-		c.apply(r26, 10).setCellStyle(borderCenter);
+		// =====================================================
+		// FOOTER
+		// =====================================================
+		rowIdx += 2;
 
-		applyRowBorder(r26, 11, borderBoldLeft, borderCenter);
+		Row f1 = sh.createRow(rowIdx++);
+		sh.addMergedRegion(new CellRangeAddress(f1.getRowNum(), f1.getRowNum(), 5, 7));
+		put(f1, 5, "स्थळ प्रत अ.अ.यांना मान्य असे.", center);
 
-		// ================= ROW 27 =================
-		// ================= ROW 27 =================
-		Row r27 = sheet.createRow(r++);
+		String sign = list.get(0).getUpAdhikshakAbhiyanta();
 
-		// A col
-		c.apply(r27, 0).setCellValue("पडताळणारा");
-		c.apply(r27, 0).setCellStyle(borderBoldLeft);
+		Row f2 = sh.createRow(rowIdx++);
+		put(f2, 16, "(" + sign + ")", footerRight);
 
-		// B–I merged blank
-		mergeWithBorder(sheet, r27.getRowNum(), r27.getRowNum(), 1, 8);
+		Row f3 = sh.createRow(rowIdx++);
+		put(f3, 16, "उपअधीक्षक अभियंता", footerRight);
 
-		// ✅ J27 = SAME EKUN (933391)
-		c.apply(r27, 9).setCellFormula("J21+J22+J23+J24");
-		c.apply(r27, 9).setCellStyle(borderBold);
+		Row f4 = sh.createRow(rowIdx++);
+		put(f4, 16, "पुणे पाटबंधारे प्रकल्प मंडळ", footerRight);
 
-		// L col = padtalnara (DB)
-		c.apply(r27, 11).setCellValue(previous.get("padtalnara").asDouble());
-		c.apply(r27, 11).setCellStyle(borderCenter);
+		Row f5 = sh.createRow(rowIdx++);
+		put(f5, 16, "पुणे 01", footerRight);
 
-		// ================= ROW 28 =================
-		Row r28 = sheet.createRow(r++);
+		// autosize
+		for (int i = 0; i < 18; i++)
+			sh.autoSizeColumn(i);
 
-		c.apply(r28, 0).setCellValue("तपासणारा");
-		c.apply(r28, 0).setCellStyle(borderBoldLeft);
-
-		mergeWithBorder(sheet, r28.getRowNum(), r28.getRowNum(), 1, 8);
-		c.apply(r28, 1).setCellValue("वजा वरील प्रमाणे काढलेल्या रकमा");
-		c.apply(r28, 1).setCellStyle(borderLeft);
-
-		c.apply(r28, 9).setCellFormula("H20");
-		c.apply(r28, 9).setCellStyle(borderCenter);
-
-		applyRowBorder(r28, 11, borderBoldLeft, borderCenter);
-
-		// ================= ROW 29 =================
-		Row r29 = sheet.createRow(r++);
-
-		mergeWithBorder(sheet, r29.getRowNum(), r29.getRowNum(), 1, 8);
-		c.apply(r29, 1).setCellValue(employee.get("payScaleAsOn") + " रोजी असलेली शिल्लक");
-		c.apply(r29, 1).setCellStyle(borderBoldLeft);
-
-		c.apply(r29, 9).setCellFormula("J27-J28");
-		c.apply(r29, 9).setCellStyle(borderCenter);
-
-		c.apply(r29, 11).setCellFormula("L27-" + previous.get("sattvaVetanAyogyaFarkachi").asDouble());
-		c.apply(r29, 11).setCellStyle(borderCenter);
-
-		applyRowBorder(r29, 11, borderBoldLeft, borderCenter);
-
-		r += 2;
-		// ================= FOOTER (NO BORDER) =================
-
-		Row f32 = sheet.createRow(r++);
-		sheet.addMergedRegion(new CellRangeAddress(f32.getRowNum(), f32.getRowNum(), 9, 11));
-		c.apply(f32, 9).setCellValue("उप अधीक्षक अभियंता,");
-		c.apply(f32, 9).setCellStyle(centerText); // ❌ no border style
-
-		Row f33 = sheet.createRow(r++);
-		sheet.addMergedRegion(new CellRangeAddress(f33.getRowNum(), f33.getRowNum(), 9, 11));
-		c.apply(f33, 9).setCellValue("पुणे पाटबंधारे प्रकल्प मंडळ,");
-		c.apply(f33, 9).setCellStyle(centerText);
-
-		Row f34 = sheet.createRow(r++);
-		sheet.addMergedRegion(new CellRangeAddress(f34.getRowNum(), f34.getRowNum(), 9, 11));
-		c.apply(f34, 9).setCellValue("पुणे");
-		c.apply(f34, 9).setCellStyle(centerText);
-
-		r++; // spacer
-
-		// ================= ROW 36 HEADER =================
-		// ================= ROW 36 HEADER =================
-		Row h36 = sheet.createRow(r++);
-
-		// B–D merged
-		mergeWithBorderForBhanini(sheet, h36.getRowNum(), h36.getRowNum(), 1, 3, borderBold);
-		c.apply(h36, 1).setCellValue("मागील हप्ता शिल्लक");
-
-		// E–F merged
-		mergeWithBorderForBhanini(sheet, h36.getRowNum(), h36.getRowNum(), 4, 5, borderBold);
-		c.apply(h36, 4).setCellValue("पाचवा हप्ता जमा");
-
-		// G–I merged
-		mergeWithBorderForBhanini(sheet, h36.getRowNum(), h36.getRowNum(), 6, 8, borderBold);
-		c.apply(h36, 6).setCellValue("पाचवा हप्ता 7/2023 पासून व्याज");
-
-		// A, J, K, L columns – normal border
-		for (int i : new int[] { 0, 9, 10, 11 }) {
-			c.apply(h36, i).setCellStyle(borderBold);
-		}
-
-		Row r37 = sheet.createRow(r++);
-
-		c.apply(r37, 0).setCellValue("खात्यावर जमा रक्कम");
-		c.apply(r37, 0).setCellStyle(borderLeft);
-
-		// B col = L29
-		c.apply(r37, 1).setCellFormula("L29");
-
-		// F col
-		c.apply(r37, 5).setCellValue(khata.get("panchwaHaftaJama").asDouble());
-
-		// H col
-		c.apply(r37, 7).setCellValue(khata.get("panchwaHaftaJuly2023PasunVyaj").asDouble());
-		applyRowBorder(r37, 11, borderLeft, borderCenter);
-		// Row 38
-		Row r38 = sheet.createRow(r++);
-		c.apply(r38, 5).setCellFormula("F37*7.1%");
-		c.apply(r38, 7).setCellFormula("H37*7.1%");
-		applyRowBorder(r38, 11, borderLeft, borderCenter);
-		// Row 39
-		Row r39 = sheet.createRow(r++);
-		c.apply(r39, 5).setCellFormula("F38*12");
-		c.apply(r39, 7).setCellFormula("H38*12");
-		applyRowBorder(r39, 11, borderLeft, borderCenter);
-		// Row 40
-		Row r40 = sheet.createRow(r++);
-		c.apply(r40, 5).setCellFormula("F39/12");
-		c.apply(r40, 7).setCellFormula("H39/12");
-		applyRowBorder(r40, 11, borderLeft, borderCenter);
-		// Row 41
-		Row r41 = sheet.createRow(r++);
-		c.apply(r41, 5).setCellFormula("F40/12");
-		c.apply(r41, 7).setCellFormula("H40/12");
-		applyRowBorder(r41, 11, borderLeft, borderCenter);
-		// Row 42
-		Row r42 = sheet.createRow(r++);
-		c.apply(r42, 5).setCellFormula("F41*9");
-		c.apply(r42, 7).setCellFormula("H41*13");
-		applyRowBorder(r42, 11, borderLeft, borderCenter);
-		// Row 43
-		Row r43 = sheet.createRow(r++);
-		c.apply(r43, 5).setCellFormula("D42+F42");
-		c.apply(r43, 7).setCellFormula("F43+H42");
-		applyRowBorder(r43, 11, borderLeft, borderCenter);
-
-		// ================= WRITE =================
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		wb.write(out);
 		wb.close();
 
-		return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Bhanini.xlsx\"")
-				.contentType(
-						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+		HttpHeaders hds = new HttpHeaders();
+		hds.add("Content-Disposition", "attachment; filename=je-return.xlsx");
+
+		return ResponseEntity.ok().headers(hds).contentType(MediaType.APPLICATION_OCTET_STREAM)
 				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
 	}
 
@@ -5084,6 +4853,338 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 		response.setErrorDetails(error);
 		return response;
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadJeReturnData(String year) throws IOException {
+
+		List<JeReturnEntity> list = jeReturnRepository.findByYearOrderByRowIdAsc(year);
+		if (list.isEmpty())
+			throw new RuntimeException("No data found");
+		String footerName = Optional.ofNullable(list.get(0).getUpAdhikshakAbhiyanta()).orElse("");
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet("JE Return");
+		sheet.setZoom(85);
+
+		// ================= FONTS =================
+		Font normal = wb.createFont();
+		normal.setFontHeightInPoints((short) 10);
+
+		Font bold = wb.createFont();
+		bold.setFontHeightInPoints((short) 10);
+		bold.setBold(true);
+
+		Font titleFont = wb.createFont();
+		titleFont.setBold(true);
+		titleFont.setFontHeightInPoints((short) 12);
+
+		// ================= STYLES =================
+		CellStyle border = style(wb, normal);
+		CellStyle borderBold = style(wb, bold);
+
+		CellStyle titleStyle = wb.createCellStyle();
+		titleStyle.setAlignment(HorizontalAlignment.CENTER);
+		titleStyle.setFont(titleFont);
+		titleStyle.setIndention((short) 2); // left padding
+		titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		CellStyle footerStyle = wb.createCellStyle();
+		footerStyle.setAlignment(HorizontalAlignment.CENTER);
+		footerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		footerStyle.setFont(bold);
+		footerStyle.setWrapText(true);
+
+		int r = 0;
+
+		// ================= TITLE =================
+		r = merge(sheet, r, "   (संघटन तक्ता) कनिष्ठ अभियंता / शाखा अभियंता / सहाय्यक अभियंता श्रेणी-2 "
+				+ "या संवर्गातील कार्यालय व कर्मचारी यांची नावानिशी माहिती.  ऑगस्ट " + year, titleStyle, 17);
+
+		// increase row height for padding effect
+		sheet.getRow(r - 1).setHeightInPoints(35);
+
+		// ================= HEADERS =================
+		Row h1 = sheet.createRow(r++);
+		Row h2 = sheet.createRow(r++);
+
+		String[] main = { "अ.क्र.", "कार्यालयाचे नाव", "मंजूर पदे", "", "", "कार्यरत पदे", "", "", "रिक्त पदे", "", "",
+				"अभियंता यांची नावे", "अभियंता यांची नावे", "अभियंता यांची नावे", "अभियंता यांची नावे",
+				"अभियंता यांची नावे", "अभियंता यांची नावे", "अभियंता यांची नावे" };
+
+		String[] sub = { "", "", "क.अ./ शा.अ", "स.अ.श्रे-2", "एकूण", "क.अ./ शा.अ", "स.अ.श्रे-2", "एकूण", "क.अ./ शा.अ",
+				"स.अ.श्रे-2", "एकूण" };
+
+		// merges
+		mergeCol(sheet, h1, h2, 0);
+		mergeCol(sheet, h1, h2, 1);
+
+		mergeCol(sheet, h1.getRowNum(), h1.getRowNum(), 2, 4);
+		mergeCol(sheet, h1.getRowNum(), h1.getRowNum(), 5, 7);
+		mergeCol(sheet, h1.getRowNum(), h1.getRowNum(), 8, 10);
+
+		for (int i = 11; i <= 17; i++)
+			mergeCol(sheet, h1, h2, i);
+
+		// fill headers
+		for (int i = 0; i < main.length; i++)
+			set(h1, i, main[i], borderBold);
+
+		for (int i = 0; i < sub.length; i++)
+			set(h2, i, sub[i], borderBold);
+
+		// ================= DATA =================
+
+		int sumC = 0, sumD = 0, sumE = 0;
+		int sumF = 0, sumG = 0, sumH = 0;
+		int sumI = 0, sumJ = 0, sumK = 0;
+
+		for (JeReturnEntity e : list) {
+
+			JsonNode d = e.getData();
+
+			int c = safeInt(d, "manjurPad", "kanishthaAbhiyanta");
+			int d1 = safeInt(d, "manjurPad", "shakhaAbhiyanta");
+
+			int f = safeInt(d, "karyaratPad", "kanishthaAbhiyanta");
+			int g = safeInt(d, "karyaratPad", "shakhaAbhiyanta");
+
+			int i1 = safeInt(d, "riktaPad", "kanishthaAbhiyanta");
+			int j = safeInt(d, "riktaPad", "shakhaAbhiyanta");
+
+			Row row = sheet.createRow(r++);
+
+			// create all cells for borders
+			for (int i = 0; i <= 17; i++)
+				set(row, i, "", border);
+
+			set(row, 0, e.getRowId(), border);
+			set(row, 1, e.getKaryalayacheNav(), border);
+
+			set(row, 2, c, borderBold);
+			set(row, 3, d1, borderBold);
+			set(row, 4, c + d1, borderBold);
+
+			set(row, 5, f, borderBold);
+			set(row, 6, g, borderBold);
+			set(row, 7, f + g, borderBold);
+
+			set(row, 8, i1, borderBold);
+			set(row, 9, j, borderBold);
+			set(row, 10, i1 + j, borderBold);
+
+			// ================= ENGINEERS =================
+
+			int col = 11;
+			JsonNode arr = d.path("abhiyantaYanchiYadi");
+
+			if (arr.isArray()) {
+
+				String firstSection = arr.get(0).path("section").asText("").trim();
+
+				// ---- BLANK SECTION ----
+				if (firstSection.isEmpty()) {
+
+					StringBuilder sb = new StringBuilder();
+					for (JsonNode s : arr) {
+						for (JsonNode eng : s.path("engineers"))
+							sb.append(eng.asText()).append("\n");
+					}
+
+					mergeCol(sheet, row.getRowNum(), row.getRowNum(), 11, 17);
+					set(row, 11, sb.toString().trim(), border);
+				}
+
+				// ---- SECTION PRESENT ----
+				else {
+					for (JsonNode sec : arr) {
+
+						if (col > 17)
+							break;
+
+						String section = sec.path("section").asText("");
+						StringBuilder eng = new StringBuilder();
+
+						for (JsonNode e1n : sec.path("engineers"))
+							eng.append(e1n.asText()).append("\n");
+
+						String finalTxt = section + "\n----------------------------------------\n"
+								+ eng.toString().trim();
+
+						set(row, col, finalTxt, border);
+						col++;
+					}
+				}
+			}
+
+			// auto height
+			autoHeight(row);
+
+			// sums
+			sumC += c;
+			sumD += d1;
+			sumE += (c + d1);
+
+			sumF += f;
+			sumG += g;
+			sumH += (f + g);
+
+			sumI += i1;
+			sumJ += j;
+			sumK += (i1 + j);
+		}
+
+		// ================= TOTAL =================
+		Row t = sheet.createRow(r++);
+
+		for (int i = 0; i <= 17; i++)
+			set(t, i, "", borderBold);
+
+		mergeCol(sheet, t.getRowNum(), t.getRowNum(), 0, 1);
+		set(t, 0, "एकुण", borderBold);
+
+		set(t, 2, sumC, borderBold);
+		set(t, 3, sumD, borderBold);
+		set(t, 4, sumE, borderBold);
+
+		set(t, 5, sumF, borderBold);
+		set(t, 6, sumG, borderBold);
+		set(t, 7, sumH, borderBold);
+
+		set(t, 8, sumI, borderBold);
+		set(t, 9, sumJ, borderBold);
+		set(t, 10, sumK, borderBold);
+
+		// ================= WIDTH =================
+		sheet.setColumnWidth(0, 3000);
+		sheet.setColumnWidth(1, 9000);
+
+		for (int i = 2; i <= 10; i++)
+			sheet.setColumnWidth(i, 4000);
+
+		for (int i = 11; i <= 17; i++)
+			sheet.setColumnWidth(i, 6000);
+		// ================= FOOTER =================
+		r += 2;
+
+		// Left side text
+		sheet.createRow(r++).createCell(5)
+        .setCellValue("स्थळ प्रत अ.अ.यांना मान्य असे.");
+		// Right side block
+		Row f1 = sheet.createRow(r++);
+		set(f1, 16, "(" + footerName + ")", footerStyle);
+
+		Row f2 = sheet.createRow(r++);
+		set(f2, 16, "उपअधीक्षक अभियंता", footerStyle);
+
+		Row f3 = sheet.createRow(r++);
+		set(f3, 16, "पुणे पाटबंधारे प्रकल्प मंडळ", footerStyle);
+
+		Row f4 = sheet.createRow(r++);
+		set(f4, 16, "पुणे 01", footerStyle);
+
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		return ResponseEntity.ok().header("Content-Disposition", "attachment; filename=je_return.xlsx")
+				.contentType(
+						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	private CellStyle style(XSSFWorkbook wb, Font f) {
+		CellStyle st = wb.createCellStyle();
+		st.setAlignment(HorizontalAlignment.CENTER);
+		st.setVerticalAlignment(VerticalAlignment.CENTER);
+		st.setBorderBottom(BorderStyle.THIN);
+		st.setBorderTop(BorderStyle.THIN);
+		st.setBorderLeft(BorderStyle.THIN);
+		st.setBorderRight(BorderStyle.THIN);
+		st.setWrapText(true);
+		st.setFont(f);
+		return st;
+	}
+
+	private void put(Row r, int c, Object v, CellStyle st) {
+		Cell cell = r.createCell(c);
+		cell.setCellValue(String.valueOf(v));
+		cell.setCellStyle(st);
+	}
+
+	private int safeInt(JsonNode n, String o, String k) {
+		return n.has(o) && n.get(o).has(k) ? n.get(o).get(k).asInt() : 0;
+	}
+
+	private void set(Row r, int c, Object v, CellStyle st) {
+		Cell cl = r.getCell(c);
+		if (cl == null)
+			cl = r.createCell(c);
+		if (v instanceof Number)
+			cl.setCellValue(((Number) v).doubleValue());
+		else
+			cl.setCellValue(v == null ? "" : v.toString());
+		cl.setCellStyle(st);
+	}
+
+	private int merge(Sheet sh, int r, String txt, CellStyle st, int lc) {
+		Row row = sh.createRow(r);
+		set(row, 0, txt, st);
+		sh.addMergedRegion(new CellRangeAddress(r, r, 0, lc));
+		return r + 1;
+	}
+
+	private void mergeCol(Sheet sh, int fr, int tr, int fc, int tc) {
+		CellRangeAddress region = new CellRangeAddress(fr, tr, fc, tc);
+
+		sh.addMergedRegion(region);
+
+		applyBorderToMergedRegion(sh, region); // 🔥 important
+	}
+
+	private void mergeCol(Sheet sh, Row r1, Row r2, int c) {
+		CellRangeAddress region = new CellRangeAddress(r1.getRowNum(), r2.getRowNum(), c, c);
+
+		sh.addMergedRegion(region);
+
+		applyBorderToMergedRegion(sh, region);
+	}
+
+	private void applyBorderToMergedRegion(Sheet sheet, CellRangeAddress region) {
+
+		RegionUtil.setBorderTop(BorderStyle.THIN, region, sheet);
+		RegionUtil.setBorderBottom(BorderStyle.THIN, region, sheet);
+		RegionUtil.setBorderLeft(BorderStyle.THIN, region, sheet);
+		RegionUtil.setBorderRight(BorderStyle.THIN, region, sheet);
+	}
+
+	private void autoHeight(Row row) {
+
+		float defaultHeight = row.getSheet().getDefaultRowHeightInPoints();
+		float maxHeight = defaultHeight;
+
+		for (Cell cell : row) {
+
+			if (cell == null)
+				continue;
+
+			if (cell.getCellType() == CellType.STRING) {
+
+				String text = cell.getStringCellValue();
+				if (text == null)
+					continue;
+
+				int lines = text.split("\n").length;
+
+				// Excel approx: 1 line ≈ default row height
+				float needed = lines * defaultHeight;
+
+				if (needed > maxHeight)
+					maxHeight = needed;
+			}
+		}
+
+		// Extra padding so last line never hides
+		row.setHeightInPoints(maxHeight + 30);
 	}
 
 }

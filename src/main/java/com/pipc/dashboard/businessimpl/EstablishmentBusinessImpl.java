@@ -236,4 +236,9 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 		return establishmentService.getJeReturnData(year);
 	}
 
+	@Override
+	public ResponseEntity<InputStreamResource> downloadJeReturnData(String year) throws IOException {
+		return establishmentService.downloadJeReturnData(year);
+	}
+
 }

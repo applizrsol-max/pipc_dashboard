@@ -101,10 +101,12 @@ public interface EstablishmentBusiness {
 
 	BhaniniResponse getBhaniniData(String employeeName, String year);
 
-	ResponseEntity<InputStreamResource> downloadBhaniniData(String year, String employeeName) throws IOException ;
+	ResponseEntity<InputStreamResource> downloadBhaniniData(String year, String employeeName) throws IOException;
 
 	JeReturnResponse saveOrUpdateJeReturn(JeReturnRequest request);
 
 	JeReturnResponse getJeReturnData(String year);
+
+	ResponseEntity<InputStreamResource> downloadJeReturnData(String year) throws IOException;
 
 }

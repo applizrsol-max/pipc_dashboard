@@ -107,4 +107,6 @@ public interface EstablishmentService {
 
 	JeReturnResponse getJeReturnData(String year);
 
+	ResponseEntity<InputStreamResource> downloadJeReturnData(String year)throws IOException;
+
 }

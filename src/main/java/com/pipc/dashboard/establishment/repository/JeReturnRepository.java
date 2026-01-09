@@ -17,4 +17,6 @@ public interface JeReturnRepository extends JpaRepository<JeReturnEntity, Long> 
 
 	List<JeReturnEntity> findByYear(String year);
 
+	List<JeReturnEntity> findByYearOrderByRowIdAsc(String year);
+
 }

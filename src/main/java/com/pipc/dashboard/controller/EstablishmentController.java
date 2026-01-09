@@ -352,4 +352,11 @@ public class EstablishmentController {
 		log.info("FETCH getJeReturnData | year={} ", year);
 		return establishmentBusiness.getJeReturnData(year);
 	}
+
+	@GetMapping("/downloadJeReturnData")
+	public ResponseEntity<InputStreamResource> downloadJeReturnData(@RequestParam String year) throws IOException {
+
+		log.info("DOWNLOAD downloadJeReturnData | year={} ", year);
+		return establishmentBusiness.downloadJeReturnData(year);
+	}
 }
