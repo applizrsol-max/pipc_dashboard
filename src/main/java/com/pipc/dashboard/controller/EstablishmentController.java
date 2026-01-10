@@ -27,6 +27,7 @@ import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
 import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.request.VivranPatraARequest;
+import com.pipc.dashboard.establishment.request.VivranPatraDRequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
@@ -404,6 +405,20 @@ public class EstablishmentController {
 
 		log.info("DOWNLOAD getDeputyVivranA | year={} ", year);
 		return establishmentBusiness.getDeputyVivranA(year);
+	}
+
+	@PostMapping("/saveOrUpdateDeputyVivranD")
+	public VivranPatraAResponse saveOrUpdateDeputyVivranD(@RequestBody VivranPatraDRequest request) {
+
+		log.info("START saveOrUpdateDeputyVivranD | year={}", request.getYear());
+		return establishmentBusiness.saveOrUpdateDeputyVivranD(request);
+	}
+
+	@GetMapping("/getDeputyVivranD")
+	public VivranPatraAResponse getDeputyVivranD(@RequestParam String year) {
+
+		log.info("DOWNLOAD getDeputyVivranD | year={} ", year);
+		return establishmentBusiness.getDeputyVivranD(year);
 	}
 
 }

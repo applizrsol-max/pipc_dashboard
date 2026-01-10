@@ -91,6 +91,8 @@ import com.pipc.dashboard.establishment.repository.RtrGopniyaAhwal;
 import com.pipc.dashboard.establishment.repository.RtrGopniyaAhwalRepository;
 import com.pipc.dashboard.establishment.repository.VivranPatraAEntity;
 import com.pipc.dashboard.establishment.repository.VivranPatraARepository;
+import com.pipc.dashboard.establishment.repository.VivranPatraDEntity;
+import com.pipc.dashboard.establishment.repository.VivranPatraDRepository;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaRow;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
@@ -116,6 +118,9 @@ import com.pipc.dashboard.establishment.request.VivranPatraADivisionDto;
 import com.pipc.dashboard.establishment.request.VivranPatraARequest;
 import com.pipc.dashboard.establishment.request.VivranPatraARowDto;
 import com.pipc.dashboard.establishment.request.VivranPatraASummaryDto;
+import com.pipc.dashboard.establishment.request.VivranPatraDDivisionDto;
+import com.pipc.dashboard.establishment.request.VivranPatraDRequest;
+import com.pipc.dashboard.establishment.request.VivranPatraDRowDto;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
@@ -159,6 +164,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	private final DeputyReturnARepository deputyReturnARepository;
 	private final DeputyReturnBRepository deputyReturnBRepository;
 	private final VivranPatraARepository vivranPatraARepository;
+	private final VivranPatraDRepository vivranPatraDRepository;
 
 	@Transactional
 	@Override
@@ -4393,6 +4399,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				entity.setData(mapper.valueToTree(request));
 				entity.setFlag("U");
 				entity.setUpdatedAt(LocalDateTime.now());
+				entity.setAaPrupam(request.getAaPrupam());
 				entity.setUpdatedBy(currentUser);
 
 				log.debug("Updating Salary Arrears | year={} | employee={} | corrId={}", year, employeeName, corrId);
@@ -4810,7 +4817,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		c.apply(r27, 9).setCellStyle(borderBold);
 
 		// L col = padtalnara (DB)
-		c.apply(r27, 11).setCellFormula("L26+" + khata.get("maggilHaftaShillak").asDouble());
+		c.apply(r27, 11).setCellFormula("K26+" + khata.get("maggilHaftaShillak").asDouble());
 
 		c.apply(r27, 11).setCellStyle(borderCenter);
 
@@ -6013,6 +6020,144 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 		return VivranPatraARowDto.builder().rowId(e.getRowId()).deleteId(e.getDeleteId()).flag(e.getFlag())
 				.data(e.getData()).build();
+	}
+
+	@Transactional
+	@Override
+	public VivranPatraAResponse saveOrUpdateDeputyVivranD(VivranPatraDRequest request) {
+
+		VivranPatraAResponse response = new VivranPatraAResponse();
+		ApplicationError error;
+
+		String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		String corrId = MDC.get("correlationId");
+		LocalDateTime now = LocalDateTime.now();
+
+		try {
+
+			log.info("START saveVivranPatraD | year={} | user={} | corrId={}", request.getYear(), user, corrId);
+
+			for (VivranPatraDDivisionDto div : request.getDivision()) {
+
+				String office = div.getKaryalayacheNav();
+
+				for (VivranPatraDRowDto r : div.getRows()) {
+
+					// ===== DELETE =====
+					if ("D".equalsIgnoreCase(r.getFlag())) {
+
+						vivranPatraDRepository
+								.findByDeleteIdAndYearAndKaryalayacheNav(r.getDeleteId(), request.getYear(), office)
+								.ifPresent(vivranPatraDRepository::delete);
+
+						continue;
+					}
+
+					// ===== SAVE / UPDATE =====
+					Optional<VivranPatraDEntity> opt = vivranPatraDRepository
+							.findByRowIdAndYearAndKaryalayacheNav(r.getRowId(), request.getYear(), office);
+
+					VivranPatraDEntity e;
+
+					if (opt.isPresent()) {
+
+						e = opt.get();
+						e.setFlag("U");
+						e.setUpdatedAt(now);
+						e.setUpdatedBy(user);
+
+					} else {
+
+						e = new VivranPatraDEntity();
+						e.setYear(request.getYear());
+						e.setRowId(r.getRowId());
+						e.setDeleteId(r.getDeleteId());
+						e.setKaryalayacheNav(office);
+						e.setUpAdhikshakAbhiyanta(request.getUpAdhikshakAbhiyanta());
+
+						e.setFlag("C");
+						e.setCreatedAt(now);
+						e.setCreatedBy(user);
+						e.setUpdatedAt(now);
+						e.setUpdatedBy(user);
+					}
+
+					e.setData(r.getData());
+					vivranPatraDRepository.save(e);
+				}
+			}
+
+			response.setYear(request.getYear());
+			response.setMessage("Saved Successfully");
+
+			error = new ApplicationError("200", "SUCCESS");
+			response.setErrorDetails(error);
+
+			return response;
+
+		} catch (Exception ex) {
+
+			log.error("ERROR saveVivranPatraD", ex);
+
+			error = new ApplicationError("500", ex.getMessage());
+			response.setErrorDetails(error);
+			return response;
+		}
+	}
+
+	@Transactional(readOnly = true)
+	@Override
+	public VivranPatraAResponse getDeputyVivranD(String year) {
+
+		VivranPatraAResponse response = new VivranPatraAResponse();
+		ApplicationError error;
+
+		String corrId = MDC.get("correlationId");
+
+		try {
+
+			List<VivranPatraDEntity> list = vivranPatraDRepository.findByYearOrderByKaryalayacheNavAscRowIdAsc(year);
+
+			if (list.isEmpty()) {
+				response.setMessage("No Data");
+				error = new ApplicationError("204", "NO DATA");
+				response.setErrorDetails(error);
+				return response;
+			}
+
+			// ===== GROUPING =====
+			Map<String, List<VivranPatraDRowDto>> map = list.stream()
+					.collect(Collectors.groupingBy(VivranPatraDEntity::getKaryalayacheNav, LinkedHashMap::new,
+							Collectors.mapping(e -> VivranPatraDRowDto.builder().rowId(e.getRowId())
+									.deleteId(e.getDeleteId()).flag(e.getFlag()).data(e.getData()).build(),
+									Collectors.toList())));
+
+			List<VivranPatraDDivisionDto> divisions = new ArrayList<>();
+
+			map.forEach((k, v) -> {
+				divisions.add(VivranPatraDDivisionDto.builder().karyalayacheNav(k).rows(v).build());
+			});
+
+			Map<String, Object> finalData = new HashMap<>();
+
+			finalData.put("division", divisions);
+
+			response.setYear(year);
+			response.setData(finalData);
+			response.setMessage("Success");
+
+			error = new ApplicationError("200", "SUCCESS");
+			response.setErrorDetails(error);
+
+			return response;
+
+		} catch (Exception ex) {
+
+			log.error("ERROR getVivranPatraD", ex);
+			error = new ApplicationError("500", ex.getMessage());
+			response.setErrorDetails(error);
+			return response;
+		}
 	}
 
 }

@@ -19,6 +19,7 @@ import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
 import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.request.VivranPatraARequest;
+import com.pipc.dashboard.establishment.request.VivranPatraDRequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
@@ -124,5 +125,9 @@ public interface EstablishmentBusiness {
 	VivranPatraAResponse saveOrUpdateDeputyVivranA(VivranPatraARequest request);
 
 	VivranPatraAResponse getDeputyVivranA(String year);
+
+	VivranPatraAResponse saveOrUpdateDeputyVivranD(VivranPatraDRequest request);
+
+	VivranPatraAResponse getDeputyVivranD(String year);
 
 }
