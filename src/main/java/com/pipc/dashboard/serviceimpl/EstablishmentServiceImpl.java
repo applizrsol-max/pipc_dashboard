@@ -4810,7 +4810,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		c.apply(r27, 9).setCellStyle(borderBold);
 
 		// L col = padtalnara (DB)
-		c.apply(r27, 11).setCellFormula("L26+" + khata.get("panchwaHaftaJama").asDouble());
+		c.apply(r27, 11).setCellFormula("L26+" + khata.get("maggilHaftaShillak").asDouble());
 
 		c.apply(r27, 11).setCellStyle(borderCenter);
 
@@ -4839,7 +4839,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		c.apply(r29, 9).setCellFormula("J27-J28");
 		c.apply(r29, 9).setCellStyle(borderCenter);
 
-		c.apply(r29, 11).setCellValue(khata.get("panchwaHaftaJama").asDouble());
+		c.apply(r29, 11).setCellValue(khata.get("maggilHaftaShillak").asDouble());
 		c.apply(r29, 11).setCellStyle(borderCenter);
 
 		applyRowBorder(r29, 11, borderBoldLeft, borderCenter);
