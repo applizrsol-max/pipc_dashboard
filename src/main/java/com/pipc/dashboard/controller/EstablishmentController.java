@@ -26,6 +26,7 @@ import com.pipc.dashboard.establishment.request.JeReturnRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
 import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
+import com.pipc.dashboard.establishment.request.VivranPatraARequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
@@ -35,6 +36,7 @@ import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
 import com.pipc.dashboard.establishment.response.JeReturnResponse;
 import com.pipc.dashboard.establishment.response.MasterDataResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
+import com.pipc.dashboard.establishment.response.VivranPatraAResponse;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -368,11 +370,40 @@ public class EstablishmentController {
 		log.info("START saveOrUpdateDeputyReturnA | year={}", request.getYear());
 		return establishmentBusiness.saveOrUpdateDeputyReturnA(request);
 	}
-	
+
 	@GetMapping("/getDeputyReturnAData")
 	public DeputyReturnAResponse getDeputyReturnAData(@RequestParam String year) throws IOException {
 
 		log.info("DOWNLOAD getDeputyReturnAData | year={} ", year);
 		return establishmentBusiness.getDeputyReturnAData(year);
 	}
+
+	@PostMapping("/saveOrUpdateDeputyReturnB")
+	public DeputyReturnAResponse saveOrUpdateDeputyReturnB(@RequestBody DeputyReturnARequest request) {
+
+		log.info("START saveOrUpdateDeputyReturnB | year={}", request.getYear());
+		return establishmentBusiness.saveOrUpdateDeputyReturnB(request);
+	}
+
+	@GetMapping("/getDeputyReturnBData")
+	public DeputyReturnAResponse getDeputyReturnBData(@RequestParam String year) {
+
+		log.info("DOWNLOAD getDeputyReturnAData | year={} ", year);
+		return establishmentBusiness.getDeputyReturnBData(year);
+	}
+
+	@PostMapping("/saveOrUpdateDeputyVivranA")
+	public VivranPatraAResponse saveOrUpdateDeputyVivranA(@RequestBody VivranPatraARequest request) {
+
+		log.info("START saveOrUpdateDeputyVivranA | year={}", request.getYear());
+		return establishmentBusiness.saveOrUpdateDeputyVivranA(request);
+	}
+
+	@GetMapping("/getDeputyVivranA")
+	public VivranPatraAResponse getDeputyVivranA(@RequestParam String year) {
+
+		log.info("DOWNLOAD getDeputyVivranA | year={} ", year);
+		return establishmentBusiness.getDeputyVivranA(year);
+	}
+
 }

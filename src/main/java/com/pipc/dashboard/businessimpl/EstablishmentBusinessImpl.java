@@ -21,6 +21,7 @@ import com.pipc.dashboard.establishment.request.JeReturnRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
 import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
+import com.pipc.dashboard.establishment.request.VivranPatraARequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
@@ -30,6 +31,7 @@ import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
 import com.pipc.dashboard.establishment.response.JeReturnResponse;
 import com.pipc.dashboard.establishment.response.MasterDataResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
+import com.pipc.dashboard.establishment.response.VivranPatraAResponse;
 import com.pipc.dashboard.service.EstablishmentService;
 
 @Component
@@ -251,6 +253,26 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	@Override
 	public DeputyReturnAResponse getDeputyReturnAData(String year) {
 		return establishmentService.getDeputyReturnAData(year);
+	}
+
+	@Override
+	public DeputyReturnAResponse saveOrUpdateDeputyReturnB(DeputyReturnARequest request) {
+		return establishmentService.saveOrUpdateDeputyReturnB(request);
+	}
+
+	@Override
+	public DeputyReturnAResponse getDeputyReturnBData(String year) {
+		return establishmentService.getDeputyReturnBData(year);
+	}
+
+	@Override
+	public VivranPatraAResponse saveOrUpdateDeputyVivranA(VivranPatraARequest request) {
+		return establishmentService.saveOrUpdateDeputyVivranA(request);
+	}
+
+	@Override
+	public VivranPatraAResponse getDeputyVivranA(String year) {
+		return establishmentService.getDeputyVivranA(year);
 	}
 
 }

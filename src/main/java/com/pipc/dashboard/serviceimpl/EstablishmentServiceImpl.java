@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -72,6 +73,8 @@ import com.pipc.dashboard.establishment.repository.CrFileListRtrEntity;
 import com.pipc.dashboard.establishment.repository.CrFileListRtrRepository;
 import com.pipc.dashboard.establishment.repository.DeputyReturnAEntity;
 import com.pipc.dashboard.establishment.repository.DeputyReturnARepository;
+import com.pipc.dashboard.establishment.repository.DeputyReturnBEntity;
+import com.pipc.dashboard.establishment.repository.DeputyReturnBRepository;
 import com.pipc.dashboard.establishment.repository.EmployeePostingEntity;
 import com.pipc.dashboard.establishment.repository.EmployeePostingRepository;
 import com.pipc.dashboard.establishment.repository.IncomeTaxDeductionEntity;
@@ -86,6 +89,8 @@ import com.pipc.dashboard.establishment.repository.MasterDataEntity;
 import com.pipc.dashboard.establishment.repository.MasterDataRepository;
 import com.pipc.dashboard.establishment.repository.RtrGopniyaAhwal;
 import com.pipc.dashboard.establishment.repository.RtrGopniyaAhwalRepository;
+import com.pipc.dashboard.establishment.repository.VivranPatraAEntity;
+import com.pipc.dashboard.establishment.repository.VivranPatraARepository;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaRow;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
@@ -107,6 +112,10 @@ import com.pipc.dashboard.establishment.request.MahaparRegisterSectionRequest;
 import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRow;
+import com.pipc.dashboard.establishment.request.VivranPatraADivisionDto;
+import com.pipc.dashboard.establishment.request.VivranPatraARequest;
+import com.pipc.dashboard.establishment.request.VivranPatraARowDto;
+import com.pipc.dashboard.establishment.request.VivranPatraASummaryDto;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
@@ -116,6 +125,7 @@ import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
 import com.pipc.dashboard.establishment.response.JeReturnResponse;
 import com.pipc.dashboard.establishment.response.MasterDataResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
+import com.pipc.dashboard.establishment.response.VivranPatraAResponse;
 import com.pipc.dashboard.service.EstablishmentService;
 import com.pipc.dashboard.utility.ApplicationError;
 
@@ -147,6 +157,8 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	private ObjectMapper objectMapper;
 	private final BhaniniRepo bhaniniRepo;
 	private final DeputyReturnARepository deputyReturnARepository;
+	private final DeputyReturnBRepository deputyReturnBRepository;
+	private final VivranPatraARepository vivranPatraARepository;
 
 	@Transactional
 	@Override
@@ -4645,21 +4657,25 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		// ================= MONTH DATA =================
 		int startMonthRow = r;
 		for (JsonNode m : months) {
+
 			Row dr = sheet.createRow(r++);
-			c.apply(dr, 0).setCellValue(m.get("month").asText());
-			c.apply(dr, 1).setCellValue(m.get("purnaRupyaMadhilVargni").asDouble());
-			c.apply(dr, 3).setCellValue(m.get("kadhlelyaRakmanchiParatFed").asDouble());
-			c.apply(dr, 5).setCellValue(m.get("ekun").asDouble());
-			c.apply(dr, 7).setCellValue(m.get("kadhlelyaRakam").asDouble());
-			c.apply(dr, 11).setCellValue(m.get("sheraOrArrears").asText());
+
+			c.apply(dr, 0).setCellValue(safeText(m, "month"));
+
+			c.apply(dr, 1).setCellValue(safeDouble(m, "purnaRupyaMadhilVargni"));
+			c.apply(dr, 3).setCellValue(safeDouble(m, "kadhlelyaRakmanchiParatFed"));
+			c.apply(dr, 5).setCellValue(safeDouble(m, "ekun"));
+			c.apply(dr, 7).setCellValue(safeDouble(m, "kadhlelyaRakam"));
+
+			c.apply(dr, 11).setCellValue(safeText(m, "sheraOrArrears"));
+
 			for (int i = 0; i <= 11; i++) {
 				if (i == 0 || i == 11) {
-					c.apply(dr, i).setCellStyle(borderLeft); // month / shera
+					c.apply(dr, i).setCellStyle(borderLeft);
 				} else {
 					c.apply(dr, i).setCellStyle(borderCenter);
 				}
 			}
-
 		}
 
 		int endMonthRow = r - 1;
@@ -4912,7 +4928,14 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
 	}
 
-	
+	private double safeDouble(JsonNode n, String key) {
+		return n.path(key).asDouble(0.0);
+	}
+
+	private String safeText(JsonNode n, String key) {
+		return n.path(key).asText("");
+	}
+
 	private void mergeWithBorder(Sheet sheet, int row1, int row2, int col1, int col2) {
 
 		CellRangeAddress region = new CellRangeAddress(row1, row2, col1, col2);
@@ -5553,14 +5576,22 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				return response;
 			}
 
+			// ================= EXTRA SAFETY SORT =================
+			list.sort(Comparator.comparing(DeputyReturnAEntity::getKaryalayacheNav)
+					.thenComparing(DeputyReturnAEntity::getRowId));
+
 			// ================= GROUP BY OFFICE =================
 			Map<String, List<DeputyReturnARowDto>> groupedMap = list.stream()
-					.collect(Collectors.groupingBy(DeputyReturnAEntity::getKaryalayacheNav, LinkedHashMap::new,
+					.collect(Collectors.groupingBy(DeputyReturnAEntity::getKaryalayacheNav, LinkedHashMap::new, // preserve
+																												// order
 							Collectors.mapping(this::mapToRowDto, Collectors.toList())));
 
 			List<DeputyReturnADivisionDto> divisions = new ArrayList<>();
 
 			for (Map.Entry<String, List<DeputyReturnARowDto>> entry : groupedMap.entrySet()) {
+
+				// sort rows inside each office
+				entry.getValue().sort(Comparator.comparing(DeputyReturnARowDto::getRowId));
 
 				divisions.add(DeputyReturnADivisionDto.builder().karyalayacheNav(entry.getKey()).rows(entry.getValue())
 						.build());
@@ -5570,7 +5601,6 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 			response.setYear(year);
 			response.setData(data);
-			
 			response.setMessage("Data fetched successfully");
 
 			error = new ApplicationError("200", "SUCCESS");
@@ -5598,6 +5628,377 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	private DeputyReturnARowDto mapToRowDto(DeputyReturnAEntity e) {
 
 		return DeputyReturnARowDto.builder().rowId(e.getRowId()).deleteId(e.getDeleteId()).flag(e.getFlag())
+				.data(e.getData()).build();
+	}
+
+	@Transactional
+	@Override
+	public DeputyReturnAResponse saveOrUpdateDeputyReturnB(DeputyReturnARequest request) {
+
+		DeputyReturnAResponse response = new DeputyReturnAResponse();
+
+		String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+
+		String corrId = MDC.get("correlationId");
+		LocalDateTime now = LocalDateTime.now();
+
+		try {
+
+			log.info("START saveOrUpdateDeputyReturnB | year={} | divisions={} | user={} | corrId={}",
+					request.getYear(), request.getDivision().size(), user, corrId);
+
+			for (DeputyReturnADivisionDto div : request.getDivision()) {
+
+				String office = div.getKaryalayacheNav();
+
+				for (DeputyReturnARowDto r : div.getRows()) {
+
+					// ========= DELETE =========
+					if ("D".equalsIgnoreCase(r.getFlag())) {
+
+						deputyReturnBRepository
+								.findByDeleteIdAndYearAndKaryalayacheNav(r.getDeleteId(), request.getYear(), office)
+								.ifPresent(deputyReturnBRepository::delete);
+
+						log.info("DELETED DeputyReturnB | year={} | office={} | deleteId={} | corrId={}",
+								request.getYear(), office, r.getDeleteId(), corrId);
+						continue;
+					}
+
+					// ========= SAVE / UPDATE =========
+					Optional<DeputyReturnBEntity> opt = deputyReturnBRepository
+							.findByRowIdAndYearAndKaryalayacheNav(r.getRowId(), request.getYear(), office);
+
+					DeputyReturnBEntity e;
+
+					if (opt.isPresent()) {
+
+						// UPDATE
+						e = opt.get();
+						e.setFlag("U");
+						e.setUpdatedAt(now);
+						e.setUpdatedBy(user);
+
+						log.debug("UPDATED DeputyReturnB | year={} | office={} | rowId={} | corrId={}",
+								request.getYear(), office, r.getRowId(), corrId);
+
+					} else {
+
+						// CREATE
+						e = new DeputyReturnBEntity();
+						e.setYear(request.getYear());
+						e.setRowId(r.getRowId());
+						e.setDeleteId(r.getDeleteId());
+						e.setKaryalayacheNav(office);
+						e.setUpAdhikshakAbhiyanta(request.getUpAdhikshakAbhiyanta());
+
+						e.setFlag("C");
+						e.setCreatedAt(now);
+						e.setCreatedBy(user);
+						e.setUpdatedAt(now);
+						e.setUpdatedBy(user);
+
+						log.debug("CREATED DeputyReturnB | year={} | office={} | rowId={} | corrId={}",
+								request.getYear(), office, r.getRowId(), corrId);
+					}
+
+					e.setData(r.getData());
+					deputyReturnBRepository.save(e);
+				}
+			}
+
+			// -------- RESPONSE --------
+			response.setYear(request.getYear());
+			response.setUpAdhikshakAbhiyanta(request.getUpAdhikshakAbhiyanta());
+			response.setMessage("Saved successfully");
+
+			response.setErrorDetails(new ApplicationError("200", "SUCCESS"));
+
+			log.info("SUCCESS saveOrUpdateDeputyReturnB | year={} | corrId={}", request.getYear(), corrId);
+
+			return response;
+
+		} catch (Exception ex) {
+
+			log.error("ERROR saveOrUpdateDeputyReturnB | year={} | corrId={}", request.getYear(), corrId, ex);
+
+			response.setErrorDetails(new ApplicationError("500", ex.getMessage()));
+
+			return response;
+		}
+	}
+
+	@Transactional(readOnly = true)
+	@Override
+	public DeputyReturnAResponse getDeputyReturnBData(String year) {
+
+		DeputyReturnAResponse response = new DeputyReturnAResponse();
+		String corrId = MDC.get("correlationId");
+
+		try {
+
+			log.info("START getDeputyReturnBData | year={} | corrId={}", year, corrId);
+
+			// already ordered by repo, still safe sort
+			List<DeputyReturnBEntity> list = deputyReturnBRepository.findByYearOrderByKaryalayacheNavAscRowIdAsc(year);
+
+			if (list.isEmpty()) {
+
+				response.setMessage("No records found");
+				response.setErrorDetails(new ApplicationError("204", "No data"));
+				return response;
+			}
+
+			// ================= SORT SAFETY =================
+			list.sort(Comparator.comparing(DeputyReturnBEntity::getKaryalayacheNav)
+					.thenComparing(DeputyReturnBEntity::getRowId));
+
+			// ================= GROUP BY OFFICE =================
+			Map<String, List<DeputyReturnARowDto>> map = list.stream()
+					.collect(Collectors.groupingBy(DeputyReturnBEntity::getKaryalayacheNav, LinkedHashMap::new, // preserve
+																												// order
+							Collectors.mapping(this::mapToRowDtoB, Collectors.toList())));
+
+			List<DeputyReturnADivisionDto> divisions = new ArrayList<>();
+
+			for (Map.Entry<String, List<DeputyReturnARowDto>> e : map.entrySet()) {
+
+				// sort rows inside office
+				e.getValue().sort(Comparator.comparing(DeputyReturnARowDto::getRowId));
+
+				DeputyReturnADivisionDto d = new DeputyReturnADivisionDto();
+				d.setKaryalayacheNav(e.getKey());
+				d.setRows(e.getValue());
+
+				divisions.add(d);
+			}
+
+			// ---- SAME STRUCTURE AS REQUEST ----
+			DeputyReturnARequest data = new DeputyReturnARequest();
+			data.setYear(year);
+			data.setDivision(divisions);
+
+			response.setYear(year);
+			response.setUpAdhikshakAbhiyanta(list.get(0).getUpAdhikshakAbhiyanta());
+			response.setData(data);
+			response.setMessage("Data fetched");
+
+			response.setErrorDetails(new ApplicationError("200", "SUCCESS"));
+
+			log.info("SUCCESS getDeputyReturnBData | year={} | groups={} | corrId={}", year, divisions.size(), corrId);
+
+			return response;
+
+		} catch (Exception ex) {
+
+			log.error("ERROR getDeputyReturnBData | year={} | corrId={}", year, corrId, ex);
+
+			response.setErrorDetails(new ApplicationError("500", ex.getMessage()));
+			return response;
+		}
+	}
+
+	private DeputyReturnARowDto mapToRowDtoB(DeputyReturnBEntity e) {
+
+		return DeputyReturnARowDto.builder().rowId(e.getRowId()).deleteId(e.getDeleteId()).flag(e.getFlag())
+				.data(e.getData()).build();
+	}
+
+	@Transactional
+	@Override
+	public VivranPatraAResponse saveOrUpdateDeputyVivranA(VivranPatraARequest request) {
+
+		VivranPatraAResponse response = new VivranPatraAResponse();
+		ApplicationError error;
+
+		final String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+		final LocalDateTime now = LocalDateTime.now();
+
+		try {
+
+			log.info("START saveVivranPatraA | year={} | divisions={} | user={} | corrId={}", request.getYear(),
+					request.getDivision().size(), user, corrId);
+
+			for (VivranPatraADivisionDto div : request.getDivision()) {
+
+				String office = div.getKaryalayacheNav();
+
+				for (VivranPatraARowDto r : div.getRows()) {
+
+					// ===== DELETE =====
+					if ("D".equalsIgnoreCase(r.getFlag())) {
+
+						vivranPatraARepository
+								.findByDeleteIdAndYearAndKaryalayacheNav(r.getDeleteId(), request.getYear(), office)
+								.ifPresent(vivranPatraARepository::delete);
+
+						log.info("DELETED | year={} | office={} | deleteId={}", request.getYear(), office,
+								r.getDeleteId());
+						continue;
+					}
+
+					// ===== SAVE / UPDATE =====
+					Optional<VivranPatraAEntity> opt = vivranPatraARepository
+							.findByRowIdAndYearAndKaryalayacheNav(r.getRowId(), request.getYear(), office);
+
+					VivranPatraAEntity e;
+
+					if (opt.isPresent()) {
+
+						e = opt.get();
+						e.setFlag("U");
+						e.setUpdatedBy(user);
+						e.setUpdatedAt(now);
+
+					} else {
+
+						e = new VivranPatraAEntity();
+						e.setYear(request.getYear());
+						e.setRowId(r.getRowId());
+						e.setDeleteId(r.getDeleteId());
+						e.setKaryalayacheNav(office);
+						e.setUpAdhikshakAbhiyanta(request.getUpAdhikshakAbhiyanta());
+
+						e.setFlag("C");
+						e.setCreatedBy(user);
+						e.setCreatedAt(now);
+						e.setUpdatedBy(user);
+						e.setUpdatedAt(now);
+					}
+
+					e.setData(r.getData());
+					vivranPatraARepository.save(e);
+				}
+			}
+
+			response.setYear(request.getYear());
+			response.setUpAdhikshakAbhiyanta(request.getUpAdhikshakAbhiyanta());
+			response.setMessage("Saved successfully");
+
+			error = new ApplicationError("200", "SUCCESS");
+			response.setErrorDetails(error);
+
+			log.info("SUCCESS saveVivranPatraA | year={} | corrId={}", request.getYear(), corrId);
+
+			return response;
+
+		} catch (Exception ex) {
+
+			log.error("ERROR saveVivranPatraA | year={} | corrId={}", request.getYear(), corrId, ex);
+
+			error = new ApplicationError("500", ex.getMessage());
+			response.setErrorDetails(error);
+			return response;
+		}
+	}
+
+	@Override
+	public VivranPatraAResponse getDeputyVivranA(String year) {
+
+		VivranPatraAResponse response = new VivranPatraAResponse();
+		ApplicationError error;
+
+		String corrId = MDC.get("correlationId");
+
+		try {
+
+			log.info("START getVivranPatraA | year={} | corrId={}", year, corrId);
+
+			List<VivranPatraAEntity> list = vivranPatraARepository.findByYearOrderByKaryalayacheNavAscRowIdAsc(year);
+
+			if (list.isEmpty()) {
+
+				response.setMessage("No data found");
+				response.setData(List.of());
+
+				error = new ApplicationError("204", "NO DATA");
+				response.setErrorDetails(error);
+				return response;
+			}
+
+			// ================= GROUP BY OFFICE =================
+			Map<String, List<VivranPatraARowDto>> map = list.stream()
+					.collect(Collectors.groupingBy(VivranPatraAEntity::getKaryalayacheNav, LinkedHashMap::new,
+							Collectors.mapping(this::mapToRowDto, Collectors.toList())));
+
+			List<VivranPatraADivisionDto> divisions = new ArrayList<>();
+
+			// ===== SUMMARY MAP =====
+			Map<String, VivranPatraASummaryDto> summaryMap = new LinkedHashMap<>();
+
+			for (Map.Entry<String, List<VivranPatraARowDto>> entry : map.entrySet()) {
+
+				String office = entry.getKey();
+				List<VivranPatraARowDto> rows = entry.getValue();
+
+				// ---------- SORT ROWS ----------
+				rows.sort(Comparator.comparing(VivranPatraARowDto::getRowId));
+
+				divisions.add(VivranPatraADivisionDto.builder().karyalayacheNav(office).rows(rows).build());
+
+				// ---------- SUMMARY CALC ----------
+				int sanction = 0;
+				int working = 0;
+				int vacant = 0;
+				int futureVacant = 0;
+
+				for (VivranPatraARowDto r : rows) {
+
+					JsonNode d = r.getData();
+
+					sanction += d.path("sanctionPost").asInt(0);
+					working += d.path("workingPost").asInt(0);
+					vacant += d.path("vacantPost").asInt(0);
+					futureVacant += d.path("futureVacancy").asInt(0);
+				}
+
+				summaryMap.put(office, VivranPatraASummaryDto.builder().district(office).sanctionPost(sanction)
+						.workingPost(working).vacantPost(vacant).futureVacancy(futureVacant).build());
+			}
+
+			// ---------- GRAND TOTAL ----------
+			int tSanction = 0, tWorking = 0, tVacant = 0, tFuture = 0;
+
+			for (VivranPatraASummaryDto s : summaryMap.values()) {
+				tSanction += s.getSanctionPost();
+				tWorking += s.getWorkingPost();
+				tVacant += s.getVacantPost();
+				tFuture += s.getFutureVacancy();
+			}
+
+			summaryMap.put("एकुण", VivranPatraASummaryDto.builder().district("एकुण").sanctionPost(tSanction)
+					.workingPost(tWorking).vacantPost(tVacant).futureVacancy(tFuture).build());
+
+			// ================= FINAL RESPONSE =================
+			Map<String, Object> finalData = new HashMap<>();
+			finalData.put("division", divisions);
+			finalData.put("summary", new ArrayList<>(summaryMap.values()));
+
+			response.setYear(year);
+			response.setData(finalData);
+			response.setMessage("Success");
+
+			error = new ApplicationError("200", "SUCCESS");
+			response.setErrorDetails(error);
+
+			log.info("SUCCESS getVivranPatraA | year={} | groups={} | corrId={}", year, divisions.size(), corrId);
+
+			return response;
+
+		} catch (Exception ex) {
+
+			log.error("ERROR getVivranPatraA | year={} | corrId={}", year, corrId, ex);
+
+			error = new ApplicationError("500", ex.getMessage());
+			response.setErrorDetails(error);
+			return response;
+		}
+	}
+
+	private VivranPatraARowDto mapToRowDto(VivranPatraAEntity e) {
+
+		return VivranPatraARowDto.builder().rowId(e.getRowId()).deleteId(e.getDeleteId()).flag(e.getFlag())
 				.data(e.getData()).build();
 	}
 

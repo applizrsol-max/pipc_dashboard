@@ -18,6 +18,7 @@ import com.pipc.dashboard.establishment.request.JeReturnRequest;
 import com.pipc.dashboard.establishment.request.MahaparRegisterRequest;
 import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
+import com.pipc.dashboard.establishment.request.VivranPatraARequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
@@ -27,6 +28,7 @@ import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
 import com.pipc.dashboard.establishment.response.JeReturnResponse;
 import com.pipc.dashboard.establishment.response.MasterDataResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
+import com.pipc.dashboard.establishment.response.VivranPatraAResponse;
 
 public interface EstablishmentService {
 
@@ -114,5 +116,13 @@ public interface EstablishmentService {
 	DeputyReturnAResponse saveOrUpdateDeputyReturnA(DeputyReturnARequest request);
 
 	DeputyReturnAResponse getDeputyReturnAData(String year);
+
+	DeputyReturnAResponse saveOrUpdateDeputyReturnB(DeputyReturnARequest request);
+
+	DeputyReturnAResponse getDeputyReturnBData(String year);
+
+	VivranPatraAResponse saveOrUpdateDeputyVivranA(VivranPatraARequest request);
+
+	VivranPatraAResponse getDeputyVivranA(String year);
 
 }
