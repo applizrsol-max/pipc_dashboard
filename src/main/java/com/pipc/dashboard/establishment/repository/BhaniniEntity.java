@@ -25,6 +25,7 @@ public class BhaniniEntity {
 
 	private String year;
 	private String employeeName;
+	private String aaPrupam;
 
 	// C / U / D
 	private String flag;

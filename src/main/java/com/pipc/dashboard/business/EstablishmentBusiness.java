@@ -113,4 +113,6 @@ public interface EstablishmentBusiness {
 
 	DeputyReturnAResponse saveOrUpdateDeputyReturnA(DeputyReturnARequest request);
 
+	DeputyReturnAResponse getDeputyReturnAData(String year);
+
 }

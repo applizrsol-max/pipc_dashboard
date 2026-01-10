@@ -368,4 +368,11 @@ public class EstablishmentController {
 		log.info("START saveOrUpdateDeputyReturnA | year={}", request.getYear());
 		return establishmentBusiness.saveOrUpdateDeputyReturnA(request);
 	}
+	
+	@GetMapping("/getDeputyReturnAData")
+	public DeputyReturnAResponse getDeputyReturnAData(@RequestParam String year) throws IOException {
+
+		log.info("DOWNLOAD getDeputyReturnAData | year={} ", year);
+		return establishmentBusiness.getDeputyReturnAData(year);
+	}
 }

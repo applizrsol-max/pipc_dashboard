@@ -1,8 +1,6 @@
 package com.pipc.dashboard.establishment.response;
 
-import java.util.List;
-
-import com.pipc.dashboard.establishment.request.DeputyReturnADivisionDto;
+import com.pipc.dashboard.establishment.request.DeputyReturnARequest;
 import com.pipc.dashboard.utility.BaseResponse;
 
 import lombok.AllArgsConstructor;
@@ -18,6 +16,7 @@ public class DeputyReturnAResponse extends BaseResponse {
 
 	private String year;
 	private String upAdhikshakAbhiyanta;
+	private DeputyReturnARequest data;
+	private String message;
 
-	private List<DeputyReturnADivisionDto> division;
 }

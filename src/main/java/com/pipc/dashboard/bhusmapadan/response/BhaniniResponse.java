@@ -8,7 +8,9 @@ import lombok.Data;
 @Data
 public class BhaniniResponse extends BaseResponse {
 	
+	private String year;
 	private String message;
 	private JsonNode data;
+	private String aaPupram;
 
 }

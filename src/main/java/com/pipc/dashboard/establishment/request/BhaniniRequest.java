@@ -7,7 +7,7 @@ import lombok.Data;
 @Data
 public class BhaniniRequest {
 	private String flag; // "D" only, else null / empty
-
+private String aaPrupam;
 	private String year;
 
 	private EmployeeInfo employee;

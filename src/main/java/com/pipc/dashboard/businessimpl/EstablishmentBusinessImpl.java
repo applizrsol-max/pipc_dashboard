@@ -248,4 +248,9 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 		return establishmentService.saveOrUpdateDeputyReturnA(request);
 	}
 
+	@Override
+	public DeputyReturnAResponse getDeputyReturnAData(String year) {
+		return establishmentService.getDeputyReturnAData(year);
+	}
+
 }

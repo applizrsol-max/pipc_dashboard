@@ -113,4 +113,6 @@ public interface EstablishmentService {
 
 	DeputyReturnAResponse saveOrUpdateDeputyReturnA(DeputyReturnARequest request);
 
+	DeputyReturnAResponse getDeputyReturnAData(String year);
+
 }
