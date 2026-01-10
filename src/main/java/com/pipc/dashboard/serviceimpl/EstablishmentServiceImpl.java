@@ -4423,7 +4423,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	}
 
 	@Override
-	public BhaniniResponse getBhaniniData(String year, String employeeName) {
+	public BhaniniResponse getBhaniniData(String employeeName, String year) {
 
 		String currentUser = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
 		String corrId = MDC.get("correlationId");
