@@ -4,14 +4,22 @@ import lombok.Data;
 
 @Data
 public class MonthlyDetailBhanini {
-	private String month; // April-2024 etc.
+	private String month;
 
-	private Long purnaRupyaMadhilVargni; // basic
-	private Long kadhlelyaRakmanchiParatFed; // allowance
-	private Long ekun; // total
+	private String purnaRupyaMadhilVargniRu;
+	private String purnaRupyaMadhilVargniPay;
 
-	private Long kadhlelyaRakam; // deduction
-	private Long jayavarilVyajachi; // interest / arrears
+	private String kadhlelyaRakmanchiParatFedRu;
+	private String kadhlelyaRakmanchiParatFedPay;
+
+	private Integer ekunRu;
+	private String ekunPay;
+
+	private Integer kadhlelyaRakamRu;
+	private String kadhlelyaRakamPay;
+
+	private Integer jayavarilVyajachiRu;
+	private String jayavarilVyajachiPay;
 
 	private String sheraOrArrears;
 }

@@ -14,6 +14,7 @@ import com.pipc.dashboard.establishment.request.AgendaSecRequest;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.AppealWrapper2;
 import com.pipc.dashboard.establishment.request.BhaniniRequest;
+import com.pipc.dashboard.establishment.request.DeputyReturnARequest;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.JeReturnRequest;
@@ -23,6 +24,7 @@ import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
+import com.pipc.dashboard.establishment.response.DeputyReturnAResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
 import com.pipc.dashboard.establishment.response.JeReturnResponse;
@@ -239,6 +241,11 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	@Override
 	public ResponseEntity<InputStreamResource> downloadJeReturnData(String year) throws IOException {
 		return establishmentService.downloadJeReturnData(year);
+	}
+
+	@Override
+	public DeputyReturnAResponse saveOrUpdateDeputyReturnA(DeputyReturnARequest request) {
+		return establishmentService.saveOrUpdateDeputyReturnA(request);
 	}
 
 }

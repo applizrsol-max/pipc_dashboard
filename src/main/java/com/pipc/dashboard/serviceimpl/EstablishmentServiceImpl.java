@@ -69,6 +69,8 @@ import com.pipc.dashboard.establishment.repository.CrFileListEntity;
 import com.pipc.dashboard.establishment.repository.CrFileListRepository;
 import com.pipc.dashboard.establishment.repository.CrFileListRtrEntity;
 import com.pipc.dashboard.establishment.repository.CrFileListRtrRepository;
+import com.pipc.dashboard.establishment.repository.DeputyReturnAEntity;
+import com.pipc.dashboard.establishment.repository.DeputyReturnARepository;
 import com.pipc.dashboard.establishment.repository.EmployeePostingEntity;
 import com.pipc.dashboard.establishment.repository.EmployeePostingRepository;
 import com.pipc.dashboard.establishment.repository.IncomeTaxDeductionEntity;
@@ -92,6 +94,9 @@ import com.pipc.dashboard.establishment.request.AppealRequest2;
 import com.pipc.dashboard.establishment.request.AppealWrapper;
 import com.pipc.dashboard.establishment.request.AppealWrapper2;
 import com.pipc.dashboard.establishment.request.BhaniniRequest;
+import com.pipc.dashboard.establishment.request.DeputyReturnADivisionDto;
+import com.pipc.dashboard.establishment.request.DeputyReturnARequest;
+import com.pipc.dashboard.establishment.request.DeputyReturnARowDto;
 import com.pipc.dashboard.establishment.request.EmployeePostingRequest;
 import com.pipc.dashboard.establishment.request.IncomeTaxDeductionRequest;
 import com.pipc.dashboard.establishment.request.JeReturnRequest;
@@ -104,6 +109,7 @@ import com.pipc.dashboard.establishment.request.ThirteenRow;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
+import com.pipc.dashboard.establishment.response.DeputyReturnAResponse;
 import com.pipc.dashboard.establishment.response.EmployeePostingResponse;
 import com.pipc.dashboard.establishment.response.IncomeTaxDeductionResponse;
 import com.pipc.dashboard.establishment.response.JeReturnResponse;
@@ -139,6 +145,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	@Autowired
 	private ObjectMapper objectMapper;
 	private final BhaniniRepo bhaniniRepo;
+	private DeputyReturnARepository deputyReturnARepository;
 
 	@Transactional
 	@Override
@@ -4558,6 +4565,9 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		int sumF = 0, sumG = 0, sumH = 0;
 		int sumI = 0, sumJ = 0, sumK = 0;
 
+		
+	
+
 		for (JeReturnEntity e : list) {
 
 			JsonNode d = e.getData();
@@ -4672,50 +4682,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
 	}
 
-	private void mergeWithBorder(Sheet sheet, int row1, int row2, int col1, int col2) {
-
-		CellRangeAddress region = new CellRangeAddress(row1, row2, col1, col2);
-
-		sheet.addMergedRegion(region);
-
-		RegionUtil.setBorderTop(BorderStyle.THIN, region, sheet);
-		RegionUtil.setBorderBottom(BorderStyle.THIN, region, sheet);
-		RegionUtil.setBorderLeft(BorderStyle.THIN, region, sheet);
-		RegionUtil.setBorderRight(BorderStyle.THIN, region, sheet);
-	}
-
-	private void mergeWithBorderForBhanini(XSSFSheet sheet, int firstRow, int lastRow, int firstCol, int lastCol,
-			XSSFCellStyle style) {
-		CellRangeAddress region = new CellRangeAddress(firstRow, lastRow, firstCol, lastCol);
-
-		sheet.addMergedRegion(region);
-
-		RegionUtil.setBorderTop(BorderStyle.THIN, region, sheet);
-		RegionUtil.setBorderBottom(BorderStyle.THIN, region, sheet);
-		RegionUtil.setBorderLeft(BorderStyle.THIN, region, sheet);
-		RegionUtil.setBorderRight(BorderStyle.THIN, region, sheet);
-
-		// apply style to top-left cell
-		Row row = sheet.getRow(firstRow);
-		if (row == null)
-			row = sheet.createRow(firstRow);
-		Cell cell = row.getCell(firstCol);
-		if (cell == null)
-			cell = row.createCell(firstCol);
-		cell.setCellStyle(style);
-	}
-
-	private void applyRowBorder(Row row, int lastCol, CellStyle left, CellStyle center) {
-		for (int i = 0; i <= lastCol; i++) {
-			Cell cell = row.getCell(i);
-			if (cell == null)
-				cell = row.createCell(i);
-			if (i == 0)
-				cell.setCellStyle(left);
-			else
-				cell.setCellStyle(center);
-		}
-	}
+	
 
 	@Override
 	@Transactional
@@ -5067,8 +5034,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 		r += 2;
 
 		// Left side text
-		sheet.createRow(r++).createCell(5)
-        .setCellValue("स्थळ प्रत अ.अ.यांना मान्य असे.");
+		sheet.createRow(r++).createCell(5).setCellValue("स्थळ प्रत अ.अ.यांना मान्य असे.");
 		// Right side block
 		Row f1 = sheet.createRow(r++);
 		set(f1, 16, "(" + footerName + ")", footerStyle);
@@ -5185,6 +5151,104 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 		// Extra padding so last line never hides
 		row.setHeightInPoints(maxHeight + 30);
+	}
+
+	@Transactional
+	@Override
+	public DeputyReturnAResponse saveOrUpdateDeputyReturnA(DeputyReturnARequest request) {
+
+		DeputyReturnAResponse response = new DeputyReturnAResponse();
+		ApplicationError error;
+
+		final String username = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		final String corrId = MDC.get("correlationId");
+		final LocalDateTime now = LocalDateTime.now();
+
+		try {
+
+			log.info("START saveOrUpdateDeputyReturnA | year={} | divisions={} | user={} | corrId={}",
+					request.getYear(), request.getDivision().size(), username, corrId);
+
+			for (DeputyReturnADivisionDto div : request.getDivision()) {
+
+				String office = div.getKaryalayacheNav();
+
+				for (DeputyReturnARowDto r : div.getRows()) {
+
+					// ================= HARD DELETE =================
+					if ("D".equalsIgnoreCase(r.getFlag())) {
+
+						deputyReturnARepository
+								.findByDeleteIdAndYearAndKaryalayacheNav(r.getDeleteId(), request.getYear(), office)
+								.ifPresent(deputyReturnARepository::delete);
+
+						log.info("DELETED DeputyReturnA | year={} | office={} | deleteId={} | corrId={}",
+								request.getYear(), office, r.getDeleteId(), corrId);
+						continue;
+					}
+
+					// ================= SAVE / UPDATE =================
+					Optional<DeputyReturnAEntity> opt = deputyReturnARepository
+							.findByRowIdAndYearAndKaryalayacheNav(r.getRowId(), request.getYear(), office);
+
+					DeputyReturnAEntity e;
+
+					if (opt.isPresent()) {
+
+						// -------- UPDATE --------
+						e = opt.get();
+						e.setFlag("U");
+						e.setUpdatedAt(now);
+						e.setUpdatedBy(username);
+
+						log.debug("UPDATED DeputyReturnA | year={} | office={} | rowId={} | corrId={}",
+								request.getYear(), office, r.getRowId(), corrId);
+
+					} else {
+
+						// -------- CREATE --------
+						e = new DeputyReturnAEntity();
+						e.setYear(request.getYear());
+						e.setRowId(r.getRowId());
+						e.setDeleteId(r.getDeleteId());
+						e.setKaryalayacheNav(office);
+						e.setUpAdhikshakAbhiyanta(request.getUpAdhikshakAbhiyanta());
+						e.setFlag("C");
+						e.setCreatedAt(now);
+						e.setCreatedBy(username);
+						e.setUpdatedAt(now);
+						e.setUpdatedBy(username);
+
+						log.debug("CREATED DeputyReturnA | year={} | office={} | rowId={} | corrId={}",
+								request.getYear(), office, r.getRowId(), corrId);
+					}
+
+					// common fields
+					e.setData(r.getData());
+
+					deputyReturnARepository.save(e);
+				}
+			}
+
+			response.setYear(request.getYear());
+			response.setUpAdhikshakAbhiyanta(request.getUpAdhikshakAbhiyanta());
+
+			error = new ApplicationError("200", "SUCCESS");
+			response.setErrorDetails(error);
+
+			log.info("SUCCESS saveOrUpdateDeputyReturnA | year={} | corrId={}", request.getYear(), corrId);
+
+			return response;
+
+		} catch (Exception ex) {
+
+			log.error("ERROR saveOrUpdateDeputyReturnA | year={} | corrId={}", request.getYear(), corrId, ex);
+
+			error = new ApplicationError("500", ex.getMessage());
+			response.setErrorDetails(error);
+
+			return response;
+		}
 	}
 
 }
