@@ -28,6 +28,7 @@ import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.request.VivranPatraARequest;
 import com.pipc.dashboard.establishment.request.VivranPatraDRequest;
+import com.pipc.dashboard.establishment.request.VivranPatraRequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
@@ -38,6 +39,7 @@ import com.pipc.dashboard.establishment.response.JeReturnResponse;
 import com.pipc.dashboard.establishment.response.MasterDataResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
 import com.pipc.dashboard.establishment.response.VivranPatraAResponse;
+import com.pipc.dashboard.establishment.response.VivranPatraResponse;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -379,6 +381,13 @@ public class EstablishmentController {
 		return establishmentBusiness.getDeputyReturnAData(year);
 	}
 
+	@GetMapping("/downloadDeputyReturnA")
+	public ResponseEntity<InputStreamResource> downloadDeputyReturnA(@RequestParam String year) throws IOException {
+
+		log.info("DOWNLOAD downloadDeputyReturnA | year={} ", year);
+		return establishmentBusiness.downloadDeputyReturnA(year);
+	}
+
 	@PostMapping("/saveOrUpdateDeputyReturnB")
 	public DeputyReturnAResponse saveOrUpdateDeputyReturnB(@RequestBody DeputyReturnARequest request) {
 
@@ -391,6 +400,13 @@ public class EstablishmentController {
 
 		log.info("DOWNLOAD getDeputyReturnAData | year={} ", year);
 		return establishmentBusiness.getDeputyReturnBData(year);
+	}
+
+	@GetMapping("/downloadDeputyReturnB")
+	public ResponseEntity<InputStreamResource> downloadDeputyReturnB(@RequestParam String year) throws IOException {
+
+		log.info("DOWNLOAD downloadDeputyReturnB | year={} ", year);
+		return establishmentBusiness.downloadDeputyReturnB(year);
 	}
 
 	@PostMapping("/saveOrUpdateDeputyVivranA")
@@ -407,6 +423,13 @@ public class EstablishmentController {
 		return establishmentBusiness.getDeputyVivranA(year);
 	}
 
+	@GetMapping("/downloadDeputyVivranA")
+	public ResponseEntity<InputStreamResource> downloadDeputyVivranA(@RequestParam String year) throws IOException {
+
+		log.info("DOWNLOAD downloadDeputyVivranA | year={} ", year);
+		return establishmentBusiness.downloadDeputyVivranA(year);
+	}
+
 	@PostMapping("/saveOrUpdateDeputyVivranD")
 	public VivranPatraAResponse saveOrUpdateDeputyVivranD(@RequestBody VivranPatraDRequest request) {
 
@@ -419,6 +442,27 @@ public class EstablishmentController {
 
 		log.info("DOWNLOAD getDeputyVivranD | year={} ", year);
 		return establishmentBusiness.getDeputyVivranD(year);
+	}
+
+	@GetMapping("/downloadDeputyVivranD")
+	public ResponseEntity<InputStreamResource> downloadDeputyVivranD(@RequestParam String year) throws IOException {
+
+		log.info("DOWNLOAD downloadDeputyVivranD | year={} ", year);
+		return establishmentBusiness.downloadDeputyVivranD(year);
+	}
+
+	@PostMapping("/saveOrUpdateVivranPatra")
+	public VivranPatraResponse saveVivranPatra(@RequestBody VivranPatraRequest request) {
+
+		log.info("SAVE VivranPatra | year={}", request.getYear());
+		return establishmentBusiness.saveOrUpdateVivranPatra(request);
+	}
+
+	@GetMapping("/getVivranPatra")
+	public VivranPatraResponse getVivranPatra(@RequestParam String year) {
+
+		log.info("FETCH VivranPatra | year={}", year);
+		return establishmentBusiness.getVivranPatra(year);
 	}
 
 }

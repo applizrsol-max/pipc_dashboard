@@ -91,8 +91,12 @@ import com.pipc.dashboard.establishment.repository.RtrGopniyaAhwal;
 import com.pipc.dashboard.establishment.repository.RtrGopniyaAhwalRepository;
 import com.pipc.dashboard.establishment.repository.VivranPatraAEntity;
 import com.pipc.dashboard.establishment.repository.VivranPatraARepository;
+import com.pipc.dashboard.establishment.repository.VivranPatraASummaryEntity;
+import com.pipc.dashboard.establishment.repository.VivranPatraASummaryRepository;
 import com.pipc.dashboard.establishment.repository.VivranPatraDEntity;
 import com.pipc.dashboard.establishment.repository.VivranPatraDRepository;
+import com.pipc.dashboard.establishment.repository.VivranPatraEntity;
+import com.pipc.dashboard.establishment.repository.VivranPatraRepository;
 import com.pipc.dashboard.establishment.request.AgendaRequest;
 import com.pipc.dashboard.establishment.request.AgendaRow;
 import com.pipc.dashboard.establishment.request.AgendaSecRequest;
@@ -114,6 +118,7 @@ import com.pipc.dashboard.establishment.request.MahaparRegisterSectionRequest;
 import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRow;
+import com.pipc.dashboard.establishment.request.VivranGroupDto;
 import com.pipc.dashboard.establishment.request.VivranPatraADivisionDto;
 import com.pipc.dashboard.establishment.request.VivranPatraARequest;
 import com.pipc.dashboard.establishment.request.VivranPatraARowDto;
@@ -121,6 +126,8 @@ import com.pipc.dashboard.establishment.request.VivranPatraASummaryDto;
 import com.pipc.dashboard.establishment.request.VivranPatraDDivisionDto;
 import com.pipc.dashboard.establishment.request.VivranPatraDRequest;
 import com.pipc.dashboard.establishment.request.VivranPatraDRowDto;
+import com.pipc.dashboard.establishment.request.VivranPatraRequest;
+import com.pipc.dashboard.establishment.request.VivranRowDto;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
@@ -131,6 +138,7 @@ import com.pipc.dashboard.establishment.response.JeReturnResponse;
 import com.pipc.dashboard.establishment.response.MasterDataResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
 import com.pipc.dashboard.establishment.response.VivranPatraAResponse;
+import com.pipc.dashboard.establishment.response.VivranPatraResponse;
 import com.pipc.dashboard.service.EstablishmentService;
 import com.pipc.dashboard.utility.ApplicationError;
 
@@ -165,6 +173,8 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 	private final DeputyReturnBRepository deputyReturnBRepository;
 	private final VivranPatraARepository vivranPatraARepository;
 	private final VivranPatraDRepository vivranPatraDRepository;
+	private final VivranPatraRepository vivranPatraRepository;
+	private final VivranPatraASummaryRepository vivranPatraASummaryRepository;
 
 	@Transactional
 	@Override
@@ -5892,6 +5902,41 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				}
 			}
 
+			// ================= SUMMARY SAVE =================
+
+			for (VivranPatraASummaryDto s : request.getSummary()) {
+
+				Optional<VivranPatraASummaryEntity> opt = vivranPatraASummaryRepository
+						.findByDistrictAndYear(s.getDistrict(), request.getYear());
+
+				VivranPatraASummaryEntity se;
+
+				if (opt.isPresent()) {
+
+					se = opt.get();
+					se.setUpdatedBy(user);
+					se.setUpdatedAt(now);
+
+				} else {
+
+					se = new VivranPatraASummaryEntity();
+					se.setYear(request.getYear());
+					se.setDistrict(s.getDistrict());
+
+					se.setCreatedBy(user);
+					se.setCreatedAt(now);
+					se.setUpdatedBy(user);
+					se.setUpdatedAt(now);
+				}
+
+				se.setManjurPad(s.getManjurPad());
+				se.setKaryaratPad(s.getKaryaratPad());
+				se.setRiktaPad(s.getRiktaPad());
+				se.setBhavishyaRiktaPad(s.getBhavishyaRiktaPad());
+
+				vivranPatraASummaryRepository.save(se);
+			}
+
 			response.setYear(request.getYear());
 			response.setUpAdhikshakAbhiyanta(request.getUpAdhikshakAbhiyanta());
 			response.setMessage("Saved successfully");
@@ -5925,6 +5970,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 			log.info("START getVivranPatraA | year={} | corrId={}", year, corrId);
 
+			// ================= DIVISION DATA =================
 			List<VivranPatraAEntity> list = vivranPatraARepository.findByYearOrderByKaryalayacheNavAscRowIdAsc(year);
 
 			if (list.isEmpty()) {
@@ -5937,63 +5983,35 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 				return response;
 			}
 
-			// ================= GROUP BY OFFICE =================
 			Map<String, List<VivranPatraARowDto>> map = list.stream()
 					.collect(Collectors.groupingBy(VivranPatraAEntity::getKaryalayacheNav, LinkedHashMap::new,
 							Collectors.mapping(this::mapToRowDto, Collectors.toList())));
 
 			List<VivranPatraADivisionDto> divisions = new ArrayList<>();
 
-			// ===== SUMMARY MAP =====
-			Map<String, VivranPatraASummaryDto> summaryMap = new LinkedHashMap<>();
-
 			for (Map.Entry<String, List<VivranPatraARowDto>> entry : map.entrySet()) {
 
 				String office = entry.getKey();
 				List<VivranPatraARowDto> rows = entry.getValue();
 
-				// ---------- SORT ROWS ----------
 				rows.sort(Comparator.comparing(VivranPatraARowDto::getRowId));
 
 				divisions.add(VivranPatraADivisionDto.builder().karyalayacheNav(office).rows(rows).build());
-
-				// ---------- SUMMARY CALC ----------
-				int sanction = 0;
-				int working = 0;
-				int vacant = 0;
-				int futureVacant = 0;
-
-				for (VivranPatraARowDto r : rows) {
-
-					JsonNode d = r.getData();
-
-					sanction += d.path("sanctionPost").asInt(0);
-					working += d.path("workingPost").asInt(0);
-					vacant += d.path("vacantPost").asInt(0);
-					futureVacant += d.path("futureVacancy").asInt(0);
-				}
-
-				summaryMap.put(office, VivranPatraASummaryDto.builder().district(office).sanctionPost(sanction)
-						.workingPost(working).vacantPost(vacant).futureVacancy(futureVacant).build());
 			}
 
-			// ---------- GRAND TOTAL ----------
-			int tSanction = 0, tWorking = 0, tVacant = 0, tFuture = 0;
+			// ================= SUMMARY FROM DB =================
+			List<VivranPatraASummaryEntity> sList = vivranPatraASummaryRepository.findByYearOrderByDistrictAsc(year);
 
-			for (VivranPatraASummaryDto s : summaryMap.values()) {
-				tSanction += s.getSanctionPost();
-				tWorking += s.getWorkingPost();
-				tVacant += s.getVacantPost();
-				tFuture += s.getFutureVacancy();
-			}
-
-			summaryMap.put("एकुण", VivranPatraASummaryDto.builder().district("एकुण").sanctionPost(tSanction)
-					.workingPost(tWorking).vacantPost(tVacant).futureVacancy(tFuture).build());
+			List<VivranPatraASummaryDto> summaryDtos = sList.stream()
+					.map(s -> VivranPatraASummaryDto.builder().district(s.getDistrict()).manjurPad(s.getManjurPad())
+							.karyaratPad(s.getKaryaratPad()).riktaPad(s.getRiktaPad())
+							.bhavishyaRiktaPad(s.getBhavishyaRiktaPad()).build())
+					.toList();
 
 			// ================= FINAL RESPONSE =================
 			Map<String, Object> finalData = new HashMap<>();
 			finalData.put("division", divisions);
-			finalData.put("summary", new ArrayList<>(summaryMap.values()));
+			finalData.put("summary", summaryDtos);
 
 			response.setYear(year);
 			response.setData(finalData);
@@ -6002,7 +6020,7 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 			error = new ApplicationError("200", "SUCCESS");
 			response.setErrorDetails(error);
 
-			log.info("SUCCESS getVivranPatraA | year={} | groups={} | corrId={}", year, divisions.size(), corrId);
+			log.info("SUCCESS getVivranPatraA | year={} | corrId={}", year, corrId);
 
 			return response;
 
@@ -6158,6 +6176,840 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 			response.setErrorDetails(error);
 			return response;
 		}
+	}
+
+	@Transactional
+	@Override
+	public VivranPatraResponse saveOrUpdateVivranPatra(VivranPatraRequest request) {
+
+		VivranPatraResponse response = new VivranPatraResponse();
+		String user = Optional.ofNullable(MDC.get("user")).orElse("SYSTEM");
+		LocalDateTime now = LocalDateTime.now();
+
+		try {
+
+			for (VivranGroupDto g : request.getGroups()) {
+
+				for (VivranRowDto r : g.getRows()) {
+
+					// -------- DELETE --------
+					if ("D".equalsIgnoreCase(r.getFlag())) {
+
+						vivranPatraRepository
+								.findByYearAndDeleteIdAndGroupName(request.getYear(), r.getDeleteId(), g.getGroupName())
+								.ifPresent(vivranPatraRepository::delete);
+
+						continue;
+					}
+
+					// -------- SAVE / UPDATE --------
+					Optional<VivranPatraEntity> opt = vivranPatraRepository
+							.findByYearAndRowIdAndGroupName(request.getYear(), r.getRowId(), g.getGroupName());
+
+					VivranPatraEntity e;
+
+					if (opt.isPresent()) {
+
+						e = opt.get();
+						e.setFlag("U");
+						e.setUpdatedBy(user);
+						e.setUpdatedAt(now);
+
+					} else {
+
+						e = new VivranPatraEntity();
+						e.setYear(request.getYear());
+						e.setRowId(r.getRowId());
+						e.setDeleteId(r.getDeleteId());
+						e.setGroupName(g.getGroupName());
+						e.setUpadhikshakAbhiyanta(request.getUpadhikshakAbhiyanta());
+						e.setManjurVarg(request.getManjurVarg());
+
+						e.setFlag("C");
+						e.setCreatedBy(user);
+						e.setCreatedAt(now);
+						e.setUpdatedBy(user);
+						e.setUpdatedAt(now);
+					}
+
+					ObjectMapper m = new ObjectMapper();
+					e.setData(m.valueToTree(r));
+
+					vivranPatraRepository.save(e);
+				}
+			}
+
+			response.setYear(request.getYear());
+			response.setUpadhikshakAbhiyanta(request.getUpadhikshakAbhiyanta());
+			response.setData(request);
+			response.setMessage("Saved Successfully");
+			response.setErrorDetails(new ApplicationError("200", "SUCCESS"));
+
+			return response;
+
+		} catch (Exception ex) {
+
+			response.setErrorDetails(new ApplicationError("500", ex.getMessage()));
+			return response;
+		}
+	}
+
+	@Transactional(readOnly = true)
+	@Override
+	public VivranPatraResponse getVivranPatra(String year) {
+
+		VivranPatraResponse response = new VivranPatraResponse();
+
+		try {
+
+			List<VivranPatraEntity> list = vivranPatraRepository.findByYearOrderByGroupNameAscRowIdAsc(year);
+
+			if (list.isEmpty()) {
+
+				response.setMessage("No Data");
+				response.setErrorDetails(new ApplicationError("204", "NO DATA"));
+				return response;
+			}
+
+			// ===== GROUP BY GROUP NAME =====
+			Map<String, List<VivranRowDto>> map = list.stream().collect(
+					Collectors.groupingBy(VivranPatraEntity::getGroupName, LinkedHashMap::new, Collectors.mapping(e -> {
+
+						try {
+							return new ObjectMapper().treeToValue(e.getData(), VivranRowDto.class);
+						} catch (Exception ex) {
+							return null;
+						}
+					}, Collectors.toList())));
+
+			List<VivranGroupDto> groups = new ArrayList<>();
+
+			map.forEach((k, v) -> {
+				groups.add(VivranGroupDto.builder().groupName(k).rows(v).build());
+			});
+
+			VivranPatraRequest data = VivranPatraRequest.builder().year(year).groups(groups).build();
+
+			response.setYear(year);
+			response.setUpadhikshakAbhiyanta(list.get(0).getUpadhikshakAbhiyanta());
+			response.setData(data);
+			response.setMessage("SUCCESS");
+			response.setErrorDetails(new ApplicationError("200", "SUCCESS"));
+
+			return response;
+
+		} catch (Exception ex) {
+
+			response.setErrorDetails(new ApplicationError("500", ex.getMessage()));
+			return response;
+		}
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadDeputyReturnA(String year) throws IOException {
+
+		List<DeputyReturnAEntity> list = deputyReturnARepository.findByYear(year);
+
+		if (list.isEmpty())
+			throw new RuntimeException("No data");
+
+		// ===== SORT ONLY BY ROWID =====
+		list.sort(Comparator.comparing(DeputyReturnAEntity::getRowId));
+
+		// ===== GROUP BY OFFICE (ORDER PRESERVED) =====
+		Map<String, List<DeputyReturnAEntity>> grouped = list.stream().collect(Collectors
+				.groupingBy(DeputyReturnAEntity::getKaryalayacheNav, LinkedHashMap::new, Collectors.toList()));
+
+		String footerName = Optional.ofNullable(list.get(0).getUpAdhikshakAbhiyanta()).orElse("");
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet("VivranPatraA");
+
+		// ===== STYLES =====
+		Font bold = wb.createFont();
+		bold.setBold(true);
+
+		CellStyle centerBold = wb.createCellStyle();
+		centerBold.setFont(bold);
+		centerBold.setAlignment(HorizontalAlignment.CENTER);
+		centerBold.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		CellStyle leftBold = wb.createCellStyle();
+		leftBold.setFont(bold);
+		leftBold.setAlignment(HorizontalAlignment.LEFT);
+		setBorder(leftBold);
+
+		CellStyle header = wb.createCellStyle();
+		header.setFont(bold);
+		header.setAlignment(HorizontalAlignment.CENTER);
+		header.setVerticalAlignment(VerticalAlignment.CENTER);
+		header.setWrapText(true);
+		setBorder(header);
+
+		CellStyle border = wb.createCellStyle();
+		border.setAlignment(HorizontalAlignment.LEFT);
+		border.setVerticalAlignment(VerticalAlignment.TOP);
+		border.setWrapText(true);
+		setBorder(border);
+
+		int r = 0;
+
+		// ===== TITLE =====
+		Row t1 = sheet.createRow(r++);
+		t1.setHeightInPoints(30);
+		t1.createCell(0).setCellValue("विवरणपत्र अ");
+		t1.getCell(0).setCellStyle(centerBold);
+		mergeWithBorderForVivranA(sheet, 0, 0, 0, 13);
+
+		Row t2 = sheet.createRow(r++);
+		t2.setHeightInPoints(30);
+		t2.createCell(0).setCellValue("शासन पत्र क्र.सकीर्ण 2019/प्र.क्र.351/2019/आ(वर्ग-2), दि.16/12/2019 चे सहपत्र");
+		t2.getCell(0).setCellStyle(centerBold);
+		mergeWithBorderForVivranA(sheet, 1, 1, 0, 13);
+
+		// ===== HEADERS =====
+		String[] heads = { "अ.क्र.", "कार्यकारी संचालक / मुख्य अभियंता कार्यालयाचे नांव", "मंडळ कार्यालयाचे नांव",
+				"विभागाचे नांव", "उपविभागाचे नांव", "अधिकाऱ्यांचे मराठीत संपूर्ण नाव  (आद्याक्षरे लिहू नयेत)",
+				"शैक्षणिक अर्हता बी.ई. /डि.सी.ई.", "जन्मदिनांक (दिनांक-महिना-वर्ष या स्वरुपात) (DD-MM-YY)",
+				"सेवानिवृतीचा दिनाक (दिनांक महिना-महिना-वर्ष या स्वरुपात) (DD-MM-YY)",
+				"उपअभियंता/ कार्यकारी  अभियंता पदावरील नियुक्ती/पदोन्नती आदेशाचा दिनांक (विभागीय संवर्गासह)",
+				"सध्याच्या ठिकाणी पदस्थापना झाल्याचा दिनांक",
+				"मागील 15 वर्षात ज्या प्रदेशात सेवा केली त्या प्रदेशाची नांवे व तेथील कार्यकालाची वर्षे",
+				"मागील 15 वर्षात ज्या जिल्हयात सेवा केली त्या जिल्हयांची नांवे व तेथील कार्यकालाची वर्षे",
+				"कार्यभाराचा प्रकार (बांधकाम/सिंचन/ व्यवस्थापन/अन्वेषण / सर्वेक्षण इ.)" };
+
+		Row h1 = sheet.createRow(r++);
+		for (int i = 0; i < heads.length; i++) {
+			Cell c = h1.createCell(i);
+			c.setCellValue(heads[i]);
+			c.setCellStyle(header);
+			sheet.setColumnWidth(i, 6000);
+		}
+
+		Row h2 = sheet.createRow(r++);
+		for (int i = 0; i < heads.length; i++) {
+			Cell c = h2.createCell(i);
+			c.setCellValue(i + 1);
+			c.setCellStyle(header);
+		}
+
+		// ===== STATIC ROW =====
+		Row s = sheet.createRow(r++);
+		s.createCell(0).setCellValue("उपकार्यकारी अभियंता / उपविभागीय अभियंता / अधिकारी");
+		s.getCell(0).setCellStyle(leftBold);
+		mergeWithBorderForVivranA(sheet, s.getRowNum(), s.getRowNum(), 0, 13);
+
+		// ===== DATA =====
+		for (var e : grouped.entrySet()) {
+
+			Row off = sheet.createRow(r++);
+			off.createCell(0).setCellValue(e.getKey());
+			off.getCell(0).setCellStyle(leftBold);
+			mergeWithBorderForVivranA(sheet, off.getRowNum(), off.getRowNum(), 0, 13);
+
+			for (DeputyReturnAEntity en : e.getValue()) {
+
+				JsonNode d = en.getData();
+				Row row = sheet.createRow(r++);
+
+				set(row, 0, d, "srno", border);
+				set(row, 1, d, "karyakariSanchalak", border);
+				set(row, 2, d, "mandalOffice", border);
+				set(row, 3, d, "vibhag", border);
+				set(row, 4, d, "upvibhag", border);
+				set(row, 5, d, "adhikariNav", border);
+				set(row, 6, d, "shikshan", border);
+				set(row, 7, d, "janmTarikh", border);
+				set(row, 8, d, "sevanivrutti", border);
+				set(row, 9, d, "niyukti", border);
+				set(row, 10, d, "sadyachiPadsthapana", border);
+				set(row, 11, d, "seva15Varsh", border);
+				set(row, 12, d, "seva15VarshThikan", border);
+				set(row, 13, d, "karyaprakaar", border);
+
+				row.setHeight((short) -1);
+			}
+		}
+
+		// ================= FOOTER =================
+		// ================= FOOTER =================
+		r += 2;
+
+		// ---------- H - I MERGE (NO BORDER) ----------
+		Row f1 = sheet.createRow(r++);
+		f1.setHeightInPoints(30); // height increase
+
+		sheet.addMergedRegion(new CellRangeAddress(f1.getRowNum(), f1.getRowNum(), 7, 8));
+
+		Cell c1 = f1.createCell(7);
+		c1.setCellValue("मुळ प्रतीवर अ.अ. यांची सही असे.");
+
+		CellStyle footerStyle = wb.createCellStyle();
+		footerStyle.setAlignment(HorizontalAlignment.CENTER);
+		footerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		footerStyle.setWrapText(true); // 🔥 important
+
+		c1.setCellStyle(footerStyle); // ❌ NO BORDER
+
+		// ---------- M - N MERGE (NAME BLOCK) ----------
+		Row f2 = sheet.createRow(r++);
+		f2.setHeightInPoints(85); // 🔥 enough height
+
+		sheet.addMergedRegion(new CellRangeAddress(f2.getRowNum(), f2.getRowNum(), 12, 13));
+
+		Cell c2 = f2.createCell(12);
+		c2.setCellValue(
+				"(" + footerName + ")\n" + "उपअधीक्षक अभियंता\n" + "पुणे पाटबंधारे प्रकल्प मंडळ,\n" + "पुणे-01.");
+
+		// style without border
+		CellStyle footerRight = wb.createCellStyle();
+		footerRight.setAlignment(HorizontalAlignment.CENTER);
+		footerRight.setVerticalAlignment(VerticalAlignment.TOP);
+		footerRight.setWrapText(true);
+
+		Font fnt = wb.createFont();
+		fnt.setBold(true);
+		footerRight.setFont(fnt);
+
+		c2.setCellStyle(footerRight); // ❌ NO BORDER
+
+		// ===== WRITE =====
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		return ResponseEntity.ok()
+				.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Dept.Eng.PrapatraA.xlsx")
+				.contentType(
+						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	private void set(Row r, int col, JsonNode d, String k, CellStyle s) {
+
+		Cell c = r.createCell(col);
+		c.setCellValue(d.hasNonNull(k) ? d.get(k).asText() : "");
+		c.setCellStyle(s);
+	}
+
+	private void setBorder(CellStyle st) {
+		st.setBorderBottom(BorderStyle.THIN);
+		st.setBorderTop(BorderStyle.THIN);
+		st.setBorderLeft(BorderStyle.THIN);
+		st.setBorderRight(BorderStyle.THIN);
+	}
+
+	private void mergeWithBorderForVivranA(Sheet sh, int fr, int tr, int fc, int tc) {
+
+		CellRangeAddress reg = new CellRangeAddress(fr, tr, fc, tc);
+		sh.addMergedRegion(reg);
+
+		RegionUtil.setBorderTop(BorderStyle.THIN, reg, sh);
+		RegionUtil.setBorderBottom(BorderStyle.THIN, reg, sh);
+		RegionUtil.setBorderLeft(BorderStyle.THIN, reg, sh);
+		RegionUtil.setBorderRight(BorderStyle.THIN, reg, sh);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadDeputyReturnB(String year) throws IOException {
+
+		List<DeputyReturnBEntity> list = deputyReturnBRepository.findByYear(year);
+
+		if (list.isEmpty())
+			throw new RuntimeException("No data");
+
+		// SORT ONLY BY ROWID
+		list.sort(Comparator.comparing(DeputyReturnBEntity::getRowId));
+
+		// GROUP BY OFFICE
+		Map<String, List<DeputyReturnBEntity>> grouped = list.stream().collect(Collectors
+				.groupingBy(DeputyReturnBEntity::getKaryalayacheNav, LinkedHashMap::new, Collectors.toList()));
+
+		String footerName = Optional.ofNullable(list.get(0).getUpAdhikshakAbhiyanta()).orElse("");
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet("Dept.Eng.PrapatraB");
+
+		// ================= STYLES =================
+		Font bold = wb.createFont();
+		bold.setBold(true);
+
+		CellStyle centerBold = wb.createCellStyle();
+		centerBold.setFont(bold);
+		centerBold.setAlignment(HorizontalAlignment.CENTER);
+		centerBold.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		CellStyle leftBold = wb.createCellStyle();
+		leftBold.setFont(bold);
+		leftBold.setAlignment(HorizontalAlignment.LEFT);
+		setBorder(leftBold);
+
+		CellStyle header = wb.createCellStyle();
+		header.setFont(bold);
+		header.setAlignment(HorizontalAlignment.CENTER);
+		header.setVerticalAlignment(VerticalAlignment.CENTER);
+		header.setWrapText(true);
+		setBorder(header);
+
+		CellStyle border = wb.createCellStyle();
+		border.setAlignment(HorizontalAlignment.LEFT);
+		border.setVerticalAlignment(VerticalAlignment.TOP);
+		border.setWrapText(true);
+		setBorder(border);
+
+		int r = 0;
+
+		// ================= TITLE =================
+		Row t1 = sheet.createRow(r++);
+		t1.setHeightInPoints(30);
+		t1.createCell(0).setCellValue("विवरणपत्र-ब");
+		t1.getCell(0).setCellStyle(centerBold);
+		mergeWithBorderForVivranA(sheet, 0, 0, 0, 14);
+
+		Row t2 = sheet.createRow(r++);
+		t2.setHeightInPoints(30);
+		t2.createCell(0).setCellValue("शासन पत्र क्र.सकीर्ण 2019/प्र.क्र.351/2019/आ(वर्ग-2), दि.16/12/2019 चे सहपत्र");
+		t2.getCell(0).setCellStyle(centerBold);
+		mergeWithBorderForVivranA(sheet, 1, 1, 0, 14);
+
+		// ================= HEADERS =================
+		String[] heads = { "अ.क्र.", "अधिका-याचे संपूर्ण नांव,आडनांव,प्रथम नांव,वडिलांचे नांव",
+				"अधिकाऱ्याचे फक्त आडनांव इंग्रजीत", "पदनाम सहा.अभि.श्रेणी-1/सहा.का.अभि/उ.वि.अभि./उ.वि.अधि.",
+				"शासकीय सेवेत प्रथम नियुक्तीचे पद", "शासकीय सेवेत प्रथम नेमणुकीचा दिनांक",
+				"प्रथम नेमणूक ज्या प्रवर्गातून झाली आहे त्या प्रवर्गाचे नांव", "प्रथम नेमणूक स्थायी/अस्थायी आहे ?",
+				"उपअभियंता पदावरील पदोन्नतीच्या आदेशाचा दिनांक ( DD-MM-YY ) या स्वरूपात)", "स्वग्राम-गाव तालुका/जिल्हा",
+				"व्यावसायिक परीक्षा उत्तीर्ण आहेत का (होय/नाही)", "जात प्रवर्ग OPEN OBC SC ST VJA NTB NTC NTD SBC ",
+				"जातप्रमाण पत्र पडताळणी (वैध /अवैध दिनांक)",
+				"जात प्रमाणपत्र पडताळणी झाली नसल्यास कोणत्या समितीकडे प्रस्ताव पाठविला त्याचे नांव व दिनांक", "शेरा" };
+
+		Row h1 = sheet.createRow(r++);
+		for (int i = 0; i < heads.length; i++) {
+			Cell c = h1.createCell(i);
+			c.setCellValue(heads[i]);
+			c.setCellStyle(header);
+			sheet.setColumnWidth(i, 6000);
+		}
+
+		Row h2 = sheet.createRow(r++);
+		for (int i = 0; i < heads.length; i++) {
+			Cell c = h2.createCell(i);
+			c.setCellValue(i + 1);
+			c.setCellStyle(header);
+		}
+
+		// ================= STATIC ROW =================
+		Row s = sheet.createRow(r++);
+		s.createCell(0).setCellValue("उपकार्यकारी अभियंता / उपविभागीय अभियंता / अधिकारी");
+		s.getCell(0).setCellStyle(leftBold);
+		mergeWithBorderForVivranA(sheet, s.getRowNum(), s.getRowNum(), 0, 14);
+
+		// ================= DATA =================
+		for (var e : grouped.entrySet()) {
+
+			// OFFICE NAME
+			Row off = sheet.createRow(r++);
+			off.createCell(0).setCellValue(e.getKey());
+			off.getCell(0).setCellStyle(leftBold);
+			mergeWithBorderForVivranA(sheet, off.getRowNum(), off.getRowNum(), 0, 14);
+
+			for (DeputyReturnBEntity en : e.getValue()) {
+
+				JsonNode d = en.getData();
+				Row row = sheet.createRow(r++);
+
+				set(row, 0, d, "srno", border);
+				set(row, 1, d, "karyakariSanchalak", border);
+				set(row, 2, d, "surname", border);
+				set(row, 3, d, "presentPost", border);
+				set(row, 4, d, "appointmentPost", border);
+				set(row, 5, d, "firstServiceDate", border);
+				set(row, 6, d, "category", border);
+				set(row, 7, d, "serviceType", border);
+				set(row, 8, d, "promotionDate", border);
+				set(row, 9, d, "nativePlace", border);
+				set(row, 10, d, "deptExam", border);
+				set(row, 11, d, "caste", border);
+				set(row, 12, d, "reservation", border);
+				set(row, 13, d, "serviceRegularized", border);
+				set(row, 14, d, "remarks", border);
+
+				// ENSURE ALL 15 COLS HAVE BORDER
+				for (int i = 0; i <= 14; i++) {
+					Cell cell = row.getCell(i);
+					if (cell == null)
+						cell = row.createCell(i);
+					cell.setCellStyle(border);
+				}
+
+				row.setHeight((short) -1);
+			}
+		}
+
+		// ================= FOOTER =================
+		r += 2;
+
+		// ---------- H - I MERGE (NO BORDER) ----------
+		Row f1 = sheet.createRow(r++);
+		f1.setHeightInPoints(30); // height increase
+
+		sheet.addMergedRegion(new CellRangeAddress(f1.getRowNum(), f1.getRowNum(), 7, 8));
+
+		Cell c1 = f1.createCell(7);
+		c1.setCellValue("मुळ प्रतीवर अ.अ. यांची सही असे.");
+
+		CellStyle footerStyle = wb.createCellStyle();
+		footerStyle.setAlignment(HorizontalAlignment.CENTER);
+		footerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+		footerStyle.setWrapText(true); // 🔥 important
+
+		c1.setCellStyle(footerStyle); // ❌ NO BORDER
+
+		// ---------- M - N MERGE (NAME BLOCK) ----------
+		Row f2 = sheet.createRow(r++);
+		f2.setHeightInPoints(85); // 🔥 enough height
+
+		sheet.addMergedRegion(new CellRangeAddress(f2.getRowNum(), f2.getRowNum(), 12, 13));
+
+		Cell c2 = f2.createCell(12);
+		c2.setCellValue(
+				"(" + footerName + ")\n" + "उपअधीक्षक अभियंता\n" + "पुणे पाटबंधारे प्रकल्प मंडळ,\n" + "पुणे-01.");
+
+		// style without border
+		CellStyle footerRight = wb.createCellStyle();
+		footerRight.setAlignment(HorizontalAlignment.CENTER);
+		footerRight.setVerticalAlignment(VerticalAlignment.TOP);
+		footerRight.setWrapText(true);
+
+		Font fnt = wb.createFont();
+		fnt.setBold(true);
+		footerRight.setFont(fnt);
+
+		c2.setCellStyle(footerRight); // ❌ NO BORDER
+
+		// ================= WRITE =================
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		return ResponseEntity.ok()
+				.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Dept.Eng.PrapatraB.xlsx")
+				.contentType(
+						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadDeputyVivranA(String year) throws IOException {
+
+		List<VivranPatraAEntity> list = vivranPatraARepository.findByYearOrderByRowIdAsc(year);
+
+		if (list.isEmpty())
+			throw new RuntimeException("No data found");
+
+		// ===== SORT BY ROWID =====
+		list.sort(Comparator.comparing(VivranPatraAEntity::getRowId));
+
+		// ===== GROUP BY PROJECT =====
+		Map<String, List<VivranPatraAEntity>> grouped = list.stream().collect(
+				Collectors.groupingBy(VivranPatraAEntity::getKaryalayacheNav, LinkedHashMap::new, Collectors.toList()));
+
+		String footerName = Optional.ofNullable(list.get(0).getUpAdhikshakAbhiyanta()).orElse("");
+
+		// ===== SUMMARY =====
+		List<VivranPatraASummaryEntity> summaryList = vivranPatraASummaryRepository.findByYear(year);
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet("Vivran-A");
+
+		// ================= STYLES =================
+		Font bold = wb.createFont();
+		bold.setBold(true);
+
+		CellStyle centerBold = wb.createCellStyle();
+		centerBold.setFont(bold);
+		centerBold.setAlignment(HorizontalAlignment.CENTER);
+		centerBold.setVerticalAlignment(VerticalAlignment.CENTER);
+
+		CellStyle header = wb.createCellStyle();
+		header.setFont(bold);
+		header.setAlignment(HorizontalAlignment.CENTER);
+		header.setVerticalAlignment(VerticalAlignment.CENTER);
+		header.setWrapText(true);
+		setBorderVivranA(header);
+
+		CellStyle border = wb.createCellStyle();
+		border.setWrapText(true);
+		border.setAlignment(HorizontalAlignment.LEFT);
+		border.setVerticalAlignment(VerticalAlignment.TOP);
+		setBorderVivranA(border);
+
+		CellStyle leftBold = wb.createCellStyle();
+		leftBold.setFont(bold);
+		leftBold.setAlignment(HorizontalAlignment.LEFT);
+		setBorderVivranA(leftBold);
+
+		CellStyle borderBold = wb.createCellStyle();
+		borderBold.setFont(bold);
+		setBorderVivranA(borderBold);
+
+		int r = 0;
+
+		// ================= TITLE =================
+		Row t1 = sheet.createRow(r++);
+		t1.setHeightInPoints(40);
+		t1.createCell(0).setCellValue("विवरणपत्र क");
+		t1.getCell(0).setCellStyle(centerBold);
+		mergeVivranA(sheet, 0, 0, 0, 8);
+
+		Row t2 = sheet.createRow(r++);
+		t2.setHeightInPoints(40);
+		t2.createCell(0)
+				.setCellValue("शासन पत्र क्र. संकीर्ण 2019/प्र.क्र.351/2019 आ (वर्ग-2) दि. 16/12/2019 चे सहपत्र");
+		t2.getCell(0).setCellStyle(centerBold);
+		mergeVivranA(sheet, 1, 1, 0, 8);
+		// ================= ROW 3 =================
+		Row r3 = sheet.createRow(r++);
+		Cell r3c = r3.createCell(0);
+		r3c.setCellValue("सहाय्यक अभियंता श्रेणी-1 / उपविभागीय अभियंता / अधिकारी / सहाय्यक कार्यकारी अभियंता");
+		r3c.setCellStyle(borderBold);
+		r3.setHeightInPoints(25);
+
+		// merge
+		mergeVivranA(sheet, r3.getRowNum(), r3.getRowNum(), 0, 8);
+
+		// 🔥 APPLY BORDER ON ALL MERGED CELLS
+		for (int i = 0; i <= 8; i++) {
+			if (r3.getCell(i) == null)
+				r3.createCell(i);
+			r3.getCell(i).setCellStyle(borderBold);
+		}
+
+		String txt = "दि.01/01/" + year + " ते दि.31/12/" + year + " रोजीची रिक्त होणारी पदे";
+
+		// ================= HEADERS =================
+		String[] heads = { "अ.क्र.",
+				"कार्यालयाचे नांव (कार्यकारी संचालक / मुख्य अभियंता /अधीक्षक अभियंता/कार्यकारी अभियंता/विभागीय आयुक्त/जिल्हाधिकारी कार्यालय)",
+				"उपविभाग असलेला जिल्हा", "मंजूर पदसंख्या ", "कार्यरत पदे", "रिक्त पदांची संख्या", txt,
+				"कार्यभाराचा प्रकार (बांधकाम / सिंचन / व्यवस्थापन / अन्वेषण / सर्वेक्षण)", "शेरा" };
+
+		Row h1 = sheet.createRow(r++);
+		for (int i = 0; i < heads.length; i++) {
+			Cell c = h1.createCell(i);
+			c.setCellValue(heads[i]);
+			c.setCellStyle(header);
+			sheet.setColumnWidth(i, 6000);
+		}
+
+		Row h2 = sheet.createRow(r++);
+		for (int i = 0; i < heads.length; i++) {
+			Cell c = h2.createCell(i);
+			c.setCellValue(i + 1);
+			c.setCellStyle(header);
+		}
+
+		// ================= DATA =================
+		int projectSr = 1;
+		int dataStartRow = r;
+
+		for (var e : grouped.entrySet()) {
+
+			List<VivranPatraAEntity> rows = e.getValue();
+
+			for (int i = 0; i < rows.size(); i++) {
+
+				VivranPatraAEntity en = rows.get(i);
+				JsonNode d = en.getData();
+
+				Row row = sheet.createRow(r++);
+
+				// ONLY PROJECT SERIAL
+				if (i == 0)
+					row.createCell(0).setCellValue(projectSr++);
+				else
+					row.createCell(0).setCellValue("");
+
+				row.getCell(0).setCellStyle(border);
+
+				setVivranA(row, 1, d, "karyalayacheNav", border);
+				setVivranA(row, 2, d, "jilha", border);
+				setVivranA(row, 3, d, "manjurPad", border);
+				setVivranA(row, 4, d, "karyaratPad", border);
+				setVivranA(row, 5, d, "riktaPad", border);
+				setVivranA(row, 6, d, "bhavishyaRiktaPad", border);
+				setVivranA(row, 7, d, "karyalayachaPrakar", border);
+				setVivranA(row, 8, d, "shera", border);
+
+				autoHeightVivranA(row);
+			}
+		}
+
+		int dataEndRow = r - 1;
+
+		// ================= TOTAL =================
+		Row total = sheet.createRow(r++);
+
+		total.createCell(0).setCellValue("एकूण");
+		total.getCell(0).setCellStyle(borderBold);
+
+		int excelStart = dataStartRow + 1;
+		int excelEnd = dataEndRow + 1;
+
+		total.createCell(3).setCellFormula("SUM(D" + excelStart + ":D" + excelEnd + ")");
+		total.createCell(4).setCellFormula("SUM(E" + excelStart + ":E" + excelEnd + ")");
+		total.createCell(5).setCellFormula("SUM(F" + excelStart + ":F" + excelEnd + ")");
+		total.createCell(6).setCellFormula("SUM(G" + excelStart + ":G" + excelEnd + ")");
+
+		for (int i = 0; i <= 8; i++) {
+			if (total.getCell(i) == null)
+				total.createCell(i);
+			total.getCell(i).setCellStyle(borderBold);
+		}
+
+		wb.setForceFormulaRecalculation(true);
+		// ================= SUMMARY TABLE =================
+		r += 2;
+
+		Row sh = sheet.createRow(r++);
+		sh.createCell(2).setCellValue("जिल्हानिहाय");
+		sh.createCell(3).setCellValue("मंजुर पदे");
+		sh.createCell(4).setCellValue("कार्यरत पदे");
+		sh.createCell(5).setCellValue("रिक्त पदे");
+		sh.createCell(6).setCellValue("संभाव्य रिक्त पदे");
+
+		for (int i = 2; i <= 6; i++) {
+			sh.getCell(i).setCellStyle(borderBold);
+		}
+
+		int sumManjur = 0, sumKaryarat = 0, sumRikta = 0, sumFuture = 0;
+
+		for (VivranPatraASummaryEntity s : summaryList) {
+
+			Row srw = sheet.createRow(r++);
+
+			srw.createCell(2).setCellValue(s.getDistrict());
+			srw.createCell(3).setCellValue(s.getManjurPad());
+			srw.createCell(4).setCellValue(s.getKaryaratPad());
+			srw.createCell(5).setCellValue(s.getRiktaPad());
+			srw.createCell(6).setCellValue(s.getBhavishyaRiktaPad());
+
+			sumManjur += s.getManjurPad();
+			sumKaryarat += s.getKaryaratPad();
+			sumRikta += s.getRiktaPad();
+			sumFuture += s.getBhavishyaRiktaPad();
+
+			for (int i = 2; i <= 6; i++)
+				srw.getCell(i).setCellStyle(border);
+		}
+
+		// ===== IF EKUN NOT PRESENT THEN AUTO ADD =====
+		boolean hasEkun = summaryList.stream().anyMatch(x -> "एकुण".equals(x.getDistrict()));
+
+		if (!hasEkun) {
+
+			Row er = sheet.createRow(r++);
+			er.createCell(2).setCellValue("एकुण");
+			er.createCell(3).setCellValue(sumManjur);
+			er.createCell(4).setCellValue(sumKaryarat);
+			er.createCell(5).setCellValue(sumRikta);
+			er.createCell(6).setCellValue(sumFuture);
+
+			for (int i = 2; i <= 6; i++)
+				er.getCell(i).setCellStyle(borderBold);
+		}
+
+		// ================= FOOTER =================
+		r += 2;
+
+		Row f1 = sheet.createRow(r++);
+		// A column (0 index) me
+		sheet.addMergedRegion(new CellRangeAddress(f1.getRowNum(), f1.getRowNum(), 0, 3));
+
+		Cell fc1 = f1.createCell(0);
+		fc1.setCellValue("मुळ प्रतीवर अ.अ. यांची सही असे.");
+
+		CellStyle leftFooter = wb.createCellStyle();
+		leftFooter.setAlignment(HorizontalAlignment.LEFT);
+		leftFooter.setVerticalAlignment(VerticalAlignment.CENTER);
+		leftFooter.setWrapText(true);
+
+		fc1.setCellStyle(leftFooter);
+
+		Row f2 = sheet.createRow(r++);
+		f2.setHeightInPoints(90);
+
+		sheet.addMergedRegion(new CellRangeAddress(f2.getRowNum(), f2.getRowNum(), 7, 8));
+
+		Cell fc2 = f2.createCell(7);
+		fc2.setCellValue(
+				"(" + footerName + ")\n" + "उपअधीक्षक अभियंता\n" + "पुणे पाटबंधारे प्रकल्प मंडळ,\n" + "पुणे-01.");
+
+		CellStyle f2style = wb.createCellStyle();
+		f2style.setAlignment(HorizontalAlignment.CENTER);
+		f2style.setWrapText(true);
+
+		Font fb = wb.createFont();
+		fb.setBold(true);
+		f2style.setFont(fb);
+		fc2.setCellStyle(f2style);
+
+		// ================= WRITE =================
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=VivranPatraA.xlsx")
+				.contentType(
+						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	// ================= BORDER =================
+	private void setBorderVivranA(CellStyle style) {
+
+		style.setBorderBottom(BorderStyle.THIN);
+		style.setBorderTop(BorderStyle.THIN);
+		style.setBorderLeft(BorderStyle.THIN);
+		style.setBorderRight(BorderStyle.THIN);
+	}
+
+	// ================= SAFE SET CELL =================
+	private void setVivranA(Row row, int col, JsonNode d, String key, CellStyle style) {
+
+		Cell c = row.getCell(col);
+		if (c == null)
+			c = row.createCell(col);
+
+		if (d != null && d.has(key) && !d.get(key).isNull()) {
+
+			JsonNode v = d.get(key);
+
+			if (v.isNumber())
+				c.setCellValue(v.asDouble());
+			else
+				c.setCellValue(v.asText());
+
+		} else {
+			c.setCellValue("");
+		}
+
+		c.setCellStyle(style);
+	}
+
+	// ================= MERGE =================
+	private void mergeVivranA(Sheet sheet, int firstRow, int lastRow, int firstCol, int lastCol) {
+
+		sheet.addMergedRegion(new CellRangeAddress(firstRow, lastRow, firstCol, lastCol));
+	}
+
+	// ================= AUTO HEIGHT =================
+	private void autoHeightVivranA(Row row) {
+		row.setHeight((short) -1);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadDeputyVivranD(String year) throws IOException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }

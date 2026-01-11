@@ -20,6 +20,7 @@ import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.request.VivranPatraARequest;
 import com.pipc.dashboard.establishment.request.VivranPatraDRequest;
+import com.pipc.dashboard.establishment.request.VivranPatraRequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
@@ -30,6 +31,7 @@ import com.pipc.dashboard.establishment.response.JeReturnResponse;
 import com.pipc.dashboard.establishment.response.MasterDataResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
 import com.pipc.dashboard.establishment.response.VivranPatraAResponse;
+import com.pipc.dashboard.establishment.response.VivranPatraResponse;
 
 public interface EstablishmentService {
 
@@ -112,7 +114,7 @@ public interface EstablishmentService {
 
 	JeReturnResponse getJeReturnData(String year);
 
-	ResponseEntity<InputStreamResource> downloadJeReturnData(String year)throws IOException;
+	ResponseEntity<InputStreamResource> downloadJeReturnData(String year) throws IOException;
 
 	DeputyReturnAResponse saveOrUpdateDeputyReturnA(DeputyReturnARequest request);
 
@@ -129,5 +131,17 @@ public interface EstablishmentService {
 	VivranPatraAResponse saveOrUpdateDeputyVivranD(VivranPatraDRequest request);
 
 	VivranPatraAResponse getDeputyVivranD(String year);
+
+	VivranPatraResponse saveOrUpdateVivranPatra(VivranPatraRequest request);
+
+	VivranPatraResponse getVivranPatra(String year);
+
+	ResponseEntity<InputStreamResource> downloadDeputyReturnA(String year) throws IOException;
+
+	ResponseEntity<InputStreamResource> downloadDeputyReturnB(String year) throws IOException;
+
+	ResponseEntity<InputStreamResource> downloadDeputyVivranA(String year) throws IOException;
+
+	ResponseEntity<InputStreamResource> downloadDeputyVivranD(String year) throws IOException;
 
 }

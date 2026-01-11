@@ -23,6 +23,7 @@ import com.pipc.dashboard.establishment.request.MasterDataRequest;
 import com.pipc.dashboard.establishment.request.ThirteenRequest;
 import com.pipc.dashboard.establishment.request.VivranPatraARequest;
 import com.pipc.dashboard.establishment.request.VivranPatraDRequest;
+import com.pipc.dashboard.establishment.request.VivranPatraRequest;
 import com.pipc.dashboard.establishment.response.AgendaResponse;
 import com.pipc.dashboard.establishment.response.AgendaSecResponse;
 import com.pipc.dashboard.establishment.response.AppealResponse;
@@ -33,6 +34,7 @@ import com.pipc.dashboard.establishment.response.JeReturnResponse;
 import com.pipc.dashboard.establishment.response.MasterDataResponse;
 import com.pipc.dashboard.establishment.response.ThirteenResponse;
 import com.pipc.dashboard.establishment.response.VivranPatraAResponse;
+import com.pipc.dashboard.establishment.response.VivranPatraResponse;
 import com.pipc.dashboard.service.EstablishmentService;
 
 @Component
@@ -284,6 +286,36 @@ public class EstablishmentBusinessImpl implements EstablishmentBusiness {
 	@Override
 	public VivranPatraAResponse getDeputyVivranD(String year) {
 		return establishmentService.getDeputyVivranD(year);
+	}
+
+	@Override
+	public VivranPatraResponse saveOrUpdateVivranPatra(VivranPatraRequest request) {
+		return establishmentService.saveOrUpdateVivranPatra(request);
+	}
+
+	@Override
+	public VivranPatraResponse getVivranPatra(String year) {
+		return establishmentService.getVivranPatra(year);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadDeputyReturnA(String year) throws IOException {
+		return establishmentService.downloadDeputyReturnA(year);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadDeputyReturnB(String year) throws IOException {
+		return establishmentService.downloadDeputyReturnB(year);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadDeputyVivranA(String year) throws IOException {
+		return establishmentService.downloadDeputyVivranA(year);
+	}
+
+	@Override
+	public ResponseEntity<InputStreamResource> downloadDeputyVivranD(String year) throws IOException {
+		return establishmentService.downloadDeputyVivranD(year);
 	}
 
 }

@@ -11,9 +11,10 @@ import lombok.NoArgsConstructor;
 @Builder
 public class VivranPatraASummaryDto {
 
-	private String district;
-	private Integer sanctionPost;
-	private Integer workingPost;
-	private Integer vacantPost;
-	private Integer futureVacancy;
+    private String district;
+
+    private Integer manjurPad;          // sanctionPost
+    private Integer karyaratPad;        // workingPost
+    private Integer riktaPad;           // vacantPost
+    private Integer bhavishyaRiktaPad;  // futureVacancy
 }

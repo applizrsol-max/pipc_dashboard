@@ -16,4 +16,6 @@ public interface DeputyReturnBRepository extends JpaRepository<DeputyReturnBEnti
 	List<DeputyReturnBEntity> findByYearOrderByKaryalayacheNavAscRowIdAsc(String year);
 
 	void deleteByYearAndDeleteId(String year, Long deleteId);
+
+	List<DeputyReturnBEntity> findByYear(String year);
 }

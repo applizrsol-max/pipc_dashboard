@@ -14,4 +14,8 @@ public interface VivranPatraARepository extends JpaRepository<VivranPatraAEntity
 	Optional<VivranPatraAEntity> findByDeleteIdAndYearAndKaryalayacheNav(Long deleteId, String year, String office);
 
 	List<VivranPatraAEntity> findByYearOrderByKaryalayacheNavAscRowIdAsc(String year);
+
+	List<VivranPatraAEntity> findByYear(String year);
+
+	List<VivranPatraAEntity> findByYearOrderByRowIdAsc(String year);
 }

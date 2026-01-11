@@ -22,4 +22,6 @@ public interface DeputyReturnARepository extends JpaRepository<DeputyReturnAEnti
 	Optional<DeputyReturnAEntity> findByDeleteIdAndYearAndKaryalayacheNav(Long deleteId, String year, String office);
 
 	Optional<DeputyReturnAEntity> findByRowIdAndYearAndKaryalayacheNav(Long rowId, String year, String office);
+
+	List<DeputyReturnAEntity> findByYear(String year);
 }
