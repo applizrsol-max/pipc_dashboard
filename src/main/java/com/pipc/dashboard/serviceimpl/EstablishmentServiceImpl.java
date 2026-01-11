@@ -7008,8 +7008,176 @@ public class EstablishmentServiceImpl implements EstablishmentService {
 
 	@Override
 	public ResponseEntity<InputStreamResource> downloadDeputyVivranD(String year) throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+
+		List<VivranPatraDEntity> list = vivranPatraDRepository.findByYearOrderByRowIdAsc(year);
+
+		if (list.isEmpty())
+			throw new RuntimeException("No data found");
+
+		list.sort(Comparator.comparing(VivranPatraDEntity::getRowId));
+
+		String footerName = Optional.ofNullable(list.get(0).getUpAdhikshakAbhiyanta()).orElse("");
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet("Vivran-Patra-D");
+
+		// ================= STYLES =================
+		Font bold = wb.createFont();
+		bold.setBold(true);
+
+		CellStyle centerBold = wb.createCellStyle();
+		centerBold.setFont(bold);
+		centerBold.setAlignment(HorizontalAlignment.CENTER);
+		centerBold.setVerticalAlignment(VerticalAlignment.CENTER);
+		centerBold.setWrapText(true);
+
+		CellStyle header = wb.createCellStyle();
+		header.setFont(bold);
+		header.setAlignment(HorizontalAlignment.CENTER);
+		header.setVerticalAlignment(VerticalAlignment.CENTER);
+		header.setWrapText(true);
+		setBorder(header);
+
+		CellStyle border = wb.createCellStyle();
+		border.setWrapText(true);
+		border.setAlignment(HorizontalAlignment.LEFT);
+		border.setVerticalAlignment(VerticalAlignment.TOP);
+		setBorder(border);
+
+		CellStyle borderCenter = wb.createCellStyle();
+		borderCenter.setWrapText(true);
+		borderCenter.setAlignment(HorizontalAlignment.CENTER);
+		borderCenter.setVerticalAlignment(VerticalAlignment.CENTER);
+		setBorder(borderCenter);
+
+		int r = 0;
+
+		// ================= TITLE =================
+		Row t1 = sheet.createRow(r++);
+		t1.setHeight((short) -1);
+		t1.createCell(0).setCellValue("विवरणपत्र - ड");
+		t1.getCell(0).setCellStyle(centerBold);
+		mergeVivranD(sheet, 0, 0, 0, 5);
+
+		Row t2 = sheet.createRow(r++);
+		t2.setHeight((short) -1);
+		t2.createCell(0).setCellValue("शासन पत्र क्र. संकीर्ण 2019/प्र.क्र.351/2019 आ (वर्ग-2) दि.16/12/2019 चे सहपत्र");
+		t2.getCell(0).setCellStyle(centerBold);
+		mergeVivranD(sheet, 1, 1, 0, 5);
+
+		// ================= HEADERS =================
+		String[] heads = { "अ.क्र.", "कार्यालयाचे नांव (कार्यकारी संचालक / मुख्य अभियंता /अधिक्षक अभियंता / कार्यकारी अभियंता)",
+				"कार्यालयीन ई-मेल आयडी", "कार्यालयीन दुरध्वनी क्रमांक / मोबाईल नंबर (कार्यकारी संचालक/मुख्य अभियंता / अधीक्षक अभियंता / कार्यकारी अभियंता ) यांचे स्वीय सहाय्यक (नाव व पदनाम) / )/ ",
+				"नाव व मोबाईल नंबर\n1) विशेष अधीक्षक\n2) अधीक्षक\n3) वरिष्ठ लिपिक\n4) कनिष्ठ लिपिक", "शेरा" };
+
+		// ===== COLUMN WIDTH =====
+		sheet.setColumnWidth(0, 4000);
+		sheet.setColumnWidth(1, 20000);
+		sheet.setColumnWidth(2, 13000);
+		sheet.setColumnWidth(3, 17000);
+		sheet.setColumnWidth(4, 22000);
+		sheet.setColumnWidth(5, 9000);
+
+		Row h1 = sheet.createRow(r++);
+		h1.setHeight((short) -1);
+
+		for (int i = 0; i < heads.length; i++) {
+			Cell c = h1.createCell(i);
+			c.setCellValue(heads[i]);
+			c.setCellStyle(header);
+		}
+
+		Row h2 = sheet.createRow(r++);
+		h2.setHeight((short) -1);
+
+		for (int i = 0; i < heads.length; i++) {
+			Cell c = h2.createCell(i);
+			c.setCellValue(i + 1);
+			c.setCellStyle(header);
+		}
+
+		// ================= DATA =================
+		for (VivranPatraDEntity e : list) {
+
+			JsonNode d = e.getData();
+
+			Row row = sheet.createRow(r++);
+			row.setHeight((short) -1); // 🔥 AUTO HEIGHT
+
+			set(row, 0, d, "srno", borderCenter);
+			set(row, 1, d, "officeFullName", border);
+			set(row, 2, d, "email", borderCenter);
+
+			String phone = getText(d, "officePhone") + "\n" + getText(d, "mobileNumber");
+			createCell(row, 3, phone, borderCenter);
+
+			JsonNode nm = d.get("nameAndMobile");
+			String nmBlock = getSafe(nm, "personName") + "\n" + getSafe(nm, "personDesignation") + "\n"
+					+ getSafe(nm, "personMobile");
+
+			createCell(row, 4, nmBlock, borderCenter);
+
+			set(row, 5, d, "remarks", borderCenter);
+		}
+
+		r += 2;
+		Row f1 = sheet.createRow(r++);
+		f1.setHeightInPoints(40);
+		sheet.addMergedRegion(new CellRangeAddress(f1.getRowNum(), f1.getRowNum(), 0, 2));
+		Cell fc1 = f1.createCell(0);
+		fc1.setCellValue("मुळ प्रतीवर अ.अ. यांची सही असे.");
+		CellStyle leftFooter = wb.createCellStyle();
+		leftFooter.setAlignment(HorizontalAlignment.LEFT);
+		leftFooter.setVerticalAlignment(VerticalAlignment.CENTER);
+		leftFooter.setWrapText(true);
+		fc1.setCellStyle(leftFooter);
+		Row f2 = sheet.createRow(r++);
+		f2.setHeightInPoints(100);
+		sheet.addMergedRegion(new CellRangeAddress(f2.getRowNum(), f2.getRowNum(), 3, 5));
+		Cell fc2 = f2.createCell(3);
+		fc2.setCellValue(
+				"(" + footerName + ")\n" + "उपअधीक्षक अभियंता\n" + "पुणे पाटबंधारे प्रकल्प मंडळ,\n" + "पुणे-01.");
+		CellStyle f2style = wb.createCellStyle();
+		f2style.setAlignment(HorizontalAlignment.CENTER);
+		f2style.setVerticalAlignment(VerticalAlignment.TOP);
+		f2style.setWrapText(true);
+		Font fb = wb.createFont();
+		fb.setBold(true);
+		f2style.setFont(fb);
+		fc2.setCellStyle(f2style);
+		wb.setForceFormulaRecalculation(true);
+		// ================= WRITE =================
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		wb.write(out);
+		wb.close();
+
+		return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=VivranPatraD.xlsx")
+				.contentType(
+						MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+				.body(new InputStreamResource(new ByteArrayInputStream(out.toByteArray())));
+	}
+
+	private void mergeVivranD(Sheet sheet, int fr, int lr, int fc, int lc) {
+		sheet.addMergedRegion(new CellRangeAddress(fr, lr, fc, lc));
+	}
+
+	private void createCell(Row row, int col, String val, CellStyle style) {
+
+		Cell c = row.createCell(col);
+		c.setCellValue(val == null ? "" : val);
+		c.setCellStyle(style);
+	}
+
+	private String getText(JsonNode n, String k) {
+		if (n != null && n.has(k))
+			return n.get(k).asText();
+		return "";
+	}
+
+	private String getSafe(JsonNode n, String k) {
+		if (n != null && n.has(k))
+			return n.get(k).asText();
+		return "";
 	}
 
 }
